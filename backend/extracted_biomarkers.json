@@ -1,0 +1,30 @@
+[
+  {
+    "name": "Hemoglobin A1C",
+    "original_name": "Glycosylated Haemoglobin (HbA1c)",
+    "value": 4.8,
+    "original_value": "4.8",
+    "unit": "%",
+    "original_unit": "%",
+    "reference_range_low": null,
+    "reference_range_high": 5.7,
+    "reference_range_text": "Normal: < 5.7",
+    "category": "Metabolic",
+    "is_abnormal": false,
+    "confidence": 0.95
+  },
+  {
+    "name": "Mean Blood Glucose",
+    "original_name": "Mean Blood Glucose",
+    "value": 91.0,
+    "original_value": "91",
+    "unit": "mg/dL",
+    "original_unit": "mg/dL",
+    "reference_range_low": null,
+    "reference_range_high": null,
+    "reference_range_text": "",
+    "category": "Metabolic",
+    "is_abnormal": false,
+    "confidence": 0.95
+  }
+]

@@ -1,19 +1,25 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
+import BiomarkerPage from './pages/BiomarkerPage';
+import Layout from './components/Layout';
 import NotFoundPage from './pages/NotFoundPage';
 
-const App: React.FC = () => {
+function App() {
   return (
-    <div className="min-h-screen">
+    <Router>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/upload" element={<UploadPage />} />
-        <Route path="*" element={<NotFoundPage />} />
+        <Route path="/" element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="upload" element={<UploadPage />} />
+          <Route path="biomarkers" element={<BiomarkerPage />} />
+          <Route path="biomarkers/:fileId" element={<BiomarkerPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Routes>
-    </div>
+    </Router>
   );
-};
+}
 
 export default App; 
