@@ -148,4 +148,65 @@ async def get_pdf_status(file_id: str, db: Session = Depends(get_db)):
         upload_date=pdf.upload_date,
         processed_date=pdf.processed_date,
         error_message=pdf.error_message if pdf.status == "error" else None
-    ) 
+    )
+
+@router.get("/list", response_model=PDFListResponse)
+async def list_pdfs(db: Session = Depends(get_db)):
+    """
+    List all PDF files.
+    
+    Args:
+        db: Database session
+        
+    Returns:
+        PDFListResponse: A list of all PDF files
+    """
+    pdfs = db.query(PDFModel).all()
+    
+    pdf_responses = [
+        PDFStatusResponse(
+            file_id=pdf.file_id,
+            filename=pdf.filename,
+            status=pdf.status,
+            upload_date=pdf.upload_date,
+            processed_date=pdf.processed_date,
+            error_message=pdf.error_message if pdf.status == "error" else None
+        )
+        for pdf in pdfs
+    ]
+    
+    return PDFListResponse(
+        total=len(pdf_responses),
+        pdfs=pdf_responses
+    )
+
+@router.delete("/{file_id}")
+async def delete_pdf(file_id: str, db: Session = Depends(get_db)):
+    """
+    Delete a PDF file.
+    
+    Args:
+        file_id: The ID of the file to delete
+        db: Database session
+        
+    Returns:
+        dict: A message indicating success
+    """
+    pdf = db.query(PDFModel).filter(PDFModel.file_id == file_id).first()
+    
+    if not pdf:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Delete the file from disk if it exists
+    if os.path.exists(pdf.file_path):
+        try:
+            os.remove(pdf.file_path)
+        except Exception as e:
+            logger.error(f"Error deleting file {pdf.file_path}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
+    
+    # Delete the record from the database
+    db.delete(pdf)
+    db.commit()
+    
+    return {"message": f"File {pdf.filename} deleted successfully"} 

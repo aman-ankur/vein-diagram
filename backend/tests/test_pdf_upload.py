@@ -108,13 +108,13 @@ def test_list_pdfs(test_db: Session, mock_pdf_file, monkeypatch):
     
     # Check the response
     assert list_response.status_code == 200
-    list_data = list_response.json()
-    assert "total" in list_data
-    assert list_data["total"] >= 2  # There might be other files from previous tests
-    assert len(list_data["pdfs"]) >= 2
+    response_data = list_response.json()
+    assert "total" in response_data
+    assert "pdfs" in response_data
+    assert response_data["total"] >= 2  # At least our two uploads
     
-    # Make sure our files are in the list
-    filenames = [pdf["filename"] for pdf in list_data["pdfs"]]
+    # Verify our uploaded files are in the list
+    filenames = [pdf["filename"] for pdf in response_data["pdfs"]]
     assert "test1.pdf" in filenames
     assert "test2.pdf" in filenames
     
