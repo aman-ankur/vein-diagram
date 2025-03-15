@@ -21,6 +21,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { getAllBiomarkers, getBiomarkersByFileId, getBiomarkerCategories } from '../services/api';
 import BiomarkerTable from '../components/BiomarkerTable';
+import BiomarkerVisualization from '../components/BiomarkerVisualization';
 import { Biomarker } from '../components/BiomarkerTable';
 
 interface TabPanelProps {
@@ -194,6 +195,7 @@ const BiomarkerPage: React.FC = () => {
             <Tab label="All Biomarkers" id="biomarker-tab-0" aria-controls="biomarker-tabpanel-0" />
             {fileId && <Tab label="Abnormal Values" id="biomarker-tab-1" aria-controls="biomarker-tabpanel-1" />}
             <Tab label="By Category" id="biomarker-tab-2" aria-controls="biomarker-tabpanel-2" />
+            <Tab label="Visualizations" id="biomarker-tab-3" aria-controls="biomarker-tabpanel-3" />
           </Tabs>
         </Box>
         
@@ -265,6 +267,20 @@ const BiomarkerPage: React.FC = () => {
                 </Alert>
               )}
             </Box>
+          )}
+        </TabPanel>
+
+        {/* Visualizations tab */}
+        <TabPanel value={tabValue} index={fileId ? 3 : 2}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <BiomarkerVisualization 
+              biomarkers={biomarkers} 
+              error={error}
+            />
           )}
         </TabPanel>
       </Paper>

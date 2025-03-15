@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic React Test</title>
+  <!-- Load React directly from CDN -->
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    #root {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border: 5px solid purple;
+    }
+    .app-container {
+      padding: 20px;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+    }
+    .react-button {
+      background-color: #61dafb;
+      color: black;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    .react-button:hover {
+      background-color: #21a8cb;
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <!-- React will render here -->
+    <p>If you still see this text, React has not rendered anything.</p>
+  </div>
+
+  <!-- React component written in JSX, transformed by Babel -->
+  <script type="text/babel">
+    // Simple React component
+    function App() {
+      const [count, setCount] = React.useState(0);
+      
+      React.useEffect(() => {
+        console.log('React App component mounted');
+        document.title = `Count: ${count}`;
+      }, [count]);
+      
+      return (
+        <div className="app-container">
+          <h1 style={{color: 'purple', textAlign: 'center'}}>Basic React Test</h1>
+          
+          <p>This is a minimal React app loaded directly via script tags.</p>
+          <p>If you can see this content with styling, React is rendering correctly!</p>
+          
+          <div style={{textAlign: 'center', margin: '20px 0'}}>
+            <p>Count: <strong>{count}</strong></p>
+            <button 
+              className="react-button"
+              onClick={() => setCount(count + 1)}
+            >
+              Increment
+            </button>
+            <button 
+              className="react-button"
+              style={{marginLeft: '10px', backgroundColor: '#ff6b6b'}}
+              onClick={() => setCount(0)}
+            >
+              Reset
+            </button>
+          </div>
+          
+          <div style={{
+            backgroundColor: '#e6f7ff', 
+            padding: '15px',
+            borderRadius: '4px',
+            marginTop: '20px',
+            border: '1px solid #91d5ff'
+          }}>
+            <h3>React is working!</h3>
+            <p>This confirms that React can render in your browser.</p>
+            <p>If this page works but your main app doesn't, the issue is likely with:</p>
+            <ul>
+              <li>Vite configuration</li>
+              <li>Module loading</li>
+              <li>Build process</li>
+            </ul>
+          </div>
+        </div>
+      );
+    }
+    
+    // Render the App component to the DOM
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    
+    try {
+      root.render(<App />);
+      console.log('React rendered successfully');
+    } catch (error) {
+      console.error('Error rendering React:', error);
+      rootElement.innerHTML = `
+        <div style="color: red; padding: 20px;">
+          <h2>React Rendering Error</h2>
+          <p>${error.message}</p>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html> 
