@@ -5,18 +5,18 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    port: 3001,
+    strictPort: true,
+    open: '/', // Open the main React app
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
-  server: {
-    port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
-    },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
   },
 }); 
