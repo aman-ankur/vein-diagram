@@ -12,12 +12,16 @@ class PDF(Base):
     id = Column(Integer, primary_key=True, index=True)
     file_id = Column(String, unique=True, index=True)
     filename = Column(String)
+    file_path = Column(String)
     upload_date = Column(DateTime, default=datetime.utcnow)
+    processed_date = Column(DateTime, nullable=True)
     report_date = Column(DateTime, nullable=True)
-    extracted_text = Column(Text)
+    extracted_text = Column(Text, nullable=True)
+    status = Column(String, default="pending")  # pending, processing, processed, error
+    error_message = Column(Text, nullable=True)
     
     # Relationship with biomarkers
-    biomarkers = relationship("Biomarker", back_populates="pdf")
+    biomarkers = relationship("Biomarker", back_populates="pdf", cascade="all, delete-orphan")
     
 class Biomarker(Base):
     """
