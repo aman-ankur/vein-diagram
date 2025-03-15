@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
@@ -14,7 +15,9 @@ const HomePage: React.FC = () => {
               Vein Diagram helps you visualize and track your blood test results over time.
               Upload your lab reports and gain insights into your health markers.
             </p>
-            <button className="btn btn-primary">Upload Lab Report</button>
+            <Link to="/upload" className="btn btn-primary">
+              Upload Lab Report
+            </Link>
           </div>
         </section>
       </main>

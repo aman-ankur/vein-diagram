@@ -22,6 +22,9 @@ def test_db():
     # Create a test session
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     
+    # Create a test session
+    test_session = TestingSessionLocal()
+    
     # Override the get_db dependency
     def override_get_db():
         try:
@@ -32,7 +35,10 @@ def test_db():
     
     app.dependency_overrides[get_db] = override_get_db
     
-    yield engine
+    yield test_session
+    
+    # Close the session
+    test_session.close()
     
     # Drop the tables after the test
     Base.metadata.drop_all(bind=engine)
