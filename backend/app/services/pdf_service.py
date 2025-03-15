@@ -10,6 +10,8 @@ import io
 import json
 from datetime import datetime
 from sqlalchemy.orm import Session
+import pdfplumber
+import pandas as pd
 
 from app.services.biomarker_parser import extract_biomarkers_with_claude, parse_biomarkers_from_text
 from app.models.biomarker_model import Biomarker
@@ -219,20 +221,76 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
         pdf.status = "processing"
         db.commit()
         
-        # Extract text from the PDF
-        logger.info(f"[TEXT_EXTRACTION] Extracting text from PDF {file_id}")
-        text_start_time = datetime.utcnow()
-        extracted_text = extract_text_from_pdf(file_path)
-        text_extraction_time = (datetime.utcnow() - text_start_time).total_seconds()
-        logger.info(f"[TEXT_EXTRACTION_COMPLETE] Text extraction took {text_extraction_time:.2f} seconds")
-        
-        # Extract biomarkers and metadata from the text
-        logger.info(f"[BIOMARKER_EXTRACTION] Beginning biomarker extraction for PDF {file_id}")
-        biomarker_start_time = datetime.utcnow()
+        # Process the PDF page by page to avoid Claude API timeouts
+        logger.info(f"[PAGE_BY_PAGE_PROCESSING] Starting page-by-page processing for PDF {file_id}")
+        biomarkers_data = []
+        metadata = {}
         filename = os.path.basename(file_path)
-        biomarkers_data, metadata = extract_biomarkers_with_claude(extracted_text, filename)
-        biomarker_time = (datetime.utcnow() - biomarker_start_time).total_seconds()
-        logger.info(f"[BIOMARKER_EXTRACTION_COMPLETE] Extracted {len(biomarkers_data)} biomarkers in {biomarker_time:.2f} seconds")
+        
+        # Use pdfplumber for better text extraction with table support
+        with pdfplumber.open(file_path) as pdf_doc:
+            total_pages = len(pdf_doc.pages)
+            logger.info(f"[PDF_INFO] PDF has {total_pages} pages")
+            
+            # Limit to first 6 pages to reduce API costs
+            max_pages = min(6, total_pages)
+            logger.info(f"[PAGE_LIMIT] Processing only the first {max_pages} pages to optimize API usage")
+            
+            for page_num in range(max_pages):
+                logger.info(f"[PAGE_PROCESSING] Processing page {page_num + 1} of {total_pages} (limited to {max_pages})")
+                
+                # Extract text from the page
+                page = pdf_doc.pages[page_num]
+                page_text = page.extract_text() or ""
+                
+                # Extract tables from the page and append to page_text
+                tables = page.extract_tables()
+                for table in tables:
+                    df = pd.DataFrame(table)
+                    page_text += "\n" + df.to_string(index=False, header=False)
+                
+                # Skip processing if page is empty or has very little text
+                if len(page_text.strip()) < 100:
+                    logger.debug(f"[PAGE_SKIPPED] Page {page_num + 1} has insufficient text (length: {len(page_text)})")
+                    continue
+                
+                try:
+                    # Extract biomarkers from the page
+                    logger.info(f"[PAGE_BIOMARKER_EXTRACTION] Extracting biomarkers from page {page_num + 1}")
+                    page_biomarkers, page_metadata = extract_biomarkers_with_claude(
+                        page_text, 
+                        f"{filename} - page {page_num + 1}"
+                    )
+                    
+                    # Add page biomarkers to the overall list
+                    if page_biomarkers:
+                        logger.info(f"[PAGE_BIOMARKERS_FOUND] Found {len(page_biomarkers)} biomarkers on page {page_num + 1}")
+                        biomarkers_data.extend(page_biomarkers)
+                    
+                    # Update metadata if empty
+                    if not metadata and page_metadata:
+                        logger.debug(f"[PAGE_METADATA_FOUND] Found metadata on page {page_num + 1}")
+                        metadata = page_metadata
+                    
+                except Exception as page_error:
+                    logger.error(f"[PAGE_PROCESSING_ERROR] Error processing page {page_num + 1}: {str(page_error)}")
+                    # Continue with next page rather than failing entire job
+                    continue
+            
+            # Log total biomarkers found
+            logger.info(f"[BIOMARKER_EXTRACTION_COMPLETE] Total biomarkers found: {len(biomarkers_data)}")
+            
+            # Deduplicate biomarkers based on name and value
+            unique_biomarkers = []
+            seen_biomarkers = set()
+            for biomarker in biomarkers_data:
+                key = (biomarker.get('name', ''), str(biomarker.get('value', '')))
+                if key not in seen_biomarkers:
+                    seen_biomarkers.add(key)
+                    unique_biomarkers.append(biomarker)
+            
+            biomarkers_data = unique_biomarkers
+            logger.info(f"[BIOMARKERS_DEDUPLICATED] After deduplication: {len(biomarkers_data)} unique biomarkers")
         
         # Log metadata
         logger.debug(f"[METADATA] Extracted metadata: {json.dumps(metadata)}")
@@ -242,8 +300,18 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
             logger.debug(f"[METADATA_UPDATE] Updating PDF record with metadata")
             for key, value in metadata.items():
                 if hasattr(pdf, key) and value:
-                    logger.debug(f"[METADATA_FIELD] Setting {key} = {value}")
-                    setattr(pdf, key, value)
+                    # Special handling for date fields
+                    if key == "report_date" and value:
+                        try:
+                            from dateutil import parser
+                            parsed_date = parser.parse(value)
+                            logger.debug(f"[METADATA_DATE_PARSING] Parsed '{value}' to {parsed_date}")
+                            setattr(pdf, key, parsed_date)
+                        except Exception as date_error:
+                            logger.warning(f"[METADATA_DATE_ERROR] Could not parse {key} value '{value}': {str(date_error)}")
+                    else:
+                        logger.debug(f"[METADATA_FIELD] Setting {key} = {value}")
+                        setattr(pdf, key, value)
             
             # Store any additional metadata that doesn't have a dedicated column
             processing_details = {}
@@ -256,11 +324,22 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
                 pdf.processing_details = processing_details
         
         # Extract report date if possible (if not already extracted by Claude)
+        if not pdf.report_date and metadata.get("report_date"):
+            try:
+                # Parse date from metadata
+                from dateutil import parser
+                report_date = parser.parse(metadata.get("report_date"))
+                logger.info(f"[DATE_EXTRACTED] Found report date: {report_date.strftime('%m/%d/%Y')}")
+                pdf.report_date = report_date
+            except Exception as date_error:
+                logger.warning(f"[DATE_PARSING_ERROR] Could not parse report date: {str(date_error)}")
+        
+        # If report_date is still not found, try to extract from text
         if not pdf.report_date:
             try:
                 # Try to find a date in the format MM/DD/YYYY or similar
                 import re
-                date_matches = re.findall(r'(0[1-9]|1[0-2])[/\-](0[1-9]|[12][0-9]|3[01])[/\-](20\d{2})', extracted_text)
+                date_matches = re.findall(r'(0[1-9]|1[0-2])[/\-](0[1-9]|[12][0-9]|3[01])[/\-](20\d{2})', page_text)
                 if date_matches:
                     # Use the first date found (simplified)
                     month, day, year = date_matches[0]
@@ -270,6 +349,17 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
             except Exception as date_error:
                 logger.warning(f"[DATE_EXTRACTION_ERROR] Could not extract report date: {str(date_error)}")
         
+        # Ensure report_date is a datetime object before commit
+        if hasattr(pdf, 'report_date') and pdf.report_date and not isinstance(pdf.report_date, datetime):
+            try:
+                from dateutil import parser
+                pdf.report_date = parser.parse(str(pdf.report_date))
+                logger.info(f"[DATE_CONVERSION] Converted report_date to datetime object: {pdf.report_date}")
+            except Exception as date_error:
+                logger.warning(f"[DATE_CONVERSION_ERROR] Could not convert report_date to datetime: {str(date_error)}")
+                # Set to None to avoid SQLite errors
+                pdf.report_date = None
+        
         # Store the biomarker data
         logger.info(f"[BIOMARKER_STORAGE] Storing {len(biomarkers_data)} biomarkers in database")
         storage_start_time = datetime.utcnow()
@@ -277,17 +367,48 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
         
         for i, biomarker_data in enumerate(biomarkers_data):
             try:
+                # Skip biomarkers with empty values for critical fields
+                if not biomarker_data.get("name"):
+                    logger.warning(f"[BIOMARKER_STORAGE_SKIP] Skipping biomarker {i} due to missing name")
+                    continue
+                    
+                # Handle edge cases where value might be None or empty
+                biomarker_value = biomarker_data.get("value", 0.0)
+                if biomarker_value is None or (isinstance(biomarker_value, str) and not biomarker_value.strip()):
+                    logger.warning(f"[BIOMARKER_STORAGE_EMPTY_VALUE] Empty value for biomarker {biomarker_data.get('name')}, using 0.0")
+                    biomarker_value = 0.0
+                
+                # Ensure original_value is always a string
+                original_value = str(biomarker_data.get("original_value", ""))
+                
+                # Ensure reference ranges are always float or None
+                reference_range_low = biomarker_data.get("reference_range_low")
+                if reference_range_low is not None:
+                    try:
+                        reference_range_low = float(reference_range_low)
+                    except (ValueError, TypeError):
+                        logger.warning(f"[REFERENCE_RANGE_CONVERSION] Invalid reference_range_low for {biomarker_data.get('name')}: {reference_range_low}")
+                        reference_range_low = None
+                
+                reference_range_high = biomarker_data.get("reference_range_high")
+                if reference_range_high is not None:
+                    try:
+                        reference_range_high = float(reference_range_high)
+                    except (ValueError, TypeError):
+                        logger.warning(f"[REFERENCE_RANGE_CONVERSION] Invalid reference_range_high for {biomarker_data.get('name')}: {reference_range_high}")
+                        reference_range_high = None
+
                 # Create a biomarker record
                 biomarker = Biomarker(
                     pdf_id=pdf.id,
                     name=biomarker_data["name"],
-                    original_name=biomarker_data["original_name"],
-                    original_value=biomarker_data["original_value"],
-                    original_unit=biomarker_data["original_unit"],
-                    value=biomarker_data["value"],
-                    unit=biomarker_data["unit"],
-                    reference_range_low=biomarker_data.get("reference_range_low"),
-                    reference_range_high=biomarker_data.get("reference_range_high"),
+                    original_name=biomarker_data.get("original_name", biomarker_data["name"]),
+                    original_value=original_value,
+                    original_unit=biomarker_data.get("original_unit", ""),
+                    value=biomarker_value,
+                    unit=biomarker_data.get("unit", ""),
+                    reference_range_low=reference_range_low,
+                    reference_range_high=reference_range_high,
                     reference_range_text=biomarker_data.get("reference_range_text", ""),
                     category=biomarker_data.get("category", "Other"),
                     is_abnormal=biomarker_data.get("is_abnormal", False),
@@ -308,7 +429,19 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
         logger.info(f"[BIOMARKER_STORAGE_COMPLETE] Successfully stored {successful_biomarkers} of {len(biomarkers_data)} biomarkers in {storage_time:.2f} seconds")
         
         # Update the PDF record
-        pdf.extracted_text = extracted_text
+        # Store a combined version of text from all pages, but limit to avoid DB issues
+        all_text = ""
+        with pdfplumber.open(file_path) as pdf_doc:
+            for page in pdf_doc.pages:
+                page_text = page.extract_text() or ""
+                all_text += page_text + "\n\n"
+                
+                # Limit to avoid extremely large DB entries
+                if len(all_text) > 100000:  # ~100KB
+                    all_text = all_text[:100000] + "... [truncated]"
+                    break
+        
+        pdf.extracted_text = all_text
         pdf.status = "processed"
         pdf.processed_date = datetime.utcnow()
         

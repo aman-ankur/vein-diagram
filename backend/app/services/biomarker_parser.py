@@ -35,6 +35,9 @@ file_handler = logging.FileHandler(os.path.join(log_dir, 'biomarker_parser.log')
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'))
 logger.addHandler(file_handler)
 
+# Set debug level to enable all logging messages
+logger.setLevel(logging.DEBUG)
+
 # Load Claude API key from environment variable
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "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")
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
@@ -264,13 +267,24 @@ def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[
         # Make the API request
         request_start_time = datetime.now()
         with httpx.Client(timeout=90.0) as client:  # Increased timeout to 90 seconds
-            response = client.post(
-                "https://api.anthropic.com/v1/messages",
-                json=request_body,
-                headers=headers
-            )
-        request_duration = (datetime.now() - request_start_time).total_seconds()
-        logger.info(f"[API_REQUEST_DURATION] Claude API request took {request_duration:.2f} seconds")
+            try:
+                response = client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    json=request_body,
+                    headers=headers
+                )
+                request_duration = (datetime.now() - request_start_time).total_seconds()
+                logger.info(f"[API_REQUEST_DURATION] Claude API request took {request_duration:.2f} seconds")
+            except httpx.TimeoutException:
+                logger.error(f"[API_TIMEOUT] Claude API request timed out after {(datetime.now() - request_start_time).total_seconds():.2f} seconds")
+                fallback_results = parse_biomarkers_from_text(text)
+                logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers after timeout")
+                return fallback_results, {}
+            except Exception as request_error:
+                logger.error(f"[API_REQUEST_ERROR] Error during Claude API request: {str(request_error)}")
+                fallback_results = parse_biomarkers_from_text(text)
+                logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers after request error")
+                return fallback_results, {}
         
         # Check if the request was successful
         if response.status_code == 200:
@@ -293,14 +307,20 @@ def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[
             
             # Save the text content separately for easier debugging
             debug_text_path = os.path.join(log_dir, f"claude_text_response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
-            with open(debug_text_path, "w") as f:
-                f.write(text_content)
-            logger.debug(f"[CLAUDE_TEXT_RESPONSE_SAVED] Claude text response saved to {debug_text_path}")
+            try:
+                with open(debug_text_path, "w") as f:
+                    f.write(text_content)
+                logger.debug(f"[CLAUDE_TEXT_RESPONSE_SAVED] Claude text response saved to {debug_text_path}")
+            except Exception as e:
+                logger.error(f"[FALLBACK_TEXT_SAVE_ERROR] Could not save fallback text: {str(e)}")
             
             # Log detailed information about the response content
-            logger.info(f"[API_RESPONSE_LENGTH] Total response length: {len(text_content)} characters")
+            logger.debug(f"[API_RESPONSE_LENGTH] Total response length: {len(text_content)} characters")
             logger.debug(f"[API_RESPONSE_PREVIEW] First 1000 chars of response: {text_content[:1000]}...")
             logger.debug(f"[API_RESPONSE_PREVIEW_END] Last 1000 chars of response: {text_content[-1000:]}...")
+            
+            # Log the full response for debugging
+            logger.info(f"[API_FULL_RESPONSE] FULL CLAUDE RESPONSE: {text_content}")
             
             # Check for JSON-like structure in the response
             if '{' not in text_content or '}' not in text_content:
@@ -460,9 +480,14 @@ def _process_biomarker(biomarker: Dict[str, Any]) -> Dict[str, Any]:
         # Convert value to float if possible
         value_str = str(biomarker.get("value", original_value))
         try:
-            # Remove commas and other non-numeric characters
-            value_str = re.sub(r'[^\d.\-]', '', value_str)
-            value = float(value_str)
+            # Handle empty values gracefully
+            if not value_str or value_str.strip() == '':
+                logger.warning(f"[EMPTY_VALUE] Empty value for biomarker '{name}', setting to 0.0")
+                value = 0.0
+            else:
+                # Remove commas and other non-numeric characters
+                value_str = re.sub(r'[^\d.\-]', '', value_str)
+                value = float(value_str)
         except ValueError:
             # If conversion fails, default to 0.0 and log a warning
             logger.warning(f"[VALUE_CONVERSION_ERROR] Could not convert value '{value_str}' to float for biomarker '{name}'")
@@ -1231,13 +1256,26 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
         # Make the API request
         fallback_start_time = datetime.now()
         with httpx.Client(timeout=60.0) as client:
-            response = client.post(
-                "https://api.anthropic.com/v1/messages",
-                json=request_body,
-                headers=headers
-            )
-        fallback_duration = (datetime.now() - fallback_start_time).total_seconds()
-        logger.info(f"[FALLBACK_API_DURATION] Fallback Claude API request took {fallback_duration:.2f} seconds")
+            try:
+                response = client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    json=request_body,
+                    headers=headers
+                )
+                fallback_duration = (datetime.now() - fallback_start_time).total_seconds()
+                logger.info(f"[FALLBACK_API_DURATION] Fallback Claude API request took {fallback_duration:.2f} seconds")
+            except httpx.TimeoutException:
+                logger.error(f"[FALLBACK_API_TIMEOUT] Fallback API request timed out after {(datetime.now() - fallback_start_time).total_seconds():.2f} seconds")
+                logger.warning("[FALLBACK_TO_TEXT_PARSER] Using text parser due to timeout")
+                fallback_results = parse_biomarkers_from_text(text)
+                logger.info(f"[TEXT_PARSER] Text parser found {len(fallback_results)} biomarkers after timeout")
+                return fallback_results, {}
+            except Exception as request_error:
+                logger.error(f"[FALLBACK_API_REQUEST_ERROR] Error during fallback API request: {str(request_error)}")
+                logger.warning("[FALLBACK_TO_TEXT_PARSER] Using text parser due to request error")
+                fallback_results = parse_biomarkers_from_text(text)
+                logger.info(f"[TEXT_PARSER] Text parser found {len(fallback_results)} biomarkers after request error")
+                return fallback_results, {}
         
         # Check if the request was successful
         if response.status_code == 200:
@@ -1270,9 +1308,10 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
             except Exception as e:
                 logger.error(f"[FALLBACK_TEXT_SAVE_ERROR] Could not save fallback text: {str(e)}")
             
-            # Log details about the response
+            # Log details about the response including the full response
             logger.debug(f"[FALLBACK_RESPONSE_LENGTH] Fallback response length: {len(text_content)} chars")
             logger.debug(f"[FALLBACK_RESPONSE_PREVIEW] First 500 chars: {text_content[:500]}...")
+            logger.info(f"[FALLBACK_FULL_RESPONSE] FULL FALLBACK RESPONSE: {text_content}")
             
             # Extract JSON using regex
             json_pattern = r'(\{.*\})'

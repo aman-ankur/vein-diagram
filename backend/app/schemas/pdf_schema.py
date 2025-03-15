@@ -8,7 +8,7 @@ class BiomarkerBase(BaseModel):
     """
     name: str
     original_name: Optional[str] = None
-    original_value: float
+    original_value: str
     original_unit: str
     value: float
     unit: str
@@ -32,7 +32,7 @@ class BiomarkerUpdate(BaseModel):
     """
     name: Optional[str] = None
     original_name: Optional[str] = None
-    original_value: Optional[float] = None
+    original_value: Optional[str] = None
     original_unit: Optional[str] = None
     value: Optional[float] = None
     unit: Optional[str] = None

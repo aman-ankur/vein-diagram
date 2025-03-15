@@ -18,12 +18,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import our services
-from app.services.pdf_service import extract_text_from_pdf
 from app.services.biomarker_parser import extract_biomarkers_with_claude
 
 def test_pdf_extraction(pdf_path):
     """
-    Test PDF extraction and biomarker parsing with detailed logging.
+    Test PDF extraction and biomarker parsing with detailed logging, using page-by-page approach.
     
     Args:
         pdf_path: Path to the PDF file to process
@@ -31,57 +30,94 @@ def test_pdf_extraction(pdf_path):
     logger.info(f"=== PDF EXTRACTION TEST STARTED ===")
     logger.info(f"Processing PDF: {pdf_path}")
     
-    # Extract text from PDF
-    logger.info("Extracting text from PDF...")
-    start_time = datetime.now()
-    pdf_text = extract_text_from_pdf(pdf_path)
-    # pdf_text_first_page = pdf_text.split("Page 1 /")[1].split("Page 2 /")[0]
-    # pdf_text_small = pdf_text[:1000]
-    text_duration = (datetime.now() - start_time).total_seconds()
-    logger.info(f"Text extraction complete: {len(pdf_text)} characters in {text_duration:.2f} seconds")
+    # Process the PDF page by page
+    all_biomarkers = []
+    all_metadata = {}
+    filename = os.path.basename(pdf_path)
     
-    # Save the extracted text for inspection
-    with open("extracted_text.txt", "w") as f:
-        f.write(pdf_text)
-    logger.info(f"Saved extracted text to extracted_text.txt")
-    
-    # Extract biomarkers using Claude
-    logger.info("Extracting biomarkers with Claude...")
-    start_time = datetime.now()
-
     with pdfplumber.open(pdf_path) as pdf:
-        # Check if the PDF has at least 6 pages
-        if len(pdf.pages) < 6:
-            print("Error: PDF has fewer than 6 pages.")
-            return
+        total_pages = len(pdf.pages)
+        logger.info(f"PDF has {total_pages} pages")
         
-        # Access the 6th page (index 5)
-        page = pdf.pages[5]
+        # Limit to first 6 pages to reduce API costs
+        max_pages = min(6, total_pages)
+        logger.info(f"Processing only the first {max_pages} pages to optimize API usage")
         
-        # Extract text from the 6th page
-        page_text = page.extract_text() or ""  # Use empty string if no text is extracted
-        
-        # Extract tables from the 6th page (if any) and append to page_text
-        tables = page.extract_tables()
-        for table in tables:
-            df = pd.DataFrame(table)
-            page_text += "\n" + df.to_string(index=False, header=False)
-
-    biomarkers, metadata = extract_biomarkers_with_claude(page_text, os.path.basename(pdf_path))
-    biomarker_duration = (datetime.now() - start_time).total_seconds()
-    logger.info(f"Biomarker extraction complete: {len(biomarkers)} biomarkers in {biomarker_duration:.2f} seconds")
+        for page_num in range(max_pages):
+            logger.info(f"Processing page {page_num + 1} of {total_pages} (limited to {max_pages})")
+            
+            # Extract text from the page
+            page = pdf.pages[page_num]
+            page_text = page.extract_text() or ""
+            
+            # Extract tables from the page and append to page_text
+            tables = page.extract_tables()
+            for table in tables:
+                table_df = pd.DataFrame(table)
+                page_text += "\n" + table_df.to_string(index=False, header=False)
+            
+            # Skip empty pages or pages with very little text
+            if len(page_text.strip()) < 100:
+                logger.info(f"Skipping page {page_num + 1} - insufficient text (length: {len(page_text)})")
+                continue
+            
+            # Save the extracted text for inspection
+            with open(f"extracted_text_page_{page_num + 1}.txt", "w") as f:
+                f.write(page_text)
+            logger.info(f"Saved extracted text from page {page_num + 1}")
+            
+            # Extract biomarkers using Claude
+            logger.info(f"Extracting biomarkers from page {page_num + 1} with Claude...")
+            start_time = datetime.now()
+            
+            try:
+                page_biomarkers, page_metadata = extract_biomarkers_with_claude(
+                    page_text, 
+                    f"{filename} - page {page_num + 1}"
+                )
+                
+                biomarker_duration = (datetime.now() - start_time).total_seconds()
+                logger.info(f"Page {page_num + 1} biomarker extraction complete: {len(page_biomarkers)} biomarkers in {biomarker_duration:.2f} seconds")
+                
+                # Add biomarkers to the overall list
+                if page_biomarkers:
+                    all_biomarkers.extend(page_biomarkers)
+                    
+                    # Save the page biomarkers to a file
+                    with open(f"extracted_biomarkers_page_{page_num + 1}.json", "w") as f:
+                        json.dump(page_biomarkers, f, indent=2)
+                    logger.info(f"Saved biomarkers from page {page_num + 1}")
+                
+                # Update metadata if useful
+                if not all_metadata and page_metadata:
+                    all_metadata = page_metadata
+                    
+            except Exception as e:
+                logger.error(f"Error processing page {page_num + 1}: {str(e)}")
+                # Continue with next page
     
-    # Save biomarkers to a file
-    with open("extracted_biomarkers.json", "w") as f:
-        json.dump(biomarkers, f, indent=2)
-    logger.info(f"Saved biomarkers to extracted_biomarkers.json")
+    # Deduplicate biomarkers
+    unique_biomarkers = []
+    seen_biomarkers = set()
+    for biomarker in all_biomarkers:
+        key = (biomarker.get('name', ''), str(biomarker.get('value', '')))
+        if key not in seen_biomarkers:
+            seen_biomarkers.add(key)
+            unique_biomarkers.append(biomarker)
+    
+    all_biomarkers = unique_biomarkers
+    
+    # Save all biomarkers to a file
+    with open("extracted_biomarkers_all.json", "w") as f:
+        json.dump(all_biomarkers, f, indent=2)
+    logger.info(f"Saved all biomarkers to extracted_biomarkers_all.json")
     
     # Print metadata
-    logger.info(f"Metadata: {json.dumps(metadata, indent=2)}")
+    logger.info(f"Metadata: {json.dumps(all_metadata, indent=2)}")
     
     # Print found biomarkers
-    logger.info(f"Found {len(biomarkers)} biomarkers:")
-    for i, biomarker in enumerate(biomarkers):
+    logger.info(f"Found {len(all_biomarkers)} unique biomarkers across all pages:")
+    for i, biomarker in enumerate(all_biomarkers):
         logger.info(f"{i+1}. {biomarker.get('name')} = {biomarker.get('value')} {biomarker.get('unit')} "
                    f"(Range: {biomarker.get('reference_range_text')})")
     

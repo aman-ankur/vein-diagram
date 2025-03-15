@@ -20,7 +20,7 @@ class Biomarker(Base):
     original_name = Column(String)     # Original name as found in report
     
     # Values in both original and standardized units
-    original_value = Column(Float)
+    original_value = Column(String)    # Original value as string to accommodate values like 'Nil', 'Negative', etc.
     original_unit = Column(String)
     value = Column(Float)          # Value in standardized unit
     unit = Column(String)          # Standardized unit
