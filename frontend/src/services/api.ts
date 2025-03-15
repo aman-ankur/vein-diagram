@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
+import { ProcessingStatus, UploadResponse } from '../types/pdf';
+import { Biomarker } from '../components/BiomarkerTable';
 
 // Define types for API responses
 export interface PDFResponse {
@@ -44,12 +47,9 @@ export interface ParsedPDFResponse {
   biomarkers: BiomarkerData[];
 }
 
-// Create an axios instance with default config
+// Create axios instance with base URL
 const api = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: API_BASE_URL,
 });
 
 // Define response and error types
@@ -62,6 +62,62 @@ export interface ApiError {
   message: string;
   status: number;
 }
+
+// Upload a PDF file
+export const uploadPDF = async (file: File): Promise<UploadResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await api.post('/api/pdf/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  
+  return response.data;
+};
+
+// Get PDF processing status
+export const getPDFStatus = async (fileId: string): Promise<ProcessingStatus> => {
+  const response = await api.get(`/api/pdf/${fileId}/status`);
+  return response.data;
+};
+
+// Get biomarkers for a specific PDF
+export const getBiomarkersByFileId = async (fileId: string): Promise<Biomarker[]> => {
+  const response = await api.get(`/api/pdf/${fileId}/biomarkers`);
+  return response.data;
+};
+
+// Get all biomarkers with optional filtering
+export const getAllBiomarkers = async (params?: {
+  category?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<Biomarker[]> => {
+  const response = await api.get('/api/biomarkers', { params });
+  return response.data;
+};
+
+// Get all unique biomarker categories
+export const getBiomarkerCategories = async (): Promise<string[]> => {
+  const response = await api.get('/api/biomarkers/categories');
+  return response.data;
+};
+
+// Search for biomarkers by name
+export const searchBiomarkers = async (query: string, limit = 100): Promise<Biomarker[]> => {
+  const response = await api.get('/api/biomarkers/search', {
+    params: { query, limit },
+  });
+  return response.data;
+};
+
+// Get a specific biomarker by ID
+export const getBiomarkerById = async (biomarkerId: number): Promise<Biomarker> => {
+  const response = await api.get(`/api/biomarkers/${biomarkerId}`);
+  return response.data;
+};
 
 // PDF upload service
 export const pdfService = {

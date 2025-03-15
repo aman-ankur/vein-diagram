@@ -1,6 +1,65 @@
-from pydantic import BaseModel
-from typing import Optional, List, Dict
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
+
+class BiomarkerBase(BaseModel):
+    """
+    Base model for biomarker data.
+    """
+    name: str
+    original_name: Optional[str] = None
+    original_value: float
+    original_unit: str
+    value: float
+    unit: str
+    reference_range_low: Optional[float] = None
+    reference_range_high: Optional[float] = None
+    reference_range_text: Optional[str] = None
+    category: Optional[str] = None
+    is_abnormal: Optional[bool] = None
+    importance: Optional[int] = 1
+    notes: Optional[str] = None
+
+class BiomarkerCreate(BiomarkerBase):
+    """
+    Model for creating a new biomarker.
+    """
+    pdf_id: int
+
+class BiomarkerUpdate(BaseModel):
+    """
+    Model for updating biomarker data.
+    """
+    name: Optional[str] = None
+    original_name: Optional[str] = None
+    original_value: Optional[float] = None
+    original_unit: Optional[str] = None
+    value: Optional[float] = None
+    unit: Optional[str] = None
+    reference_range_low: Optional[float] = None
+    reference_range_high: Optional[float] = None
+    reference_range_text: Optional[str] = None
+    category: Optional[str] = None
+    is_abnormal: Optional[bool] = None
+    importance: Optional[int] = None
+    notes: Optional[str] = None
+    validated: Optional[bool] = None
+    validated_by: Optional[str] = None
+    validated_date: Optional[datetime] = None
+
+class BiomarkerResponse(BiomarkerBase):
+    """
+    Response model for biomarker data.
+    """
+    id: int
+    pdf_id: int
+    extracted_date: datetime
+    validated: bool = False
+    validated_by: Optional[str] = None
+    validated_date: Optional[datetime] = None
+    
+    class Config:
+        orm_mode = True
 
 class PDFResponse(BaseModel):
     """
@@ -21,6 +80,13 @@ class PDFStatusResponse(BaseModel):
     upload_date: datetime
     processed_date: Optional[datetime] = None
     error_message: Optional[str] = None
+    lab_name: Optional[str] = None
+    patient_name: Optional[str] = None
+    patient_id: Optional[str] = None
+    patient_age: Optional[int] = None
+    patient_gender: Optional[str] = None
+    report_date: Optional[datetime] = None
+    parsing_confidence: Optional[float] = None
     
     class Config:
         orm_mode = True
@@ -46,19 +112,6 @@ class PDFContentResponse(BaseModel):
     
     class Config:
         orm_mode = True
-
-class BiomarkerData(BaseModel):
-    """
-    Model for biomarker data extracted from a PDF.
-    """
-    name: str
-    value: float
-    unit: str
-    reference_range: Optional[str] = None
-    category: Optional[str] = None
-    
-    class Config:
-        orm_mode = True
     
 class ParsedPDFResponse(BaseModel):
     """
@@ -66,8 +119,26 @@ class ParsedPDFResponse(BaseModel):
     """
     file_id: str
     filename: str
-    date: Optional[str] = None
-    biomarkers: List[BiomarkerData]
+    lab_name: Optional[str] = None
+    patient_name: Optional[str] = None
+    patient_age: Optional[int] = None
+    patient_gender: Optional[str] = None
+    report_date: Optional[datetime] = None
+    biomarkers: List[BiomarkerResponse]
+    parsing_confidence: Optional[float] = None
     
     class Config:
-        orm_mode = True 
+        orm_mode = True
+
+class BiomarkerUpdateRequest(BaseModel):
+    """
+    Request model for updating biomarker data.
+    """
+    biomarker_id: int
+    updates: BiomarkerUpdate
+    
+class BulkBiomarkerUpdate(BaseModel):
+    """
+    Request model for bulk updating biomarker data.
+    """
+    biomarkers: List[BiomarkerUpdateRequest] 

@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.database import Base
+from app.models.biomarker_model import Biomarker
 
 class PDF(Base):
     """
@@ -20,22 +21,22 @@ class PDF(Base):
     status = Column(String, default="pending")  # pending, processing, processed, error
     error_message = Column(Text, nullable=True)
     
+    # Lab report details
+    lab_name = Column(String, nullable=True)
+    patient_name = Column(String, nullable=True)
+    patient_id = Column(String, nullable=True)
+    patient_age = Column(Integer, nullable=True)
+    patient_gender = Column(String, nullable=True)
+    
+    # Processing metadata
+    processing_details = Column(JSON, nullable=True)  # Store any metadata about processing
+    parsing_confidence = Column(Float, nullable=True)  # Confidence score from Claude
+    
     # Relationship with biomarkers
     biomarkers = relationship("Biomarker", back_populates="pdf", cascade="all, delete-orphan")
     
-class Biomarker(Base):
-    """
-    Database model for biomarker data extracted from PDFs.
-    """
-    __tablename__ = "biomarkers"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    pdf_id = Column(Integer, ForeignKey("pdfs.id"))
-    name = Column(String, index=True)
-    value = Column(Float)
-    unit = Column(String)
-    reference_range = Column(String, nullable=True)
-    category = Column(String, nullable=True)
-    
-    # Relationship with PDF
-    pdf = relationship("PDF", back_populates="biomarkers") 
+    def __repr__(self):
+        """String representation of the PDF."""
+        return f"<PDF {self.filename} ({self.file_id})>"
+
+# Note: Biomarker class is now imported from biomarker_model.py 
