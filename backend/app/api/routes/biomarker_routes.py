@@ -34,35 +34,42 @@ def get_biomarkers_by_file_id(file_id: str, db: Session = Depends(get_db)):
 @router.get("/biomarkers", response_model=List[BiomarkerResponse])
 def get_all_biomarkers(
     category: Optional[str] = Query(None, description="Filter biomarkers by category"),
+    profile_id: Optional[str] = Query(None, description="Filter biomarkers by profile ID"),
     limit: int = Query(100, ge=1, le=1000, description="Limit the number of results"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     db: Session = Depends(get_db)
 ):
     """
-    Get all biomarkers with optional filtering by category.
+    Get all biomarkers with optional filtering.
     
     Args:
         category: Optional category to filter by
-        limit: Maximum number of biomarkers to return
+        profile_id: Optional profile ID to filter by
+        limit: Maximum number of results to return
         offset: Offset for pagination
         db: Database session
         
     Returns:
         List of biomarkers
     """
-    # Build the query
+    # Start with a base query
     query = db.query(Biomarker)
     
     # Apply category filter if provided
     if category:
         query = query.filter(Biomarker.category == category)
     
+    # Apply profile filter if provided
+    if profile_id:
+        query = query.filter(Biomarker.profile_id == profile_id)
+    
     # Apply pagination
-    query = query.order_by(Biomarker.name).offset(offset).limit(limit)
+    query = query.offset(offset).limit(limit)
     
     # Execute the query
     biomarkers = query.all()
     
+    # Return the results
     return biomarkers
 
 @router.get("/biomarkers/categories", response_model=List[str])
@@ -87,6 +94,7 @@ def get_biomarker_categories(db: Session = Depends(get_db)):
 @router.get("/biomarkers/search", response_model=List[BiomarkerResponse])
 def search_biomarkers(
     query: str = Query(..., min_length=1, description="Search query"),
+    profile_id: Optional[str] = Query(None, description="Filter biomarkers by profile ID"),
     limit: int = Query(100, ge=1, le=1000, description="Limit the number of results"),
     db: Session = Depends(get_db)
 ):
@@ -94,21 +102,29 @@ def search_biomarkers(
     Search for biomarkers by name.
     
     Args:
-        query: Search query
-        limit: Maximum number of biomarkers to return
+        query: Search query (biomarker name)
+        profile_id: Optional profile ID to filter by
+        limit: Maximum number of results to return
         db: Database session
         
     Returns:
         List of matching biomarkers
     """
-    # Create a SQL LIKE pattern
-    search_pattern = f"%{query}%"
+    # Convert query to lowercase and add wildcards
+    search_query = f"%{query.lower()}%"
     
-    # Query biomarkers where name contains the search term
-    biomarkers = db.query(Biomarker).filter(
-        Biomarker.name.ilike(search_pattern) | 
-        Biomarker.original_name.ilike(search_pattern)
-    ).limit(limit).all()
+    # Create the base query
+    db_query = db.query(Biomarker).filter(Biomarker.name.ilike(search_query))
+    
+    # Apply profile filter if provided
+    if profile_id:
+        db_query = db_query.filter(Biomarker.profile_id == profile_id)
+    
+    # Apply limit
+    db_query = db_query.limit(limit)
+    
+    # Execute the query
+    biomarkers = db_query.all()
     
     return biomarkers
 

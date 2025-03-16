@@ -71,93 +71,84 @@ def compute_file_hash(file_content):
 async def upload_pdf(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    profile_id: uuid.UUID = None,
     db: Session = Depends(get_db)
 ):
     """
     Upload a PDF file for processing.
     
     Args:
-        background_tasks: FastAPI BackgroundTasks for background processing
+        background_tasks: FastAPI BackgroundTasks for async processing
         file: The PDF file to upload
+        profile_id: Optional UUID of profile to associate with this PDF
         db: Database session
         
     Returns:
-        PDFResponse: The response containing the file ID and status
+        PDFResponse with file ID and status
     """
     try:
-        # Validate file
+        # Validate the file
         validate_pdf(file)
         
-        # Read file content for hash calculation
+        # Read file content
         file_content = await file.read()
+        
+        # Compute file hash to prevent duplicates
         file_hash = compute_file_hash(file_content)
-        logger.info(f"File hash: {file_hash}")
         
-        # Check if the file has been uploaded before based on hash
-        existing_pdf = db.query(PDFModel).filter(PDFModel.processing_details.contains({"file_hash": file_hash})).first()
+        # Check if this file has already been uploaded
+        existing_pdf = db.query(PDFModel).filter(PDFModel.file_id == file_hash).first()
         if existing_pdf:
-            logger.info(f"File with hash {file_hash} has already been uploaded (file ID: {existing_pdf.file_id})")
-            # Return the existing file ID
-            return {
-                "file_id": existing_pdf.file_id,
-                "filename": existing_pdf.filename,
-                "status": existing_pdf.status,
-                "message": "File has already been uploaded and processed. Returning existing data."
-            }
+            if profile_id and existing_pdf.profile_id != profile_id:
+                # Update the profile_id if a new one is provided
+                existing_pdf.profile_id = profile_id
+                db.commit()
+                db.refresh(existing_pdf)
+                
+            return PDFResponse(
+                file_id=existing_pdf.file_id,
+                filename=existing_pdf.filename,
+                upload_date=existing_pdf.upload_date,
+                status=existing_pdf.status,
+                profile_id=existing_pdf.profile_id
+            )
         
-        # Reset file position to start for saving
-        file.file.seek(0)
-        
-        # Generate a unique ID for the file
-        file_id = str(uuid.uuid4())
-        
-        # Create a unique filename
-        unique_filename = f"{file_id}_{file.filename}"
-        
-        # Create the file path
+        # Save file with unique name
+        unique_filename = f"{uuid.uuid4()}-{file.filename}"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
-        # Save the file
         with open(file_path, "wb") as f:
             f.write(file_content)
         
-        # Create a PDF record in the database
+        # Create PDF record in database
         pdf = PDFModel(
-            file_id=file_id,
+            file_id=file_hash,
             filename=file.filename,
             file_path=file_path,
             status="pending",
-            processing_details={"file_hash": file_hash}  # Store the file hash
+            profile_id=profile_id
         )
         db.add(pdf)
         db.commit()
+        db.refresh(pdf)
         
-        # Process the PDF in the background
-        background_tasks.add_task(process_pdf_background, file_path, file_id, db)
-        
-        logger.info(f"Successfully uploaded PDF: {file.filename} (ID: {file_id})")
+        # Start background processing
+        background_tasks.add_task(
+            process_pdf_background,
+            pdf_id=pdf.id,
+            db_session=db
+        )
         
         return PDFResponse(
-            file_id=file_id,
-            filename=file.filename,
-            status="pending",
-            message="File uploaded successfully. Processing started."
+            file_id=pdf.file_id,
+            filename=pdf.filename,
+            upload_date=pdf.upload_date,
+            status=pdf.status,
+            profile_id=pdf.profile_id
         )
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
     except Exception as e:
         logger.error(f"Error uploading PDF: {str(e)}")
-        
-        # Clean up any saved file
-        if 'file_path' in locals() and os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-                logger.info(f"Cleaned up file after error: {file_path}")
-            except Exception as cleanup_error:
-                logger.error(f"Error cleaning up file: {str(cleanup_error)}")
-                
-        raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading PDF: {str(e)}")
 
 @router.get("/status/{file_id}", response_model=PDFStatusResponse)
 async def get_pdf_status(file_id: str, db: Session = Depends(get_db)):
@@ -182,7 +173,15 @@ async def get_pdf_status(file_id: str, db: Session = Depends(get_db)):
         status=pdf.status,
         upload_date=pdf.upload_date,
         processed_date=pdf.processed_date,
-        error_message=pdf.error_message if pdf.status == "error" else None
+        error_message=pdf.error_message if pdf.status == "error" else None,
+        profile_id=pdf.profile_id,
+        lab_name=pdf.lab_name,
+        patient_name=pdf.patient_name,
+        patient_id=pdf.patient_id,
+        patient_age=pdf.patient_age,
+        patient_gender=pdf.patient_gender,
+        report_date=pdf.report_date,
+        parsing_confidence=pdf.parsing_confidence
     )
 
 @router.get("/list", response_model=PDFListResponse)
@@ -205,7 +204,15 @@ async def list_pdfs(db: Session = Depends(get_db)):
             status=pdf.status,
             upload_date=pdf.upload_date,
             processed_date=pdf.processed_date,
-            error_message=pdf.error_message if pdf.status == "error" else None
+            error_message=pdf.error_message if pdf.status == "error" else None,
+            profile_id=pdf.profile_id,
+            lab_name=pdf.lab_name,
+            patient_name=pdf.patient_name,
+            patient_id=pdf.patient_id,
+            patient_age=pdf.patient_age,
+            patient_gender=pdf.patient_gender,
+            report_date=pdf.report_date,
+            parsing_confidence=pdf.parsing_confidence
         )
         for pdf in pdfs
     ]
