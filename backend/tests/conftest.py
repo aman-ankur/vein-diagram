@@ -50,8 +50,8 @@ def test_db():
 @pytest.fixture(scope="function")
 def client(test_db):
     """Create a test client for the FastAPI app."""
-    with TestClient(app) as client:
-        yield client
+    from tests.utils.test_client import client as custom_client
+    yield custom_client
 
 @pytest.fixture(scope="function")
 def sample_pdf():

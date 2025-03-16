@@ -4,7 +4,8 @@ import os
 import tempfile
 from app.main import app
 
-client = TestClient(app)
+# Import client from our shared test_client module instead
+from tests.utils.test_client import client
 
 def test_health_check():
     """Test the health check endpoint."""

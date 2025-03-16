@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic HTML Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border: 5px solid red;
+    }
+    h1 {
+      color: blue;
+      text-align: center;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button {
+      background-color: green;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    button:hover {
+      background-color: darkgreen;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Super Basic HTML Test</h1>
+    
+    <div class="test-section">
+      <h2>Static Content Test</h2>
+      <p>This is a completely static HTML page with no dependencies.</p>
+      <p>If you can see this page with styling, your browser is rendering HTML/CSS correctly.</p>
+    </div>
+    
+    <div class="test-section">
+      <h2>JavaScript Test</h2>
+      <p>Click the button below to test basic JavaScript functionality:</p>
+      <button id="test-button">Click Me</button>
+      <div id="js-output"></div>
+    </div>
+    
+    <div class="test-section">
+      <h2>DOM Manipulation Test</h2>
+      <p>The following content will be added by JavaScript when the page loads:</p>
+      <div id="dynamic-content"></div>
+    </div>
+  </div>
+
+  <script>
+    // Basic JavaScript functionality test
+    document.getElementById('test-button').addEventListener('click', function() {
+      document.getElementById('js-output').innerHTML = 
+        '<p style="color: green; font-weight: bold;">JavaScript is working! Button clicked at: ' + 
+        new Date().toLocaleTimeString() + '</p>';
+    });
+    
+    // DOM manipulation test
+    document.addEventListener('DOMContentLoaded', function() {
+      const dynamicContent = document.getElementById('dynamic-content');
+      
+      // Create and append elements
+      const paragraph = document.createElement('p');
+      paragraph.textContent = 'This paragraph was dynamically added by JavaScript!';
+      paragraph.style.color = 'purple';
+      paragraph.style.fontWeight = 'bold';
+      
+      const timestamp = document.createElement('p');
+      timestamp.textContent = 'Page loaded at: ' + new Date().toLocaleTimeString();
+      
+      dynamicContent.appendChild(paragraph);
+      dynamicContent.appendChild(timestamp);
+      
+      // Add a border to show the dynamic content area
+      dynamicContent.style.border = '2px dashed blue';
+      dynamicContent.style.padding = '10px';
+      dynamicContent.style.marginTop = '10px';
+    });
+    
+    // Log to console
+    console.log('basic.html script executed at', new Date().toLocaleTimeString());
+  </script>
+</body>
+</html> 

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic HTML Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    .test-button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .test-button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Basic HTML Rendering Test</h1>
+    <p>This is a static HTML page to test if basic HTML and CSS rendering works properly in the browser.</p>
+    
+    <p>If you can see this page with styling, then the browser is capable of rendering HTML/CSS correctly.</p>
+    
+    <button class="test-button" onclick="alert('Button clicked!')">Test Button</button>
+    
+    <div style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; background-color: #f9f9f9;">
+      <h3>Next Steps:</h3>
+      <p>If this page renders correctly but the React app doesn't, the issue is likely with the React setup, not with the browser's rendering capabilities.</p>
+      <p>Possible issues could be:</p>
+      <ul>
+        <li>JavaScript errors preventing React from initializing</li>
+        <li>Issues with the React component tree</li>
+        <li>Path or module resolution problems</li>
+        <li>CSS conflicts or issues</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    console.log('Test page loaded successfully');
+    
+    // Basic DOM manipulation test
+    document.addEventListener('DOMContentLoaded', function() {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = 'This paragraph was added via JavaScript.';
+      paragraph.style.color = 'green';
+      document.querySelector('.container').appendChild(paragraph);
+    });
+  </script>
+</body>
+</html> 

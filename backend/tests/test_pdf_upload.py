@@ -8,7 +8,8 @@ from unittest.mock import patch, MagicMock
 from app.main import app
 from app.models.pdf_model import PDF
 
-client = TestClient(app)
+# Use the shared test client instead
+from tests.utils.test_client import client
 
 @pytest.fixture
 def mock_pdf_file():
