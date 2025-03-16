@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import json
 from datetime import datetime
@@ -6,8 +7,8 @@ import pdfplumber
 import pandas as pd
 
 # Set the ANTHROPIC_API_KEY environment variable
-# Replace this with your actual API key
-os.environ["ANTHROPIC_API_KEY"] = "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"
+# Replace this with your actual API key or set it in your environment before running
+# os.environ["ANTHROPIC_API_KEY"] = "your_api_key_here"
 
 # Set up logging
 logging.basicConfig(

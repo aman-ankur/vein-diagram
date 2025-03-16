@@ -39,7 +39,7 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.DEBUG)
 
 # Load Claude API key from environment variable
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "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")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 
 # Set this to True to save all Claude API requests and responses for debugging
@@ -126,8 +126,7 @@ def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[
     
     # Check if API key is available
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    api_key = "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"
-
+    
     if not api_key:
         logger.warning("[API_KEY_MISSING] ANTHROPIC_API_KEY environment variable not found. Using fallback parser.")
         fallback_results = parse_biomarkers_from_text(text)

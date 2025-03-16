@@ -45,7 +45,7 @@ app.include_router(biomarker_routes.router, prefix="/api", tags=["Biomarker Data
 async def startup_db_client():
     # Debug environment variables
     logger.info("Checking critical environment variables:")
-    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "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")
+    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     database_url = os.environ.get("DATABASE_URL", "")
     
     logger.info(f"DATABASE_URL is {'set' if database_url else 'NOT SET'}")
