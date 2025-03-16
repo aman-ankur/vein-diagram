@@ -1,0 +1,1081 @@
+CLINICAL PATHOLOGY
+  
+Urine Routine Analysis
+  
+Urine
+PHYSICAL EXAMINATION
+  
+Manual
+Volume 
+50
+ml
+Colour 
+Pale yellow
+Pale yellow
+Appearance 
+Clear
+Clear
+CHEMICAL EXAMINATION
+  
+pH 
+Double indicator method
+6.0
+5.0-8.0
+Specific gravity 
+Refractive Index
+1.030
+1.001-1.035
+Urine Protein 
+Protein error of pH indicator 
+Nil
+Nil
+Glucose 
+Enzyme method GOD POD
+Nil
+Nil
+Ketone bodies 
+Dipstick
+Nil
+Nil
+Bilirubin 
+Azo coupling method
+Nil
+Nil
+Page 
+1
+ / 
+2
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133001
+Reported On
+07/03/2025 01:47 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:17 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+Blood 
+Peroxidase activity
+Negative
+Negative
+Urobilinogen 
+Azo coupling method
+Normal
+Normal
+Leucocyte Esterase 
+Granulocyte esterase method
+Negative
+Negative
+Nitrites 
+Griess method
+Negative
+Negative
+-- End of Report --
+Tests marked with NABL symbol are accredited by NABL vide Certificate no  
+MC-6367
+Page 
+2
+ / 
+2
+Dr. Sanchit Singhal
+MD Pathologist
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133001
+Reported On
+07/03/2025 01:47 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:17 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+BIOCHEMISTRY
+  
+Fasting Glucose 
+F- fluoride plasma
+,
+GOD-POD 
+85
+mg/dL
+Normal Fasting Glucose: 
+70-99
+Impaired Fasting Glucose: 
+100-
+125
+Diabetes : on more than one 
+occasion: > 
+126
+Page 
+1
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+LFT - LIVER FUNCTION TEST
+  
+Serum
+Total Bilirubin 
+DSA
+0.65
+mg/dL
+Adult: 
+0.2-1.3
+Neonate: 
+1.0-10.5
+Direct Bilirubin 
+Calculated
+0.33
+mg/dL
+Neonate: 
+0.0-0.6
+Adult: 
+0.0-0.3
+Indirect Bilirubin 
+Dual wavelength
+0.32
+mg/dL
+Adult: 
+0.1-1.1
+Neonate: 
+0.6-10.5
+Aspartate Transaminase(AST/ 
+SGOT) 
+MDH, UV Kinetic
+26
+U/L
+17-49
+Alanine Transaminase(ALT/ 
+SGPT) 
+LDH, UV kinetic
+30
+U/L
+< 50
+Alkaline Phosphatase 
+PNPP, AMP Buffer
+70
+U/L
+38-126
+Gamma-Glutamyl Transferase 
+(GGT) 
+SZAZ Carboxylated Substrate
+17
+U/L
+15-73
+Total Protein 
+Biuret
+7.2
+g/dL
+6.0-8.3
+Albumin 
+Bromo-Cresol Green 
+4.4
+g/dL
+3.5-5.0
+Globulin 
+Calculated
+2.7
+g/dL
+2.3-3.5
+A/G ratio 
+Calculated
+1.6
+0.8-2.0
+Page 
+2
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+SGOT/SGPT- RATIO 
+Calculated
+0.9
+0.7-1.4
+Total bilirubin is invariably increased in jaundice. Causes of jaundice are prehepatic, resulting from various hemolytic 
+diseases; hepatic, resulting from hepatocellular injury or obstruction; and posthepatic, resulting from obstruction of the 
+hepatic or common bile ducts.
+Aspartate aminotransferase is present in high activity in heart, skeletal muscle, and liver. Increased serum AST activity 
+commonly follows myocardial infarction, pulmonary emboli, skeletal muscle trauma, alcoholic cirrhosis, viral hepatitis, 
+and drug-induced hepatitis.
+Alanine aminotransferase is present in high activity in liver, skeletal muscle, heart, and kidney. Serum ALT increases 
+rapidly in liver cell necrosis, hepatitis, hepatic cirrhosis, liver tumours, obstructive jaundice, Reye
+’
+s syndrome, 
+extensive trauma to skeletal muscle, myositis, myocarditis, and myocardial infarction.
+Alkaline phosphatase is elevated in fever and increased bone metabolism, for example, in adolescents and during the 
+healing of a fracture; primary and secondary hyperparathyroidism; Paget
+’
+s disease of bone; carcinoma metastatic to 
+bone; osteogenic sarcoma; and Hodgkin
+’
+s disease if bones are invaded. Hepatobiliary diseases involving cholestasis, 
+inflammation, or cirrhosis increased ALP activity; also increased in renal infarction and failure and in the complications 
+of pregnancy. Low ALP activity may occasionally be seen in hypothyroidism.
+Serum GGT is a sensitive indicator of hepatobiliary disease and is useful in the diagnosis of obstructive jaundice and 
+chronic alcoholic liver disease, in the follow-up of chronic alcoholics undergoing treatment, and in the detection of 
+hepatotoxicity. GGT is more responsive to biliary obstruction than AST, ALT, or ALP. 
+Total serum protein levels can be used for evaluation of nutritional status. Causes of high total serum protein 
+concentration include dehydration, Waldenström
+’
+s macroglobulinemia, multiple myeloma, hyperglobulinemia, 
+granulomatous diseases, and some tropical diseases. Causes of low total serum protein concentration include 
+pregnancy, excessive intravenous fluid administration, cirrhosis or other liver diseases, chronic alcoholism, heart 
+failure, nephrotic syndrome, glomerulonephritis, neoplasia, protein-losing enteropathies, malabsorption, and severe 
+malnutrition. 
+Page 
+3
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+Glycosylated Haemoglobin - (HbA1c)
+  
+Whole Blood
+Glycosylated Haemoglobin 
+(HbA1c) 
+HPLC
+4.8
+%
+Normal: < 
+5.7
+Pre-Diabetes: 
+5.7-6.4
+Diabetes: >= 
+6.5
+Mean Blood Glucose 
+Calculated
+91
+mg/dL
+HbA1C is used to monitor fluctuations in blood glucose concentration in the past 8 to 12 week
+’
+s period.
+The reference interval defined as per American Diabetes Association guidelines 2016:
+a)     Less than 5.7% : Non Diabetic
+b)    5.7 to 6.4% : at increased risk of developing diabetes in the future
+c)     More than 6.5% : Diabetic
+d)    Therapeutic glycemic target:
+i.      Adults: less than 7%
+ii.     Children with Type 1 diabetes : less than 7 %
+e)     Pregnant diabetic patients : less than 6.5%
+Note:
+•  
+Targets may be individualized based on: Age/life expectancy, Comorbid conditions, Diabetes duration , Hypoglycemia status, 
+Individual patient considerations
+Reference: American Diabetes Association. Standards of medical care in diabetes
+—2021.
+Mean Blood Glucose is average Blood glucose which directly correlates with A1C, reported in the same units as blood sugar levels 
+(mg/dl). Thus it reflects the average glucose concentration in the past 8 to 12 weeks period. This should not be compared with 
+Fasting or Post prandial or random blood sugar which measures glucose concentration at that point of time of testing.
+Page 
+4
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+Kidney Function Test Mini
+  
+Serum
+Urea 
+Urease 
+43
+mg/dL
+19-43
+Newborn: 
+6.5-25.5
+Creatinine 
+Enzymatic
+1.0
+mg/dL
+0.66-1.25
+Blood Urea Nitrogen (BUN) 
+Calculated
+20.1
+mg/dL
+6-20
+BUN Creatinine Ratio 
+Calculated
+20.10
+Ratio
+10-20
+Calcium 
+Arsenazo Method 
+9.3
+mg/dL
+8.4-10.2
+Uric Acid 
+Uricase
+6.0
+mg/dL
+3.5-8.5
+eGFR 
+CKD EPI
+103
+ml/min/1.73 sq 
+m
+Normal: >= 
+90
+Mild decrease: 
+60-89
+Mild moderate decrease: 
+45-59
+Severe decrease: 
+15-29
+End stage kidney disease: < 
+15
+Lipid Profile with calculated LDL
+  
+Serum
+Total Cholesterol 
+CHOD-POD
+224
+mg/dl
+< 200
+Triglycerides 
+GPO-POD
+198
+mg/dL
+< 150
+HDL Cholesterol 
+Direct
+34
+mg/dL
+> 50
+Page 
+5
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+Non-HDL Cholesterol 
+Calculated
+190
+mg/dL
+< 130
+LDL Cholesterol 
+Calculated
+150
+mg/dL
+< 100
+VLDL Cholesterol 
+Calculated
+40
+mg/dL
+< 30
+Cholesterol / HDL Ratio 
+Calculated
+6.6
+3.30-4.40
+LDL:HDL RATIO 
+Calculated
+4.4
+0.5-3.0
+HDL/LDL RATIO 
+Calculated
+0.2
+Ratio
+> 0.4
+Page 
+6
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+Lipid profile is a group test consisting of various lipids. Lipid profiles are generally collected with overnight fasting. 
+However, 
+Recent guidelines have 
+recommended non fasting samples for lipid profile for assessment of cardiovascular risk.
+ The details for the study can be checked at
+ 
+https://jamanetwork.com/journals/jamainternalmedicine/fullarticle/2733560
+In certain instances measurements in the same patient can show physiological and analytical variations. In such cases three serial samples at an interval of 1 
+week each are recommended for Total cholesterol, TG, HDL and LDL.
+Cholesterol levels
+ are increased in primary hypercholesterolemia; secondary hyperlipoproteinemia, including nephrotic syndrome; primary biliary cirrhosis; 
+hypothyroidism; and in some cases, diabetes mellitus. Low cholesterol levels may be found in malnutrition, malabsorption, advanced malignancy, and 
+hyperthyroidism. 
+Triglyceride levels
+ are used in the diagnosis and treatment of patients with diabetes mellitus, nephrosis, liver obstruction, other diseases involving lipid 
+metabolism, or various endocrine disorders.
+High Density Lipoprotein (HDL) cholesterol levels
+ is used to evaluate the risk of developing coronary heart disease (CHD). The risk of CHD increases with 
+lower HDL cholesterol concentrations.
+ 
+LDL (low-density lipoprotein) cholesterol level
+, sometimes called 
+“
+bad
+” 
+cholesterol, makes up most of our body
+’
+s cholesterol. High levels of LDL cholesterol 
+raise your risk for heart disease and stroke.
+ 
+Very-low-density lipoprotein (VLDL)
+ cholesterol is produced in the liver and released into the bloodstream to supply body tissues with triglycerides. High 
+levels of VLDL cholesterol have
+been associated with the development of plaque deposits on artery walls, which narrow the passage and restrict blood flow.
+REMARKS
+TOTAL CHOLESTEROL(mg/dL)
+TRIGLYCERIDE(mg/dL)
+LDL CHOLESTEROL(mg/dL)
+Optimal
+<200
+<150
+<100
+Above Optimal
+-
+-
+100-129
+Borderline
+200-239
+150-199
+130-159
+High
+>=240
+200-499
+160-189
+Very High
+-
+>=500
+>=190
+Page 
+7
+ / 
+12
+Dr. Sanchit Singhal
+MD Pathologist
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+IMMUNOLOGY
+  
+Thyroid Stimulating Hormone 
+(TSH) 
+Serum
+,
+CLIA
+2.486
+µIU/mL
+0.400-4.049
+Thyroid Stimulating Hormone (TSH), also called Thyrotropin is a hormone secreted into the blood by the Pituitary gland (a gland present in the 
+brain)). It signals the thyroid gland to make and release the thyroid hormones (T3 & T4) into the blood.
+High TSH level
+ indicates that the thyroid gland is not making enough thyroid hormone (primary hypothyroidism).
+Low TSH level usually
+ indicates that the thyroid is producing too much thyroid hormone (hyperthyroidism).
+Factors influencing TSH levels
+Fasting
+: TSH level shows a significant decline after meal intake in comparison to fasting values. This may have clinical implications in the 
+diagnosis and management of hypothyroidism, especially Subclinical hypothyroidism.
+1
+Circadian Rhythm:
+ TSH levels follow a circadian variation, reaching peak levels between Morning 2 
+– 4 
+am and at a minimum between Evening 6-
+10 pm. The variation is of the order of 50%. hence time of sample collection during a day can significantly influence on the measured serum TSH 
+concentrations.
+2
+Other Factors
+: Genetics, Poisonous substances and radiation exposure, Inflammation of the thyroid gland, Deficiency or excess of iodine in the 
+diet, Pregnancy, Certain medications 
+– 
+antidepressants, cholesterol lowering drugs, chemotherapy drugs, steroids, Thyroid cancer.
+References:
+1.
+ 
+Indian Journal of Endocrinology and Metabolism 
+18(5):p 705-707, Sep
+–
+Oct 2014.)
+2.
+ 
+efaidnbmnnnibpcajpcglclefindmkaj/http://www.pnei-it.com/1/upload/thyrotropin_secretion_patterns_i
+ n_health_and_disease.pdf
+In pregnant females the reference range of TSH differs. Please refer the table below for the same:-
+Pregnancy
+TSH Reference Range (uIU/mL)
+1st Trimester
+0.129-3.120
+2nd Trimester
+0.274-2.652
+3rd Trimester
+0.312-2.947
+Page 
+8
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+Vitamin D (25 OH 
+Cholecalciferol) 
+Serum
+,
+CLIA
+33.1
+ng/mL
+Deficient: < 
+20
+Insufficient: 
+20-30
+Sufficient: 
+30-100
+Toxicity: > 
+100
+For the diagnosis of vitamin D deficiency it is recommended to have clinical correlation with serum 25
+(OH)vitamin D, serum calcium, serum PTH & serum alkaline phosphatase.
+During the monitoring of oral vitamin D therapy - suggested testing of serum 25(OH)vitamin D is after 12 
+weeks or 3 months of treatment. However, the required dosage of vitamin D supplements & time to achieve 
+sufficient vitamin D levels show significant seasonal (especially winter) & individual variability depending on 
+age, body fat, sun exposure, physical activity, genetic factors (especially variable vitamin D receptor 
+responses), associated liver or renal disease, malabsorption syndromes and calcium or magnesium 
+deficiency influencing the vitamin D metabolism.
+Page 
+9
+ / 
+12
+Dr. Sanchit Singhal
+MD Pathologist
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+HEMATOLOGY
+  
+Complete Blood Count with ESR
+  
+Whole Blood
+RBC count 
+DC Impedance method
+5.32
+mill/cu.mm
+4.5-5.5
+Haemoglobin (Hb) 
+Cyanide-free SLS method
+15.1
+gm/dL
+13.0-17.0
+Haematocrit(PCV) 
+Calculated
+46.0
+%
+40-50
+Mean Corpuscular Volume
+(MCV) 
+Calculated
+86.4
+fL
+83-101
+Mean Corpuscular 
+Haemoglobin(MCH) 
+Calculated
+28.4
+pg
+27-32
+Mean Corpuscular 
+Haemoglobin Concentration
+(MCHC) 
+Calculated
+32.8
+g/dL
+31.5-34.5
+Red cell distribution width 
+(RDW) 
+Calculated
+13.5
+%
+11.6-14.0
+Mentzer Index 
+Calculated
+16.2
+Index
+Beta Thalassemia trait: < 
+14
+Iron deficiency anaemia: >= 
+14
+Sehgal index 
+Calculated
+1403.2
+Index
+Beta Thalassemia trait: < 
+972
+Iron deficiency anaemia: >= 
+972
+Page 
+10
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+Total WBC count - TC 
+DC Impedance method
+6940
+cells/cu.mm
+4000-10000
+Differential Leucocyte Count - DC
+  
+Flow Cytometry
+Neutrophils 
+65.6
+%
+40-80
+Lymphocytes 
+24.7
+%
+20-40
+Monocytes 
+6.8
+%
+2-10
+Eosinophils 
+2.6
+%
+1-6
+Basophils 
+0.3
+%
+0-2
+Absolute Neutrophil Count 
+Calculated
+4553
+/ cu.mm
+2000-7000
+Absolute Lymphocyte Count 
+Calculated
+1714
+/ cu.mm
+1000-3000
+Absolute Monocyte Count 
+Calculated
+472
+/ cu.mm
+200-1000
+Absolute Eosinophil Count 
+Calculated
+180
+/ cu.mm
+20-500
+Absolute Basophil Count 
+Calculated
+21
+/ cu.mm
+0-100
+Neutrophil Lymphocyte Ratio 
+(NLR) 
+Calculated
+2.7
+Ratio
+1.0-3.0
+Page 
+11
+ / 
+12
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:
+Platelet count 
+DC Impedance method
+283
+10^3/ul
+150-450
+Platelet hematocrit 
+Calculated
+0.285
+%
+0.20-0.50
+Mean Platelet Volume (MPV) 
+Calculated
+10.1
+fL
+7-13
+Erythrocyte Sedimentation 
+Rate (ESR) 
+Quantitative Capillary Photometry
+4
+mm/hr
+0-10
+1. Reference Ranges are in accordance with Dacie & Lewis Practical Hematology International Edition (12th).
+2. As per International Council for Standardization in Hematology's recommendations Differential Leucocyte counts are additionally reported in 
+Absolute numbers in each cell per unit volume of blood.
+-- End of Report --
+Tests marked with NABL symbol are accredited by NABL vide Certificate no  
+MC-6367
+Page 
+12
+ / 
+12
+Dr. Sanchit Singhal
+MD Pathologist
+Test
+Results
+Units
+Biological Reference Interval
+OHP46D3D1252442 
+Patient ID
+:
+Mr. Mr Aman Ankur
+Name
+:
+Visit No.
+:
+BL126133002
+Reported On
+07/03/2025 03:55 PM
+:
+Collected On
+07/03/2025 08:07 AM
+Received On
+:
+07/03/2025 11:18 AM
+:
+:
+Age / Sex
+Client
+:
+Getvisit TPA 
+33 Year(s) / Male
+Ref. Doctor
+:

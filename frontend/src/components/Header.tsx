@@ -1,34 +1,67 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
+import AppBar from '@mui/material/AppBar';
+import Box from '@mui/material/Box';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Container from '@mui/material/Container';
 
+/**
+ * Simplified Header component for the application
+ */
 const Header: React.FC = () => {
+  console.log('Header component rendering');
+  
   return (
-    <header className="bg-white shadow-sm">
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <Link to="/" className="text-2xl font-bold text-primary-600">
-          Vein Diagram
-        </Link>
-        <nav>
-          <ul className="flex space-x-6">
-            <li>
-              <Link to="/" className="text-gray-700 hover:text-primary-600">
-                Home
-              </Link>
-            </li>
-            <li>
-              <Link to="/upload" className="text-gray-700 hover:text-primary-600">
-                Upload
-              </Link>
-            </li>
-            <li>
-              <Link to="/visualizations" className="text-gray-700 hover:text-primary-600">
-                Visualizations
-              </Link>
-            </li>
-          </ul>
-        </nav>
-      </div>
-    </header>
+    <AppBar position="static" color="default" elevation={1}>
+      <Container maxWidth="xl">
+        <Toolbar>
+          <Typography
+            variant="h6"
+            component={RouterLink}
+            to="/"
+            sx={{
+              mr: 2,
+              fontWeight: 700,
+              color: 'inherit',
+              textDecoration: 'none',
+              flexGrow: 1,
+            }}
+          >
+            Vein Diagram
+          </Typography>
+          
+          <Box>
+            <Button
+              component={RouterLink}
+              to="/"
+              color="inherit"
+              sx={{ mr: 1 }}
+            >
+              Home
+            </Button>
+            
+            <Button
+              component={RouterLink}
+              to="/upload"
+              color="inherit"
+              sx={{ mr: 1 }}
+            >
+              Upload
+            </Button>
+            
+            <Button
+              component={RouterLink}
+              to="/biomarkers"
+              color="inherit"
+            >
+              Biomarkers
+            </Button>
+          </Box>
+        </Toolbar>
+      </Container>
+    </AppBar>
   );
 };
 

@@ -92,6 +92,35 @@ vein-diagram/
 
 4. Create a `.env` file in the backend directory (copy from `.env.example`).
 
+### Environment Variables
+
+The application requires several environment variables to function properly:
+
+#### Backend Environment Variables
+- `DATABASE_URL`: Connection string for the database (default: SQLite)
+- `API_HOST`: Host for the API server (default: 0.0.0.0)
+- `API_PORT`: Port for the API server (default: 8000)
+- `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude AI integration
+- `TESSERACT_PATH`: Path to Tesseract OCR executable
+
+To set up your environment:
+1. Copy `.env.example` to `.env` in the backend directory
+2. Fill in your actual API keys and configuration values
+3. Never commit your `.env` file to version control
+
+### Security Notes
+
+This project uses the Anthropic Claude API for biomarker analysis. To keep your API keys secure:
+
+1. Never hardcode API keys in your source code
+2. Always use environment variables for sensitive information
+3. Use the provided pre-commit hook to check for accidentally committed secrets:
+   ```
+   chmod +x check_secrets.sh
+   chmod +x .git/hooks/pre-commit
+   ```
+4. If you accidentally commit a secret, rotate your API keys immediately
+
 ### Running the Application
 
 1. Start the backend:
