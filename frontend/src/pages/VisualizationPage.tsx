@@ -85,7 +85,19 @@ const VisualizationPage: React.FC = () => {
         data = await getAllBiomarkers();
       }
       
-      setBiomarkers(data);
+      // Deduplicate biomarkers
+      const uniqueBiomarkers: Biomarker[] = [];
+      const uniqueKeys = new Set<string>();
+      
+      data.forEach(biomarker => {
+        const key = `${biomarker.name}_${biomarker.value}_${biomarker.unit}`;
+        if (!uniqueKeys.has(key)) {
+          uniqueKeys.add(key);
+          uniqueBiomarkers.push(biomarker);
+        }
+      });
+      
+      setBiomarkers(uniqueBiomarkers);
     } catch (error) {
       console.error('Error fetching biomarkers:', error);
       setError('Failed to load biomarker data. Please try again.');
