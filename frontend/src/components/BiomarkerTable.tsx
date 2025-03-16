@@ -69,48 +69,47 @@ const columns: Column[] = [
   { id: 'category', label: 'Category', minWidth: 120, align: 'center', sortable: true },
 ];
 
-// Check if biomarker value is outside reference range
+// Function to determine if a value is outside the reference range
 const isOutsideRange = (biomarker: Biomarker): boolean | undefined => {
-  // First check if is_abnormal is already set
+  // If isAbnormal is set, use that value
   if (biomarker.isAbnormal !== undefined) {
     return biomarker.isAbnormal;
   }
   
-  // Then check reference range values if available
-  if (biomarker.reference_range_low !== undefined && biomarker.reference_range_high !== undefined) {
+  // If we have numeric reference range bounds, use those
+  if (biomarker.reference_range_low !== null && biomarker.reference_range_high !== null) {
     return biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high;
   }
   
-  // If not, try to parse the reference range text
-  if (!biomarker.referenceRange) return undefined;
+  // Otherwise, try to parse from the reference range text
+  if (!biomarker.referenceRange) {
+    return undefined;
+  }
+
+  const referenceRange = biomarker.referenceRange.trim();
   
-  // Handle different reference range formats
-  const rangeStr = biomarker.referenceRange;
-  
-  // Handle range with hyphen (e.g., "70-99")
-  if (rangeStr.includes('-')) {
-    const [min, max] = rangeStr.split('-').map(Number);
-    if (!isNaN(min) && !isNaN(max)) {
-      return biomarker.value < min || biomarker.value > max;
-    }
+  // Try to parse ranges in format "X-Y"
+  const dashMatch = referenceRange.match(/^(\d+\.?\d*)\s*-\s*(\d+\.?\d*)$/);
+  if (dashMatch) {
+    const [_, min, max] = dashMatch;
+    return biomarker.value < parseFloat(min) || biomarker.value > parseFloat(max);
   }
   
-  // Handle range with comparison operators (e.g., "<5.0" or ">3.5")
-  if (rangeStr.includes('<')) {
-    const maxValue = parseFloat(rangeStr.replace('<', '').trim());
-    if (!isNaN(maxValue)) {
-      return biomarker.value >= maxValue;
-    }
+  // Try to parse ranges in format "< X" or "<= X"
+  const lessThanMatch = referenceRange.match(/^<\s*=?\s*(\d+\.?\d*)$/);
+  if (lessThanMatch) {
+    const [_, max] = lessThanMatch;
+    return biomarker.value > parseFloat(max);
   }
   
-  if (rangeStr.includes('>')) {
-    const minValue = parseFloat(rangeStr.replace('>', '').trim());
-    if (!isNaN(minValue)) {
-      return biomarker.value <= minValue;
-    }
+  // Try to parse ranges in format "> X" or ">= X"
+  const greaterThanMatch = referenceRange.match(/^>\s*=?\s*(\d+\.?\d*)$/);
+  if (greaterThanMatch) {
+    const [_, min] = greaterThanMatch;
+    return biomarker.value < parseFloat(min);
   }
   
-  // Could not determine
+  // Couldn't determine range
   return undefined;
 };
 
