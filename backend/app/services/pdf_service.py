@@ -201,31 +201,40 @@ def _extract_text_with_ocr(file_path: str) -> str:
         logger.error(f"[OCR_ERROR] Error during OCR processing: {str(e)}")
         return f"OCR processing failed: {str(e)}"
 
-def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
+def process_pdf_background(pdf_id: int, db_session: Session) -> None:
     """
     Process PDF file in background.
     
     Args:
-        file_path: Path to the PDF file
-        file_id: Unique ID of the file
-        db: Database session
+        pdf_id: ID of the PDF record in the database
+        db_session: Database session
     """
-    logger.info(f"[PDF_PROCESSING_START] Starting processing of PDF {file_id}")
+    logger.info(f"[PDF_PROCESSING_START] Starting processing of PDF with ID {pdf_id}")
     start_time = datetime.utcnow()
     
     try:
         # Get the PDF from the database
         from app.models.pdf_model import PDF as PDFModel
         
-        pdf = db.query(PDFModel).filter(PDFModel.file_id == file_id).first()
+        pdf = db_session.query(PDFModel).filter(PDFModel.id == pdf_id).first()
         if not pdf:
-            logger.error(f"[DB_ERROR] PDF with ID {file_id} not found in database")
+            logger.error(f"[DB_ERROR] PDF with ID {pdf_id} not found in database")
+            return
+        
+        file_id = pdf.file_id
+        file_path = pdf.file_path
+        
+        if not file_path or not os.path.exists(file_path):
+            logger.error(f"[FILE_ERROR] File path {file_path} not found for PDF {file_id}")
+            pdf.status = "error"
+            pdf.error_message = "File not found"
+            db_session.commit()
             return
         
         # Update status to processing
         logger.debug(f"[STATUS_UPDATE] Setting status to 'processing' for PDF {file_id}")
         pdf.status = "processing"
-        db.commit()
+        db_session.commit()
         
         # Process the PDF page by page to avoid Claude API timeouts
         logger.info(f"[PAGE_BY_PAGE_PROCESSING] Starting page-by-page processing for PDF {file_id}")
@@ -428,7 +437,7 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
                 unit = biomarker_data.get("unit", original_unit)
                 
                 # Check if this biomarker already exists to prevent duplicates
-                existing_biomarker = db.query(Biomarker).filter(
+                existing_biomarker = db_session.query(Biomarker).filter(
                     Biomarker.name == biomarker_data["name"],
                     Biomarker.value == biomarker_value,
                     Biomarker.unit == standardize_unit(unit)
@@ -465,7 +474,7 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
                     notes=biomarker_data.get("notes", "")
                 )
                 
-                db.add(biomarker)
+                db_session.add(biomarker)
                 successful_biomarkers += 1
                 
                 if i % 20 == 0 and i > 0:  # Log progress for every 20 biomarkers
@@ -505,7 +514,7 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
         
         # Save changes
         logger.debug(f"[DB_COMMIT] Committing changes to database for PDF {file_id}")
-        db.commit()
+        db_session.commit()
         
         total_time = (datetime.utcnow() - start_time).total_seconds()
         logger.info(f"[PDF_PROCESSING_COMPLETE] Successfully processed PDF {file_id} in {total_time:.2f} seconds with {len(biomarkers_data)} biomarkers")
@@ -514,12 +523,12 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
         
         # Update the PDF record with error status
         try:
-            pdf = db.query(PDFModel).filter(PDFModel.file_id == file_id).first()
+            pdf = db_session.query(PDFModel).filter(PDFModel.id == pdf_id).first()
             if pdf:
                 logger.debug(f"[ERROR_STATUS_UPDATE] Setting status to 'error' for PDF {file_id}")
                 pdf.status = "error"
                 pdf.error_message = str(e)
-                db.commit()
+                db_session.commit()
         except Exception as db_error:
             logger.error(f"[DB_ERROR] Error updating PDF record: {str(db_error)}")
 

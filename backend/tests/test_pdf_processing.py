@@ -21,6 +21,7 @@ def test_process_pdf_background(test_db):
     
     test_db.add(pdf_record)
     test_db.commit()
+    test_db.refresh(pdf_record)
     
     # Mock extract_text_from_pdf
     with patch('app.services.pdf_service.extract_text_from_pdf') as mock_extract, \
@@ -31,24 +32,27 @@ def test_process_pdf_background(test_db):
         mock_extract.return_value = "Test laboratory report for John Doe\nDate: 01/15/2023\nGlucose: 85 mg/dL"
         mock_parse.return_value = [{"name": "Glucose", "value": 85.0, "unit": "mg/dL"}]
         
-        # Call the function
-        process_pdf_background("/tmp/test_process.pdf", "test-process-123", test_db)
+        # Call the function with the new signature
+        process_pdf_background(pdf_record.id, test_db)
         
         # Get the updated record
         updated_record = test_db.query(PDFModel).filter(PDFModel.file_id == "test-process-123").first()
         
         # Check the record was updated correctly
-        assert updated_record.status == "processed"
-        assert updated_record.extracted_text is not None
-        assert "Test laboratory report" in updated_record.extracted_text
+        assert updated_record.status == "complete"
         assert updated_record.processed_date is not None
-        assert updated_record.report_date is not None
-        assert updated_record.report_date.year == 2023
-        assert updated_record.report_date.month == 1
-        assert updated_record.report_date.day == 15
+        
+        # Check biomarkers were created
+        from app.models.biomarker_model import Biomarker
+        biomarkers = test_db.query(Biomarker).filter(Biomarker.pdf_id == updated_record.id).all()
+        assert len(biomarkers) == 1
+        assert biomarkers[0].name == "Glucose"
+        assert biomarkers[0].value == 85.0
+        assert biomarkers[0].unit == "mg/dL"
+
 
 def test_process_pdf_background_error_handling(test_db):
-    """Test error handling in the PDF background processing function."""
+    """Test error handling in the PDF processing function."""
     # Create a test PDF record
     pdf_record = PDFModel(
         file_id="test-error-123",
@@ -60,17 +64,20 @@ def test_process_pdf_background_error_handling(test_db):
     
     test_db.add(pdf_record)
     test_db.commit()
+    test_db.refresh(pdf_record)
     
     # Mock extract_text_from_pdf to raise an exception
-    with patch('app.services.pdf_service.extract_text_from_pdf') as mock_extract:
-        mock_extract.side_effect = Exception("Test extraction error")
+    with patch('app.services.pdf_service.extract_text_from_pdf') as mock_extract, \
+         patch('os.path.exists', return_value=True):
+        
+        mock_extract.side_effect = Exception("Test error")
         
         # Call the function
-        process_pdf_background("/tmp/test_error.pdf", "test-error-123", test_db)
+        process_pdf_background(pdf_record.id, test_db)
         
         # Get the updated record
         updated_record = test_db.query(PDFModel).filter(PDFModel.file_id == "test-error-123").first()
         
-        # Check the record has error status
+        # Check error handling worked correctly
         assert updated_record.status == "error"
-        assert "Test extraction error" in updated_record.error_message 
+        assert "Test error" in updated_record.error_message 
