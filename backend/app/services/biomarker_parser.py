@@ -565,8 +565,8 @@ def _process_biomarker(biomarker: Dict[str, Any]) -> Dict[str, Any]:
             "original_name": biomarker.get("original_name", biomarker.get("name", "Unknown Biomarker")),
             "value": 0.0,
             "original_value": str(biomarker.get("value", "")),
-            "unit": biomarker.get("unit", ""),
-            "original_unit": biomarker.get("original_unit", biomarker.get("unit", "")),
+            "unit": standardize_unit(biomarker.get("unit", biomarker.get("original_unit", "-"))),
+            "original_unit": biomarker.get("original_unit", biomarker.get("unit", "-")),
             "category": "Other",
             "is_abnormal": False,
             "reference_range_text": biomarker.get("reference_range", ""),
@@ -781,7 +781,7 @@ def standardize_unit(unit: str) -> str:
         Standardized unit string
     """
     if not unit:
-        return ""
+        return "-"  # Default placeholder for empty units
         
     # Remove extra spaces
     unit = unit.strip()

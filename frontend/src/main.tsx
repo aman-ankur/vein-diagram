@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { CssBaseline, ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material';
 import App from './App';
@@ -225,7 +225,7 @@ const baseTheme = createTheme({
 });
 
 // Make typography responsive
-const theme = responsiveFontSizes(baseTheme);
+export const theme = responsiveFontSizes(baseTheme);
 
 // Log to console to verify script is running
 console.log('main.tsx is executing - With Enhanced Material UI Theme');
@@ -249,10 +249,11 @@ function renderApp() {
   }
   
   try {
-    console.log('Attempting to render with enhanced Material UI');
+    console.log('Attempting to render with modern React 18 API');
     
-    // Use the legacy render method with BrowserRouter and ThemeProvider
-    ReactDOM.render(
+    // Use the modern createRoot API for React 18
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(
       <React.StrictMode>
         <ThemeProvider theme={theme}>
           <CssBaseline />
@@ -260,8 +261,7 @@ function renderApp() {
             <App />
           </BrowserRouter>
         </ThemeProvider>
-      </React.StrictMode>,
-      rootElement
+      </React.StrictMode>
     );
     
     console.log('React rendering with enhanced Material UI completed');

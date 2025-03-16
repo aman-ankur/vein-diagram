@@ -9,7 +9,7 @@ class BiomarkerResponse(BaseModel):
     pdf_id: int
     name: str = Field(..., description="Standardized name of the biomarker")
     value: float = Field(..., description="Standardized numeric value of the biomarker")
-    unit: str = Field(..., description="Standardized unit of measurement")
+    unit: Optional[str] = Field("", description="Standardized unit of measurement")
     original_name: Optional[str] = Field(None, description="Original name as found in the lab report")
     original_value: Optional[str] = Field(None, description="Original value as found in the lab report (as a string)")
     original_unit: Optional[str] = Field(None, description="Original unit as found in the lab report")
