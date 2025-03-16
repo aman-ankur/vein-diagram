@@ -5,6 +5,7 @@ import uuid
 import logging
 from sqlalchemy.orm import Session
 from datetime import datetime
+import hashlib
 
 from app.services.pdf_service import extract_text_from_pdf, parse_biomarkers_from_text, process_pdf_background
 from app.schemas.pdf_schema import PDFResponse, PDFStatusResponse, PDFListResponse
@@ -54,6 +55,18 @@ def validate_pdf(file: UploadFile) -> None:
     if file_size > max_size:
         raise HTTPException(status_code=400, detail=f"File size exceeds the maximum limit of 30MB. Current size: {file_size / (1024 * 1024):.2f}MB")
 
+def compute_file_hash(file_content):
+    """
+    Compute a hash of the file content to identify duplicate uploads.
+    
+    Args:
+        file_content: The binary content of the file
+        
+    Returns:
+        str: Hash of the file content
+    """
+    return hashlib.sha256(file_content).hexdigest()
+
 @router.post("/upload", response_model=PDFResponse)
 async def upload_pdf(
     background_tasks: BackgroundTasks,
@@ -75,27 +88,49 @@ async def upload_pdf(
         # Validate file
         validate_pdf(file)
         
+        # Read file content for hash calculation
+        file_content = await file.read()
+        file_hash = compute_file_hash(file_content)
+        logger.info(f"File hash: {file_hash}")
+        
+        # Check if the file has been uploaded before based on hash
+        existing_pdf = db.query(PDFModel).filter(PDFModel.processing_details.contains({"file_hash": file_hash})).first()
+        if existing_pdf:
+            logger.info(f"File with hash {file_hash} has already been uploaded (file ID: {existing_pdf.file_id})")
+            # Return the existing file ID
+            return {
+                "file_id": existing_pdf.file_id,
+                "filename": existing_pdf.filename,
+                "status": existing_pdf.status,
+                "message": "File has already been uploaded and processed. Returning existing data."
+            }
+        
+        # Reset file position to start for saving
+        file.file.seek(0)
+        
         # Generate a unique ID for the file
         file_id = str(uuid.uuid4())
         
-        # Save the file
-        file_path = os.path.join(UPLOAD_DIR, f"{file_id}.pdf")
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        # Create a unique filename
+        unique_filename = f"{file_id}_{file.filename}"
         
-        # Create a database record
-        pdf_record = PDFModel(
+        # Create the file path
+        file_path = os.path.join(UPLOAD_DIR, unique_filename)
+        
+        # Save the file
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        # Create a PDF record in the database
+        pdf = PDFModel(
             file_id=file_id,
             filename=file.filename,
-            upload_date=datetime.utcnow(),
+            file_path=file_path,
             status="pending",
-            file_path=file_path
+            processing_details={"file_hash": file_hash}  # Store the file hash
         )
-        
-        db.add(pdf_record)
+        db.add(pdf)
         db.commit()
-        db.refresh(pdf_record)
         
         # Process the PDF in the background
         background_tasks.add_task(process_pdf_background, file_path, file_id, db)
@@ -106,7 +141,7 @@ async def upload_pdf(
             file_id=file_id,
             filename=file.filename,
             status="pending",
-            message="File uploaded successfully and is being processed"
+            message="File uploaded successfully. Processing started."
         )
     except HTTPException:
         # Re-raise HTTP exceptions

@@ -404,6 +404,18 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
                 original_unit = biomarker_data.get("original_unit", "")
                 unit = biomarker_data.get("unit", original_unit)
                 
+                # Check if this biomarker already exists to prevent duplicates
+                existing_biomarker = db.query(Biomarker).filter(
+                    Biomarker.name == biomarker_data["name"],
+                    Biomarker.value == biomarker_value,
+                    Biomarker.unit == standardize_unit(unit)
+                ).first()
+                
+                if existing_biomarker:
+                    logger.info(f"[BIOMARKER_DUPLICATE] Skipping duplicate biomarker: {biomarker_data['name']} = {biomarker_value} {unit}")
+                    continue
+                
+                # If biomarker doesn't exist, create a new one
                 biomarker = Biomarker(
                     pdf_id=pdf.id,
                     name=biomarker_data["name"],

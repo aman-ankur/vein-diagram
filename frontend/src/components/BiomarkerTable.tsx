@@ -71,6 +71,17 @@ const columns: Column[] = [
 
 // Check if biomarker value is outside reference range
 const isOutsideRange = (biomarker: Biomarker): boolean | undefined => {
+  // First check if is_abnormal is already set
+  if (biomarker.isAbnormal !== undefined) {
+    return biomarker.isAbnormal;
+  }
+  
+  // Then check reference range values if available
+  if (biomarker.reference_range_low !== undefined && biomarker.reference_range_high !== undefined) {
+    return biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high;
+  }
+  
+  // If not, try to parse the reference range text
   if (!biomarker.referenceRange) return undefined;
   
   // Handle different reference range formats
