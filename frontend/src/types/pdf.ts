@@ -98,6 +98,11 @@ export interface ProcessingStatus {
  */
 export interface Biomarker {
   /**
+   * Unique identifier for the biomarker
+   */
+  id: number;
+  
+  /**
    * Name of the biomarker (e.g., "Glucose", "Cholesterol")
    */
   name: string;
@@ -118,6 +123,16 @@ export interface Biomarker {
   referenceRange?: string;
   
   /**
+   * Lower bound of reference range
+   */
+  reference_range_low?: number | null;
+  
+  /**
+   * Upper bound of reference range
+   */
+  reference_range_high?: number | null;
+  
+  /**
    * Category of the biomarker (e.g., "Lipids", "Metabolic")
    */
   category?: string;
@@ -131,6 +146,11 @@ export interface Biomarker {
    * Date when the biomarker was measured
    */
   date?: string;
+  
+  /**
+   * Test date when the biomarker was measured (different format used in some components)
+   */
+  testDate?: string;
   
   /**
    * Source file ID

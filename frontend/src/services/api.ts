@@ -285,9 +285,23 @@ export const getBiomarkersByFileId = async (fileId: string): Promise<Biomarker[]
   
   return withRetry(async () => {
     try {
-      // Use the correct API endpoint format: /api/biomarkers/pdf/{fileId}
-      const response = await api.get(`/api/biomarkers/pdf/${fileId}`);
-      return response.data;
+      // Use the correct API endpoint format: /api/pdf/{fileId}/biomarkers
+      const response = await api.get(`/api/pdf/${fileId}/biomarkers`);
+      
+      // Map the backend response to the frontend Biomarker model
+      return response.data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        value: item.value,
+        unit: item.unit || '',
+        referenceRange: item.reference_range_text || 
+                       (item.reference_range_low !== null && item.reference_range_high !== null ? 
+                        `${item.reference_range_low}-${item.reference_range_high}` : undefined),
+        category: item.category || 'Other',
+        isAbnormal: item.is_abnormal || false,
+        fileId,
+        date: new Date().toISOString() // Use current date as fallback
+      }));
     } catch (error) {
       console.error(`Failed to get biomarkers for file ${fileId}:`, error);
       if (axios.isAxiosError(error) && error.response) {
@@ -310,7 +324,21 @@ export const getAllBiomarkers = async (params?: {
   return withRetry(async () => {
     try {
       const response = await api.get('/api/biomarkers', { params });
-      return response.data;
+      
+      // Map the backend response to the frontend Biomarker model
+      return response.data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        value: item.value,
+        unit: item.unit || '',
+        referenceRange: item.reference_range_text || 
+                       (item.reference_range_low !== null && item.reference_range_high !== null ? 
+                        `${item.reference_range_low}-${item.reference_range_high}` : undefined),
+        category: item.category || 'Other',
+        isAbnormal: item.is_abnormal || false,
+        fileId: item.pdf ? item.pdf.file_id : undefined,
+        date: new Date().toISOString() // Use current date as fallback
+      }));
     } catch (error) {
       console.error('Failed to get all biomarkers:', error);
       if (axios.isAxiosError(error) && error.response) {

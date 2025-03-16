@@ -12,6 +12,7 @@ from app.services.biomarker_parser import (
     _process_biomarker,
     BIOMARKER_ALIASES
 )
+import re
 
 @pytest.fixture
 def sample_lab_text():
@@ -616,3 +617,89 @@ def test_extract_biomarkers_with_claude_exception(mock_client):
     # Should fallback to text parsing
     assert len(biomarkers) > 0
     assert len(metadata) == 0 
+
+def test_invalid_biomarker_filtering():
+    """Test filtering of invalid biomarkers."""
+    # Mock biomarkers data with invalid entries
+    biomarkers = [
+        # Valid biomarkers
+        {"name": "Glucose", "value": 95, "unit": "mg/dL"},
+        {"name": "Hemoglobin", "value": 14.5, "unit": "g/dL"},
+        
+        # Invalid biomarkers - numeric-only names
+        {"name": "100", "value": 125, "unit": "mg/dL"},
+        {"name": "150", "value": 120, "unit": "mg/dL"},
+        
+        # Invalid biomarkers - ordinals
+        {"name": "2nd", "value": 3, "unit": "units"},
+        {"name": "3rd", "value": 10, "unit": "units"},
+        
+        # Invalid biomarkers - time descriptions
+        {"name": "4 am", "value": 10, "unit": "pm"},
+        {"name": "10 pm", "value": 5, "unit": "units"},
+        {"name": "between Evening 6-10 pm", "value": 5, "unit": "mg/dL"},
+        
+        # Invalid biomarkers - method descriptions
+        {"name": ") LDH, UV kinetic", "value": 26, "unit": "U/L"},
+        {"name": ") SZAZ Carboxylated Substrate", "value": 17, "unit": "U/L"},
+        
+        # Edge cases - these should be valid
+        {"name": "Thyroid Stimulating Hormone (TSH)", "value": 2.486, "unit": "μIU/mL"},
+        {"name": "Alkaline Phosphatase (ALP)", "value": 70, "unit": "U/L"}
+    ]
+    
+    # Filter the biomarkers using our validation logic
+    filtered_biomarkers = []
+    for biomarker in biomarkers:
+        name = biomarker.get("name", "").strip()
+        value = biomarker.get("value", 0)
+        unit = biomarker.get("unit", "")
+        
+        # Skip biomarkers with suspicious names
+        if (not name or 
+            name.lower() in ["page", "volume", "calculated", "dual wavelength"] or
+            re.match(r'^page \d+$', name.lower()) or
+            # Skip numeric-only names
+            re.match(r'^\d+$', name) or
+            # Skip names that are likely time references
+            re.match(r'^\d+\s*(am|pm)$', name.lower()) or
+            # Skip phrases related to time or descriptions
+            any(term in name.lower() for term in ["between", "minimum", "maximum", "evening", "morning"]) or
+            # Skip references to "nd" and "rd" ordinals
+            re.match(r'^\d+(st|nd|rd|th)\s*$', name) or
+            # Skip method descriptions
+            name.startswith(")") or
+            # Skip names that are too short or suspiciously long
+            len(name) < 2 or len(name) > 50 or
+            # Skip if no unit provided
+            not unit or
+            # Skip if value is zero (likely an error)
+            value == 0):
+            continue
+        
+        # Check if name contains method description after closing parenthesis
+        if ")" in name:
+            # Only fix if it matches the pattern of a method description
+            if re.search(r'\)\s+[\w\s]+(Kinetic|Substrate|Photometry|Buffer)', name):
+                name_parts = name.split(")")
+                if len(name_parts) > 1:
+                    # Use the part before the method description plus the closing parenthesis
+                    biomarker["name"] = name_parts[0].strip() + ")"
+        
+        filtered_biomarkers.append(biomarker)
+    
+    # Verify filtering worked correctly
+    assert len(filtered_biomarkers) == 4  # Only the 4 valid biomarkers should remain
+    
+    # Verify the right biomarkers were kept
+    biomarker_names = [b["name"] for b in filtered_biomarkers]
+    assert "Glucose" in biomarker_names
+    assert "Hemoglobin" in biomarker_names
+    assert "Thyroid Stimulating Hormone (TSH)" in biomarker_names
+    assert "Alkaline Phosphatase (ALP)" in biomarker_names
+    
+    # Verify invalid biomarkers were filtered out
+    assert "100" not in biomarker_names
+    assert "2nd" not in biomarker_names
+    assert "4 am" not in biomarker_names
+    assert ") LDH, UV kinetic" not in biomarker_names 

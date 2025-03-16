@@ -124,11 +124,23 @@ const VisualizePage: React.FC = () => {
           biomarkersData = await getAllBiomarkers();
         }
         
-        // Set biomarkers and construct time series data
-        setBiomarkers(biomarkersData);
+        // Deduplicate biomarkers
+        const uniqueBiomarkers: Biomarker[] = [];
+        const uniqueKeys = new Set<string>();
         
-        if (biomarkersData.length > 0) {
-          const timeSeriesData = constructTimeSeriesData(biomarkersData);
+        biomarkersData.forEach(biomarker => {
+          const key = `${biomarker.name}_${biomarker.value}_${biomarker.unit}`;
+          if (!uniqueKeys.has(key)) {
+            uniqueKeys.add(key);
+            uniqueBiomarkers.push(biomarker);
+          }
+        });
+        
+        // Set biomarkers and construct time series data
+        setBiomarkers(uniqueBiomarkers);
+        
+        if (uniqueBiomarkers.length > 0) {
+          const timeSeriesData = constructTimeSeriesData(uniqueBiomarkers);
           setTimeSeriesData(timeSeriesData);
           
           const biomarkerNames = Object.keys(timeSeriesData);
@@ -139,7 +151,7 @@ const VisualizePage: React.FC = () => {
           }
           
           // Get unique categories
-          const categories = [...new Set(biomarkersData.map(b => b.category || 'Uncategorized'))];
+          const categories = [...new Set(uniqueBiomarkers.map(b => b.category || 'Uncategorized'))];
           setBiomarkerCategories(['All', ...categories]);
         }
         

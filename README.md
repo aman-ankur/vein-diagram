@@ -151,6 +151,23 @@ cd backend
 pytest
 ```
 
-## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+## Database Cleanup
+
+   To delete all existing data related to biomarkers and PDFs in the database, you can use the provided cleanup script. This script will create a backup of the database before performing the deletion.
+
+   ### Steps to Run the Cleanup Script
+
+   1. **Navigate to the Backend Directory**: Open your terminal and navigate to the backend directory of your project:
+      ```bash
+      cd /path/to/your/project/backend
+      ```
+
+   2. **Run the Cleanup Script**: Execute the following command to run the cleanup script:
+      ```bash
+      python3 db_cleanup.py
+      ```
+
+   3. **Confirm the Operation**: The script will prompt you for confirmation before proceeding with the deletion. Type `y` and press Enter to confirm.
+
+   **Note**: This operation will permanently delete all data from the database, so ensure you have a backup if needed.
