@@ -5,52 +5,53 @@ import { CssBaseline, ThemeProvider, createTheme, responsiveFontSizes } from '@m
 import App from './App';
 import './styles/global.css';
 
-// Create a theme instance with a more professional design
+// Create a dark, sleek, futuristic theme
 const baseTheme = createTheme({
   palette: {
+    mode: 'dark',
     primary: {
-      light: '#5e72e4',
-      main: '#3f51b5',
-      dark: '#2c3e8f',
+      light: '#6573c3',
+      main: '#2c3e50', // Darker blue for primary
+      dark: '#1a2639',
       contrastText: '#ffffff',
     },
     secondary: {
-      light: '#12d8c0',
-      main: '#00bfa5',
-      dark: '#008b76',
-      contrastText: '#000000',
+      light: '#33eaff',
+      main: '#00b8d4', // Bright cyan for accents
+      dark: '#0088a3',
+      contrastText: '#ffffff',
     },
     background: {
-      default: '#f8f9fa',
-      paper: '#ffffff',
+      default: '#121212', // Very dark background
+      paper: '#1e1e1e',   // Dark paper background
     },
     error: {
-      main: '#f44336',
+      main: '#ff5252',
     },
     success: {
-      main: '#4caf50',
+      main: '#69f0ae',
     },
     warning: {
-      main: '#ff9800',
+      main: '#ffc107',
     },
     info: {
-      main: '#0288d1',
+      main: '#64b5f6',
     },
     text: {
-      primary: '#1f2937',
-      secondary: '#6b7280',
+      primary: '#ffffff',
+      secondary: '#b0bec5',
     },
     grey: {
-      50: '#f9fafb',
-      100: '#f3f4f6',
-      200: '#e5e7eb',
-      300: '#d1d5db',
-      400: '#9ca3af',
-      500: '#6b7280',
-      600: '#4b5563',
-      700: '#374151',
-      800: '#1f2937',
-      900: '#111827',
+      50: '#fafafa',
+      100: '#f5f5f5',
+      200: '#eeeeee',
+      300: '#e0e0e0',
+      400: '#bdbdbd',
+      500: '#9e9e9e',
+      600: '#757575',
+      700: '#616161',
+      800: '#424242',
+      900: '#212121',
     },
   },
   typography: {
@@ -143,7 +144,7 @@ const baseTheme = createTheme({
     },
   },
   shape: {
-    borderRadius: 8,
+    borderRadius: 12, // More rounded corners for futuristic look
   },
   components: {
     MuiButton: {
@@ -153,18 +154,35 @@ const baseTheme = createTheme({
           padding: '10px 24px',
           transition: 'all 0.2s ease-in-out',
           boxShadow: 'none',
+          position: 'relative',
+          overflow: 'hidden',
           '&:hover': {
             transform: 'translateY(-2px)',
-            boxShadow: '0 5px 15px rgba(0, 0, 0, 0.05)',
+            boxShadow: '0 8px 15px rgba(0, 184, 212, 0.2)',
+            '&::after': {
+              opacity: 1,
+            },
+          },
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0))',
+            opacity: 0,
+            transition: 'opacity 0.2s ease-in-out',
           },
         },
         contained: {
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+          boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
         },
         outlined: {
           borderWidth: 1.5,
           '&:hover': {
             borderWidth: 1.5,
+            boxShadow: '0 0 12px rgba(0, 184, 212, 0.5)',
           },
         },
       },
@@ -172,12 +190,14 @@ const baseTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+          borderRadius: 16,
+          boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
           transition: 'all 0.3s ease',
+          background: 'linear-gradient(145deg, #1e1e1e, #2d2d2d)',
+          backdropFilter: 'blur(10px)',
           '&:hover': {
             transform: 'translateY(-4px)',
-            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.08)',
+            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.3)',
           },
         },
       },
@@ -185,26 +205,28 @@ const baseTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+          backdropFilter: 'blur(10px)',
+          background: 'rgba(30, 30, 30, 0.8)',
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 16,
         },
         elevation1: {
-          boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         },
         elevation2: {
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
+          boxShadow: '0 6px 16px rgba(0, 0, 0, 0.18)',
         },
         elevation3: {
-          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.07)',
+          boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
         },
         elevation4: {
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
+          boxShadow: '0 10px 24px rgba(0, 0, 0, 0.22)',
         },
       },
     },
@@ -212,11 +234,38 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
-            transition: 'border-color 0.2s ease',
+            borderRadius: 12,
+            transition: 'all 0.2s ease',
             '&:hover fieldset': {
-              borderColor: '#3f51b5',
+              borderColor: '#00b8d4',
+              boxShadow: '0 0 8px rgba(0, 184, 212, 0.3)',
             },
+            '&.Mui-focused fieldset': {
+              borderColor: '#00b8d4',
+              boxShadow: '0 0 12px rgba(0, 184, 212, 0.4)',
+            },
+          },
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        },
+        head: {
+          fontWeight: 600,
+          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            boxShadow: '0 2px 8px rgba(0, 184, 212, 0.3)',
           },
         },
       },
@@ -228,7 +277,7 @@ const baseTheme = createTheme({
 export const theme = responsiveFontSizes(baseTheme);
 
 // Log to console to verify script is running
-console.log('main.tsx is executing - With Enhanced Material UI Theme');
+console.log('main.tsx is executing - With Enhanced Dark UI Theme');
 
 // Function to attempt rendering with different methods
 function renderApp() {
