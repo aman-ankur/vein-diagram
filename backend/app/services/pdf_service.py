@@ -12,8 +12,14 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 import pdfplumber
 import pandas as pd
+import re
 
-from app.services.biomarker_parser import extract_biomarkers_with_claude, parse_biomarkers_from_text, standardize_unit
+from app.services.biomarker_parser import (
+    extract_biomarkers_with_claude,
+    parse_biomarkers_from_text,
+    standardize_unit,
+    _preprocess_text_for_claude
+)
 from app.models.biomarker_model import Biomarker
 
 # Configure logging with more detailed format
@@ -243,40 +249,25 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
                 page = pdf_doc.pages[page_num]
                 page_text = page.extract_text() or ""
                 
-                # Extract tables from the page and append to page_text
-                tables = page.extract_tables()
-                for table in tables:
-                    df = pd.DataFrame(table)
-                    page_text += "\n" + df.to_string(index=False, header=False)
+                # Preprocess the text for Claude
+                processed_text = _preprocess_text_for_claude(page_text)
                 
-                # Skip processing if page is empty or has very little text
-                if len(page_text.strip()) < 100:
-                    logger.debug(f"[PAGE_SKIPPED] Page {page_num + 1} has insufficient text (length: {len(page_text)})")
-                    continue
+                # Extract biomarkers from the processed text
+                page_biomarkers, page_metadata = extract_biomarkers_with_claude(
+                    processed_text, 
+                    f"{filename} - page {page_num + 1}"
+                )
                 
-                try:
-                    # Extract biomarkers from the page
-                    logger.info(f"[PAGE_BIOMARKER_EXTRACTION] Extracting biomarkers from page {page_num + 1}")
-                    page_biomarkers, page_metadata = extract_biomarkers_with_claude(
-                        page_text, 
-                        f"{filename} - page {page_num + 1}"
-                    )
-                    
-                    # Add page biomarkers to the overall list
-                    if page_biomarkers:
-                        logger.info(f"[PAGE_BIOMARKERS_FOUND] Found {len(page_biomarkers)} biomarkers on page {page_num + 1}")
-                        biomarkers_data.extend(page_biomarkers)
-                    
-                    # Update metadata if empty
-                    if not metadata and page_metadata:
-                        logger.debug(f"[PAGE_METADATA_FOUND] Found metadata on page {page_num + 1}")
-                        metadata = page_metadata
-                    
-                except Exception as page_error:
-                    logger.error(f"[PAGE_PROCESSING_ERROR] Error processing page {page_num + 1}: {str(page_error)}")
-                    # Continue with next page rather than failing entire job
-                    continue
-            
+                # Add page biomarkers to the overall list
+                if page_biomarkers:
+                    logger.info(f"[PAGE_BIOMARKERS_FOUND] Found {len(page_biomarkers)} biomarkers on page {page_num + 1}")
+                    biomarkers_data.extend(page_biomarkers)
+                
+                # Update metadata if empty
+                if not metadata and page_metadata:
+                    logger.debug(f"[PAGE_METADATA_FOUND] Found metadata on page {page_num + 1}")
+                    metadata = page_metadata
+                
             # Log total biomarkers found
             logger.info(f"[BIOMARKER_EXTRACTION_COMPLETE] Total biomarkers found: {len(biomarkers_data)}")
             
@@ -367,16 +358,48 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
         
         for i, biomarker_data in enumerate(biomarkers_data):
             try:
-                # Skip biomarkers with empty values for critical fields
-                if not biomarker_data.get("name"):
-                    logger.warning(f"[BIOMARKER_STORAGE_SKIP] Skipping biomarker {i} due to missing name")
+                logger.debug(f"[BIOMARKER_STORAGE] Processing biomarker {i+1}/{len(biomarkers_data)}: {biomarker_data.get('name', 'Unknown')}")
+                
+                # Get confidence score from Claude
+                confidence = float(biomarker_data.get("confidence", 0.5))
+                
+                name = biomarker_data.get("name", "").strip()
+                
+                # Apply minimal validation based on confidence
+                if not name or len(name) < 2:
+                    logger.warning(f"[INVALID_BIOMARKER_NAME] Skipping biomarker with invalid name: {name}")
                     continue
                     
-                # Handle edge cases where value might be None or empty
-                biomarker_value = biomarker_data.get("value", 0.0)
-                if biomarker_value is None or (isinstance(biomarker_value, str) and not biomarker_value.strip()):
-                    logger.warning(f"[BIOMARKER_STORAGE_EMPTY_VALUE] Empty value for biomarker {biomarker_data.get('name')}, using 0.0")
-                    biomarker_value = 0.0
+                # Skip if confidence is too low
+                if confidence < 0.6:  # Require at least 60% confidence
+                    logger.warning(f"[LOW_CONFIDENCE_BIOMARKER] Skipping low confidence biomarker: {name} (confidence: {confidence})")
+                    continue
+                    
+                # Skip biomarkers with invalid values
+                try:
+                    biomarker_value = float(biomarker_data.get("value", 0))
+                    if biomarker_value == 0 and "0" not in str(biomarker_data.get("original_value", "")):
+                        logger.warning(f"[INVALID_BIOMARKER_VALUE] Skipping biomarker with value 0: {name}")
+                        continue
+                except (ValueError, TypeError):
+                    logger.warning(f"[INVALID_BIOMARKER_VALUE] Could not convert value to float: {biomarker_data.get('value')}")
+                    continue
+                    
+                # Skip biomarkers with invalid units
+                unit = biomarker_data.get("unit", "").strip()
+                if not unit:
+                    logger.warning(f"[INVALID_BIOMARKER_UNIT] Skipping biomarker with no unit: {name}")
+                    continue
+                
+                # Fix method descriptions in parentheses if needed
+                if ")" in name and not name.endswith(")"):
+                    name_parts = name.split(")")
+                    if len(name_parts) > 1:
+                        # Use the part before the method description plus the closing parenthesis
+                        fixed_name = name_parts[0].strip() + ")"
+                        logger.info(f"[BIOMARKER_NAME_FIXED] Fixed method description in name: '{name}' -> '{fixed_name}'")
+                        biomarker_data["name"] = fixed_name
+                        name = fixed_name
                 
                 # Ensure original_value is always a string
                 original_value = str(biomarker_data.get("original_value", ""))
@@ -404,6 +427,28 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
                 original_unit = biomarker_data.get("original_unit", "")
                 unit = biomarker_data.get("unit", original_unit)
                 
+                # Check if this biomarker already exists to prevent duplicates
+                existing_biomarker = db.query(Biomarker).filter(
+                    Biomarker.name == biomarker_data["name"],
+                    Biomarker.value == biomarker_value,
+                    Biomarker.unit == standardize_unit(unit)
+                ).first()
+                
+                if existing_biomarker:
+                    logger.info(f"[BIOMARKER_DUPLICATE] Skipping duplicate biomarker: {biomarker_data['name']} = {biomarker_value} {unit}")
+                    continue
+                
+                # Process category to ensure it's a valid category
+                category = biomarker_data.get("category", "Other")
+                valid_categories = [
+                    "Lipid", "Metabolic", "Liver", "Kidney", "Electrolyte", 
+                    "Blood", "Thyroid", "Vitamin", "Hormone", "Immunology", 
+                    "Cardiovascular", "Other"
+                ]
+                if category not in valid_categories:
+                    category = "Other"
+                
+                # If biomarker doesn't exist, create a new one
                 biomarker = Biomarker(
                     pdf_id=pdf.id,
                     name=biomarker_data["name"],
@@ -415,7 +460,7 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
                     reference_range_low=reference_range_low,
                     reference_range_high=reference_range_high,
                     reference_range_text=biomarker_data.get("reference_range_text", ""),
-                    category=biomarker_data.get("category", "Other"),
+                    category=category,
                     is_abnormal=biomarker_data.get("is_abnormal", False),
                     notes=biomarker_data.get("notes", "")
                 )

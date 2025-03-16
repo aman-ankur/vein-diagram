@@ -71,9 +71,10 @@ const BiomarkerPage: React.FC = () => {
         
         let biomarkersData: Biomarker[];
         
-        // Get biomarkers for specific file or all biomarkers
         if (fileId) {
+          // Fetch biomarkers for the specific file
           biomarkersData = await getBiomarkersByFileId(fileId);
+          
           // Set metadata if available (from first biomarker's PDF)
           if (biomarkersData.length > 0) {
             // Here we would fetch metadata for the file
@@ -91,7 +92,19 @@ const BiomarkerPage: React.FC = () => {
           });
         }
         
-        setBiomarkers(biomarkersData);
+        // Deduplicate biomarkers
+        const uniqueBiomarkers: Biomarker[] = [];
+        const uniqueKeys = new Set<string>();
+        
+        biomarkersData.forEach(biomarker => {
+          const key = `${biomarker.name}_${biomarker.value}_${biomarker.unit}`;
+          if (!uniqueKeys.has(key)) {
+            uniqueKeys.add(key);
+            uniqueBiomarkers.push(biomarker);
+          }
+        });
+        
+        setBiomarkers(uniqueBiomarkers);
         
         // Fetch available categories
         const categoriesData = await getBiomarkerCategories();
