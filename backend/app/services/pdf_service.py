@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 import pdfplumber
 import pandas as pd
 
-from app.services.biomarker_parser import extract_biomarkers_with_claude, parse_biomarkers_from_text
+from app.services.biomarker_parser import extract_biomarkers_with_claude, parse_biomarkers_from_text, standardize_unit
 from app.models.biomarker_model import Biomarker
 
 # Configure logging with more detailed format
@@ -233,7 +233,7 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
             logger.info(f"[PDF_INFO] PDF has {total_pages} pages")
             
             # Limit to first 6 pages to reduce API costs
-            max_pages = min(6, total_pages)
+            max_pages = min(3, total_pages)
             logger.info(f"[PAGE_LIMIT] Processing only the first {max_pages} pages to optimize API usage")
             
             for page_num in range(max_pages):
@@ -399,14 +399,19 @@ def process_pdf_background(file_path: str, file_id: str, db: Session) -> None:
                         reference_range_high = None
 
                 # Create a biomarker record
+                from app.services.biomarker_parser import standardize_unit
+                
+                original_unit = biomarker_data.get("original_unit", "")
+                unit = biomarker_data.get("unit", original_unit)
+                
                 biomarker = Biomarker(
                     pdf_id=pdf.id,
                     name=biomarker_data["name"],
                     original_name=biomarker_data.get("original_name", biomarker_data["name"]),
                     original_value=original_value,
-                    original_unit=biomarker_data.get("original_unit", ""),
+                    original_unit=original_unit,
                     value=biomarker_value,
-                    unit=biomarker_data.get("unit", ""),
+                    unit=standardize_unit(unit),  # Ensure unit is standardized and never null
                     reference_range_low=reference_range_low,
                     reference_range_high=reference_range_high,
                     reference_range_text=biomarker_data.get("reference_range_text", ""),

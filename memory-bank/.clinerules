@@ -1,0 +1,116 @@
+# Vein Diagram: Project Intelligence
+
+## Project Patterns
+
+### Naming Conventions
+- **Frontend Components**: PascalCase (e.g., `BiomarkerVisualization.tsx`)
+- **Frontend Utilities/Hooks**: camelCase (e.g., `useApiData.ts`)
+- **Backend Modules**: snake_case (e.g., `biomarker_parser.py`)
+- **API Endpoints**: kebab-case (e.g., `/api/biomarkers/time-series`)
+
+### File Organization
+- Frontend components are organized by feature/purpose, not by type
+- Backend follows a service-oriented architecture with clear separation of concerns
+- Tests are co-located with the code they test in the backend
+- Frontend tests are named with `.test.tsx` suffix
+
+### Code Style
+- TypeScript is used for all frontend code
+- Python type hints are used throughout the backend
+- React functional components with hooks are preferred over class components
+- FastAPI dependency injection is used for service composition
+
+## Development Workflow
+
+### Local Development
+- Backend server runs on port 8000 by default
+- Frontend development server runs on port 3000
+- Frontend proxies API requests to the backend during development
+- Python virtual environment is used for backend dependencies
+
+### Testing Approach
+- Unit tests for individual components and services
+- Integration tests for API endpoints and data flow
+- Sample PDF reports are used for testing the extraction pipeline
+- Jest is used for frontend testing, pytest for backend
+
+## Critical Implementation Paths
+
+### PDF Processing Pipeline
+1. PDF upload via frontend
+2. Storage in temporary location
+3. Text extraction using PyMuPDF/pdfplumber
+4. Biomarker identification using pattern matching
+5. Value and reference range extraction
+6. Storage in database
+7. Response to frontend with processing status
+
+### Visualization Flow
+1. User selects biomarkers or visualization type
+2. Frontend requests data from API
+3. Backend retrieves and formats data
+4. Frontend renders visualization using D3.js/Recharts
+5. User interacts with visualization (zoom, filter, etc.)
+6. Additional context loaded on demand (e.g., Claude insights)
+
+## Known Challenges
+
+### PDF Extraction Complexity
+- Different lab providers use vastly different formats
+- Some PDFs contain images that require OCR
+- Table structures vary significantly between providers
+- Reference ranges may be presented inconsistently
+
+### Biomarker Standardization
+- Same biomarker may have different names across labs
+- Units of measurement may vary (e.g., mg/dL vs. mmol/L)
+- Reference ranges differ between labs and patient demographics
+- Some biomarkers have complex relationships that are difficult to visualize
+
+### Performance Considerations
+- PDF processing can be CPU-intensive
+- Large datasets may impact visualization performance
+- Claude API calls need to be managed efficiently
+- Mobile devices may struggle with complex visualizations
+
+## User Preferences
+
+### Visualization Preferences
+- Clean, minimalist design with focus on data clarity
+- Color schemes should be meaningful (e.g., red for out-of-range values)
+- Interactive elements should be intuitive and discoverable
+- Mobile experience should prioritize key insights over comprehensive data
+
+### Feature Priorities
+- Accuracy of biomarker extraction is highest priority
+- Time-series visualization is most important visualization type
+- Relationship mapping is secondary but valuable feature
+- Claude insights should enhance understanding without overwhelming
+
+## Evolution of Project Decisions
+
+### Initial Approach vs. Current Direction
+- Started with general PDF extraction, moving toward lab-specific adapters
+- Initially planned simple visualizations, now focusing on interactive and insightful displays
+- Originally considered basic biomarker information, now incorporating Claude API for deeper insights
+- Initially focused on desktop experience, now ensuring mobile responsiveness
+
+## Tool Usage Patterns
+
+### Development Tools
+- VSCode is the primary IDE
+- Git for version control
+- npm for frontend package management
+- pip for backend package management
+
+### Testing Tools
+- Jest and React Testing Library for frontend tests
+- pytest for backend tests
+- Postman/curl for API testing
+- Chrome DevTools for frontend debugging
+
+### Deployment Considerations
+- Frontend can be deployed to static hosting (Netlify, Vercel)
+- Backend requires Python runtime environment
+- Database needs to be provisioned separately
+- PDF processing may benefit from worker processes for scalability

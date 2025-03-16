@@ -1,142 +1,389 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
-  Typography, 
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  Chip,
+  LinearProgress,
+  Alert,
   TextField,
   InputAdornment,
-  Box,
-  IconButton,
   Tooltip,
-  Chip,
-  TableSortLabel,
-  CircularProgress,
-  Alert
+  TablePagination,
+  IconButton,
+  Collapse,
+  useTheme,
+  alpha,
+  Button
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { styled } from '@mui/material/styles';
+import {
+  Search as SearchIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  Refresh as RefreshIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
+  FilterList as FilterListIcon,
+  Error as ErrorIcon,
+  Warning as WarningIcon,
+  Check as CheckIcon,
+  Timeline as TimelineIcon
+} from '@mui/icons-material';
+import { Biomarker as BiomarkerType } from '../types/pdf';
 
-// Define the biomarker interface
-export interface Biomarker {
-  id: number;
-  name: string;
-  value: number;
-  unit: string;
-  original_name?: string;
-  original_value?: string;
-  original_unit?: string;
-  reference_range_low?: number | null;
-  reference_range_high?: number | null;
-  reference_range_text?: string;
-  category?: string;
-  is_abnormal?: boolean;
-  notes?: string;
-}
+// Export the Biomarker type for other components to use
+export type Biomarker = BiomarkerType;
 
-// Define props for the BiomarkerTable component
 interface BiomarkerTableProps {
-  biomarkers: Biomarker[];
+  fileId?: string;
+  biomarkers?: Biomarker[];
   isLoading?: boolean;
   error?: string | null;
+  onRefresh?: () => void;
+  onViewHistory?: (biomarker: Biomarker) => void;
 }
 
-// Styled component for highlighted cells
-const HighlightedCell = styled(TableCell)(({ theme }) => ({
-  backgroundColor: 'rgba(255, 152, 0, 0.1)',
-  fontWeight: 'bold',
-  color: theme.palette.warning.dark,
-}));
+// Interface for the column definition
+interface Column {
+  id: keyof Biomarker | 'status';
+  label: string;
+  minWidth?: number;
+  align?: 'right' | 'left' | 'center';
+  format?: (value: any) => string;
+  sortable?: boolean;
+}
 
-// Sort types
-type SortDirection = 'asc' | 'desc';
-type SortKey = 'name' | 'value' | 'category';
+// Define the columns for the table
+const columns: Column[] = [
+  { id: 'name', label: 'Biomarker', minWidth: 170, sortable: true },
+  { id: 'value', label: 'Value', minWidth: 100, align: 'right', sortable: true },
+  { id: 'unit', label: 'Unit', minWidth: 80, align: 'center' },
+  { id: 'referenceRange', label: 'Reference Range', minWidth: 120, align: 'center' },
+  { id: 'status', label: 'Status', minWidth: 100, align: 'center' },
+  { id: 'category', label: 'Category', minWidth: 120, align: 'center', sortable: true },
+];
 
-/**
- * BiomarkerTable component displays biomarker data in a sortable, filterable table
- */
-const BiomarkerTable: React.FC<BiomarkerTableProps> = ({ 
-  biomarkers, 
+// Check if biomarker value is outside reference range
+const isOutsideRange = (biomarker: Biomarker): boolean | undefined => {
+  if (!biomarker.referenceRange) return undefined;
+  
+  // Handle different reference range formats
+  const rangeStr = biomarker.referenceRange;
+  
+  // Handle range with hyphen (e.g., "70-99")
+  if (rangeStr.includes('-')) {
+    const [min, max] = rangeStr.split('-').map(Number);
+    if (!isNaN(min) && !isNaN(max)) {
+      return biomarker.value < min || biomarker.value > max;
+    }
+  }
+  
+  // Handle range with comparison operators (e.g., "<5.0" or ">3.5")
+  if (rangeStr.includes('<')) {
+    const maxValue = parseFloat(rangeStr.replace('<', '').trim());
+    if (!isNaN(maxValue)) {
+      return biomarker.value >= maxValue;
+    }
+  }
+  
+  if (rangeStr.includes('>')) {
+    const minValue = parseFloat(rangeStr.replace('>', '').trim());
+    if (!isNaN(minValue)) {
+      return biomarker.value <= minValue;
+    }
+  }
+  
+  // Could not determine
+  return undefined;
+};
+
+// Function to get status chip for biomarker
+const StatusChip: React.FC<{ biomarker: Biomarker }> = ({ biomarker }) => {
+  const isAbnormal = biomarker.isAbnormal !== undefined 
+    ? biomarker.isAbnormal 
+    : isOutsideRange(biomarker);
+  
+  if (isAbnormal === undefined) {
+    return (
+      <Chip 
+        size="small" 
+        icon={<WarningIcon />} 
+        label="Unknown" 
+        color="default"
+        variant="outlined"
+      />
+    );
+  }
+  
+  return isAbnormal ? (
+    <Tooltip title="Outside normal range">
+      <Chip 
+        size="small" 
+        icon={<ErrorIcon />} 
+        label="Abnormal" 
+        color="error" 
+        variant="outlined"
+      />
+    </Tooltip>
+  ) : (
+    <Tooltip title="Within normal range">
+      <Chip 
+        size="small" 
+        icon={<CheckIcon />} 
+        label="Normal" 
+        color="success" 
+        variant="outlined"
+      />
+    </Tooltip>
+  );
+};
+
+// Row component with expandable details
+const BiomarkerRow: React.FC<{
+  biomarker: Biomarker;
+  onViewHistory?: (biomarker: Biomarker) => void;
+}> = ({ biomarker, onViewHistory }) => {
+  const [open, setOpen] = useState(false);
+  const theme = useTheme();
+  
+  const handleViewHistory = () => {
+    if (onViewHistory) {
+      onViewHistory(biomarker);
+    }
+  };
+  
+  return (
+    <>
+      <TableRow 
+        hover 
+        sx={{ 
+          '& > *': { borderBottom: 'unset' }, 
+          cursor: 'pointer',
+          '&:hover': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.04),
+          }
+        }}
+        onClick={() => setOpen(!open)}
+      >
+        <TableCell>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton
+              aria-label="expand row"
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(!open);
+              }}
+            >
+              {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+            </IconButton>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {biomarker.name}
+            </Typography>
+          </Box>
+        </TableCell>
+        <TableCell align="right">
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {biomarker.value}
+          </Typography>
+        </TableCell>
+        <TableCell align="center">{biomarker.unit}</TableCell>
+        <TableCell align="center">{biomarker.referenceRange || 'Not available'}</TableCell>
+        <TableCell align="center">
+          <StatusChip biomarker={biomarker} />
+        </TableCell>
+        <TableCell align="center">
+          {biomarker.category ? (
+            <Chip 
+              size="small" 
+              label={biomarker.category} 
+              variant="outlined"
+              color="primary"
+            />
+          ) : (
+            'Uncategorized'
+          )}
+        </TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+          <Collapse in={open} timeout="auto" unmountOnExit>
+            <Box sx={{ margin: 2 }}>
+              <Typography variant="h6" gutterBottom component="div">
+                Biomarker Details
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  <strong>Name:</strong> {biomarker.name}<br />
+                  <strong>Value:</strong> {biomarker.value} {biomarker.unit}<br />
+                  <strong>Reference Range:</strong> {biomarker.referenceRange || 'Not available'}<br />
+                  <strong>Category:</strong> {biomarker.category || 'Uncategorized'}<br />
+                  {biomarker.date && (
+                    <><strong>Measurement Date:</strong> {new Date(biomarker.date).toLocaleDateString()}<br /></>
+                  )}
+                </Typography>
+                
+                {onViewHistory && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<TimelineIcon />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewHistory();
+                    }}
+                    sx={{ mt: 1 }}
+                  >
+                    View History
+                  </Button>
+                )}
+              </Box>
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
+  );
+};
+
+// Main Biomarker Table component
+const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
+  fileId,
+  biomarkers = [],
   isLoading = false,
-  error = null
+  error = null,
+  onRefresh,
+  onViewHistory
 }) => {
-  // State for search term
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [filteredBiomarkers, setFilteredBiomarkers] = useState<Biomarker[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [orderBy, setOrderBy] = useState<keyof Biomarker>('name');
+  const [order, setOrder] = useState<'asc' | 'desc'>('asc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   
-  // State for sorting
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [sortBy, setSortBy] = useState<SortKey>('name');
-  
-  // Handle search input change
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
-  };
-  
-  // Handle sort request
-  const handleRequestSort = (property: SortKey) => {
-    const isAsc = sortBy === property && sortDirection === 'asc';
-    setSortDirection(isAsc ? 'desc' : 'asc');
-    setSortBy(property);
-  };
-  
-  // Filter and sort biomarkers based on search term and sort settings
-  const filteredAndSortedBiomarkers = useMemo(() => {
-    if (!biomarkers) return [];
+  // Filter and sort biomarkers whenever the dependencies change
+  useEffect(() => {
+    // Filter biomarkers based on search term
+    let filtered = biomarkers.filter(biomarker => 
+      biomarker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (biomarker.category && biomarker.category.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
     
-    // First filter based on search term
-    const filtered = searchTerm
-      ? biomarkers.filter(biomarker => 
-          biomarker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          biomarker.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          biomarker.notes?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      : biomarkers;
-    
-    // Then sort based on sort settings
-    return [...filtered].sort((a, b) => {
-      if (sortBy === 'name') {
-        return sortDirection === 'asc'
-          ? a.name.localeCompare(b.name)
-          : b.name.localeCompare(a.name);
-      } else if (sortBy === 'value') {
-        return sortDirection === 'asc'
-          ? a.value - b.value
-          : b.value - a.value;
-      } else if (sortBy === 'category') {
-        const catA = a.category || '';
-        const catB = b.category || '';
-        return sortDirection === 'asc'
-          ? catA.localeCompare(catB)
-          : catB.localeCompare(catA);
+    // Sort biomarkers
+    filtered = filtered.sort((a, b) => {
+      const aValue = a[orderBy];
+      const bValue = b[orderBy];
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return order === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
       }
+      
+      // For numeric values
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return order === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      
+      // Handle null/undefined values
+      if (aValue === undefined && bValue !== undefined) return order === 'asc' ? -1 : 1;
+      if (aValue !== undefined && bValue === undefined) return order === 'asc' ? 1 : -1;
+      
       return 0;
     });
-  }, [biomarkers, searchTerm, sortBy, sortDirection]);
+    
+    setFilteredBiomarkers(filtered);
+  }, [biomarkers, searchTerm, orderBy, order]);
   
-  // Render the table with biomarker data
+  // Handle sort request
+  const handleRequestSort = (property: keyof Biomarker) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+  
+  // Handle search
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+    setPage(0); // Reset to first page when searching
+  };
+  
+  // Pagination handlers
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+  
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+  
+  // Empty state when no biomarkers
+  if (biomarkers.length === 0 && !isLoading && !error) {
+    return (
+      <Paper sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="text.secondary" gutterBottom>
+          No Biomarkers Found
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {fileId 
+            ? "No biomarkers were extracted from this file. The file may not contain laboratory results."
+            : "Please upload a laboratory result PDF to view biomarkers."
+          }
+        </Typography>
+        {onRefresh && (
+          <Button
+            startIcon={<RefreshIcon />}
+            onClick={onRefresh}
+            sx={{ mt: 2 }}
+          >
+            Refresh
+          </Button>
+        )}
+      </Paper>
+    );
+  }
+  
   return (
-    <Box sx={{ width: '100%' }}>
+    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+      {/* Error state */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+          {onRefresh && (
+            <Button 
+              size="small" 
+              color="inherit" 
+              startIcon={<RefreshIcon />} 
+              onClick={onRefresh}
+              sx={{ ml: 2 }}
+            >
+              Retry
+            </Button>
+          )}
         </Alert>
       )}
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" component="h2">
-          Biomarkers
-          {biomarkers.length > 0 && ` (${biomarkers.length})`}
-        </Typography>
-        
+      {/* Loading state */}
+      {isLoading && (
+        <Box sx={{ width: '100%' }}>
+          <LinearProgress />
+        </Box>
+      )}
+      
+      {/* Table toolbar */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, flexWrap: 'wrap', gap: 1 }}>
         <TextField
-          placeholder="Search biomarkers..."
-          variant="outlined"
           size="small"
+          variant="outlined"
+          placeholder="Search biomarkers..."
           value={searchTerm}
           onChange={handleSearchChange}
           InputProps={{
@@ -146,162 +393,81 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
               </InputAdornment>
             ),
           }}
-          sx={{ width: '250px' }}
+          sx={{ width: { xs: '100%', sm: 250 } }}
         />
+        
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Tooltip title="Filter">
+            <IconButton>
+              <FilterListIcon />
+            </IconButton>
+          </Tooltip>
+          {onRefresh && (
+            <Tooltip title="Refresh">
+              <IconButton onClick={onRefresh} disabled={isLoading}>
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
       </Box>
       
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress />
-        </Box>
-      ) : biomarkers.length === 0 ? (
-        <Alert severity="info">
-          No biomarker data available. Upload a lab report to see your biomarkers.
-        </Alert>
-      ) : (
-        <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
-          <Table stickyHeader aria-label="biomarker table">
-            <TableHead>
-              <TableRow>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortBy === 'name'}
-                    direction={sortBy === 'name' ? sortDirection : 'asc'}
-                    onClick={() => handleRequestSort('name')}
-                  >
-                    Biomarker
-                  </TableSortLabel>
+      {/* Table */}
+      <TableContainer sx={{ maxHeight: 440 }}>
+        <Table stickyHeader aria-label="biomarkers table">
+          <TableHead>
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell
+                  key={column.id}
+                  align={column.align}
+                  style={{ minWidth: column.minWidth }}
+                  sortDirection={orderBy === column.id ? order : false}
+                  sx={{ 
+                    fontWeight: 'bold',
+                    cursor: column.sortable ? 'pointer' : 'default',
+                    '&:hover': {
+                      backgroundColor: column.sortable ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
+                    },
+                  }}
+                  onClick={() => column.sortable && handleRequestSort(column.id as keyof Biomarker)}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: column.align === 'right' ? 'flex-end' : (column.align === 'center' ? 'center' : 'flex-start') }}>
+                    {column.label}
+                    {orderBy === column.id ? (
+                      order === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownwardIcon fontSize="small" sx={{ ml: 0.5 }} />
+                    ) : null}
+                  </Box>
                 </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortBy === 'value'}
-                    direction={sortBy === 'value' ? sortDirection : 'asc'}
-                    onClick={() => handleRequestSort('value')}
-                  >
-                    Value
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>Unit</TableCell>
-                <TableCell>Reference Range</TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortBy === 'category'}
-                    direction={sortBy === 'category' ? sortDirection : 'asc'}
-                    onClick={() => handleRequestSort('category')}
-                  >
-                    Category
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>Notes</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredAndSortedBiomarkers.map((biomarker) => {
-                const isAbnormal = biomarker.is_abnormal || 
-                  (biomarker.reference_range_low !== null && biomarker.value < biomarker.reference_range_low) ||
-                  (biomarker.reference_range_high !== null && biomarker.value > biomarker.reference_range_high);
-                
-                const Cell = isAbnormal ? HighlightedCell : TableCell;
-                
-                return (
-                  <TableRow key={biomarker.id}>
-                    <Cell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {biomarker.name}
-                        {biomarker.original_name && biomarker.original_name !== biomarker.name && (
-                          <Tooltip title={`Original name: ${biomarker.original_name}`}>
-                            <IconButton size="small">
-                              <InfoOutlinedIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </Cell>
-                    <Cell>
-                      {biomarker.value}
-                      {biomarker.original_value && biomarker.original_value !== biomarker.value.toString() && (
-                        <Tooltip title={`Original value: ${biomarker.original_value}`}>
-                          <IconButton size="small">
-                            <InfoOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Cell>
-                    <Cell>
-                      {biomarker.unit}
-                      {biomarker.original_unit && biomarker.original_unit !== biomarker.unit && (
-                        <Tooltip title={`Original unit: ${biomarker.original_unit}`}>
-                          <IconButton size="small">
-                            <InfoOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Cell>
-                    <Cell>
-                      {biomarker.reference_range_text || (
-                        <>
-                          {biomarker.reference_range_low !== null && 
-                            biomarker.reference_range_high !== null && 
-                              `${biomarker.reference_range_low}-${biomarker.reference_range_high}`}
-                          {biomarker.reference_range_low === null && 
-                            biomarker.reference_range_high !== null && 
-                              `< ${biomarker.reference_range_high}`}
-                          {biomarker.reference_range_low !== null && 
-                            biomarker.reference_range_high === null && 
-                              `> ${biomarker.reference_range_low}`}
-                          {biomarker.reference_range_low === null && 
-                            biomarker.reference_range_high === null && 
-                              ''}
-                        </>
-                      )}
-                    </Cell>
-                    <Cell>
-                      {biomarker.category ? (
-                        <Chip 
-                          label={biomarker.category}
-                          size="small"
-                          sx={{ 
-                            bgcolor: getCategoryColor(biomarker.category),
-                            color: '#fff'
-                          }}
-                        />
-                      ) : (
-                        '-'
-                      )}
-                    </Cell>
-                    <Cell>{biomarker.notes || '-'}</Cell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredBiomarkers
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((biomarker, index) => (
+                <BiomarkerRow 
+                  key={`${biomarker.name}-${index}`} 
+                  biomarker={biomarker}
+                  onViewHistory={onViewHistory}
+                />
+              ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25, 50]}
+        component="div"
+        count={filteredBiomarkers.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+      />
+    </Paper>
   );
 };
-
-// Helper function to get color for category
-function getCategoryColor(category: string): string {
-  const colors: Record<string, string> = {
-    'Metabolic': '#4CAF50',
-    'Lipid': '#2196F3',
-    'Vitamin': '#FF9800',
-    'Hormone': '#9C27B0',
-    'Mineral': '#795548',
-    'Blood': '#F44336',
-    'Liver': '#FF5722',
-    'Kidney': '#673AB7',
-    'Thyroid': '#3F51B5',
-    'Inflammatory': '#E91E63',
-    'Protein': '#009688',
-    'Electrolyte': '#8BC34A',
-    'Cardiac': '#F44336',
-    'Cancer': '#9E9E9E',
-    'Other': '#607D8B'
-  };
-  
-  return colors[category] || colors['Other'];
-}
 
 export default BiomarkerTable; 

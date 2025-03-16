@@ -7,8 +7,14 @@
  * - Error handling
  */
 
+import { STORAGE_KEYS } from '../config';
+import { UploadResponse } from '../types/pdf';
+
+// Re-export STORAGE_KEYS from config for convenience
+export { STORAGE_KEYS };
+
 // Define storage keys to prevent typos
-export const STORAGE_KEYS = {
+export const STORAGE_KEYS_LOCAL = {
   UPLOADED_FILES: 'vein-diagram:uploaded-files',
   USER_PREFERENCES: 'vein-diagram:user-preferences',
   VISUALIZATION_SETTINGS: 'vein-diagram:visualization-settings',
@@ -23,6 +29,180 @@ interface StorageItem<T> {
   expiry?: number; // Optional timestamp for expiration
   version: number; // For data migration if schema changes
 }
+
+/**
+ * Enhanced localStorage service with type safety and error handling
+ */
+class LocalStorageService {
+  /**
+   * Get an item from localStorage with type safety
+   * @param key The key to retrieve
+   * @param defaultValue Default value if the key doesn't exist
+   * @returns The parsed item or the default value
+   */
+  getItem<T>(key: string, defaultValue: T): T {
+    try {
+      const item = localStorage.getItem(key);
+      
+      // Return default if item doesn't exist
+      if (item === null) {
+        return defaultValue;
+      }
+      
+      // Parse the JSON data
+      return JSON.parse(item) as T;
+    } catch (error) {
+      console.error(`Failed to get item from localStorage with key "${key}":`, error);
+      return defaultValue;
+    }
+  }
+  
+  /**
+   * Set an item in localStorage
+   * @param key The key to set
+   * @param value The value to store (will be JSON stringified)
+   * @returns true if successful, false otherwise
+   */
+  setItem<T>(key: string, value: T): boolean {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (error) {
+      console.error(`Failed to set item in localStorage with key "${key}":`, error);
+      return false;
+    }
+  }
+  
+  /**
+   * Remove an item from localStorage
+   * @param key The key to remove
+   * @returns true if successful, false otherwise
+   */
+  removeItem(key: string): boolean {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (error) {
+      console.error(`Failed to remove item from localStorage with key "${key}":`, error);
+      return false;
+    }
+  }
+  
+  /**
+   * Check if localStorage is available
+   * @returns true if available, false otherwise
+   */
+  isAvailable(): boolean {
+    try {
+      const testKey = '__storage_test__';
+      localStorage.setItem(testKey, testKey);
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  /**
+   * Clear all localStorage items
+   * @returns true if successful, false otherwise
+   */
+  clear(): boolean {
+    try {
+      localStorage.clear();
+      return true;
+    } catch (error) {
+      console.error('Failed to clear localStorage:', error);
+      return false;
+    }
+  }
+}
+
+// Create singleton instance
+const storageService = new LocalStorageService();
+
+/**
+ * Get all upload history from localStorage
+ * @returns Array of upload history items
+ */
+export const getUploadHistory = (): UploadResponse[] => {
+  try {
+    const history = storageService.getItem<UploadResponse[]>(STORAGE_KEYS.UPLOADED_FILES, []);
+    
+    // Validate that history is actually an array
+    if (!Array.isArray(history)) {
+      console.error('Upload history data is corrupted (not an array)');
+      return [];
+    }
+    
+    // Ensure each item has required properties
+    return history.filter(item => {
+      const isValid = item && typeof item === 'object' && 'fileId' in item;
+      if (!isValid) {
+        console.warn('Filtered out invalid upload history item:', item);
+      }
+      return isValid;
+    });
+  } catch (error) {
+    console.error('Error retrieving upload history:', error);
+    return [];
+  }
+};
+
+/**
+ * Save upload history to localStorage
+ * @param history Array of upload history items to save
+ * @returns true if successful, false otherwise
+ */
+export const saveUploadHistory = (history: UploadResponse[]): boolean => {
+  return storageService.setItem(STORAGE_KEYS.UPLOADED_FILES, history);
+};
+
+/**
+ * Add a single upload to history
+ * @param upload The upload response to add
+ * @returns true if successful, false otherwise
+ */
+export const addUploadToHistory = (upload: UploadResponse): boolean => {
+  const history = getUploadHistory();
+  // Avoid duplicates
+  const filteredHistory = history.filter(item => item.fileId !== upload.fileId);
+  return saveUploadHistory([upload, ...filteredHistory].slice(0, 10)); // Keep only 10 most recent
+};
+
+/**
+ * Remove an upload from history by fileId
+ * @param fileId The file ID to remove
+ * @returns true if successful, false otherwise
+ */
+export const removeUploadFromHistory = (fileId: string): boolean => {
+  const history = getUploadHistory();
+  const updatedHistory = history.filter(item => item.fileId !== fileId);
+  return saveUploadHistory(updatedHistory);
+};
+
+/**
+ * Save user preference to localStorage
+ * @param key Preference key
+ * @param value Preference value
+ * @returns true if successful, false otherwise
+ */
+export const saveUserPreference = <T>(key: string, value: T): boolean => {
+  const preferences = storageService.getItem(STORAGE_KEYS.USER_PREFERENCES, {});
+  preferences[key] = value;
+  return storageService.setItem(STORAGE_KEYS.USER_PREFERENCES, preferences);
+};
+
+/**
+ * Get user preference from localStorage
+ * @param key Preference key
+ * @param defaultValue Default value if not found
+ * @returns The preference value or default value
+ */
+export const getUserPreference = <T>(key: string, defaultValue: T): T => {
+  const preferences = storageService.getItem(STORAGE_KEYS.USER_PREFERENCES, {});
+  return (key in preferences) ? preferences[key] : defaultValue;
+};
 
 /**
  * Checks if localStorage is available
@@ -132,7 +312,7 @@ export const clearAppStorage = (): boolean => {
   if (!isStorageAvailable()) return false;
   
   try {
-    Object.values(STORAGE_KEYS).forEach(key => {
+    Object.values(STORAGE_KEYS_LOCAL).forEach(key => {
       localStorage.removeItem(key);
     });
     return true;
@@ -181,5 +361,5 @@ export default {
   removeItem: removeStorageItem,
   clearAppStorage,
   updateItem: updateStorageItem,
-  KEYS: STORAGE_KEYS,
+  KEYS: STORAGE_KEYS_LOCAL,
 }; 

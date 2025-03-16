@@ -1,179 +1,204 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, Suspense } from 'react';
+import { Routes, Route, Link } from 'react-router-dom';
 import { 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  Container, 
-  Button, 
   Box, 
-  CssBaseline,
+  Container, 
+  CssBaseline, 
+  AppBar, 
+  Toolbar,
+  Typography, 
+  Button, 
+  ThemeProvider, 
   IconButton,
-  Menu,
-  MenuItem,
-  useScrollTrigger,
-  Slide,
   Drawer,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  Divider,
-  useTheme,
-  useMediaQuery,
-  Avatar,
-  Tooltip
+  CircularProgress,
+  Alert,
+  Snackbar,
+  ClickAwayListener
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
-
-// Import icons
-import MenuIcon from '@mui/icons-material/Menu';
-import HomeIcon from '@mui/icons-material/Home';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import InfoIcon from '@mui/icons-material/Info';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import TwitterIcon from '@mui/icons-material/Twitter';
-import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import BiotechIcon from '@mui/icons-material/Biotech';
-
-// Import pages
+import {
+  Home as HomeIcon,
+  UploadFile as UploadIcon,
+  Analytics as AnalyticsIcon,
+  Menu as MenuIcon,
+  Dashboard as DashboardIcon,
+  Science as ScienceIcon
+} from '@mui/icons-material';
+import { theme } from './main';
 import HomePage from './pages/HomePage';
-import AboutPage from './pages/AboutPage';
 import UploadPage from './pages/UploadPage';
-import VisualizePage from './pages/VisualizePage';
+import VisualizationPage from './pages/VisualizationPage';
+import APIStatusIndicator from './components/APIStatusIndicator';
+import { checkApiAvailability } from './services/api';
 
-// Hide AppBar on scroll down
-function HideOnScroll(props: { children: React.ReactElement }) {
-  const { children } = props;
-  const trigger = useScrollTrigger();
+// Error Boundary Component
+class AppErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; errorMessage: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, errorMessage: '' };
+  }
 
-  return (
-    <Slide appear={false} direction="down" in={!trigger}>
-      {children}
-    </Slide>
-  );
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMessage: error.message };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Application error:', error);
+    console.error('Component stack:', errorInfo.componentStack);
+    
+    // Additional debugging for network or API errors
+    if (error.message.includes('network') || error.message.includes('api') || error.message.includes('fetch')) {
+      console.error('Potential network or API error detected');
+      
+      // Check API configuration
+      import('./config').then(config => {
+        console.log('Current API configuration:', {
+          apiBaseUrl: config.API_BASE_URL,
+          environmentInfo: {
+            isDev: import.meta.env.DEV,
+            mode: import.meta.env.MODE,
+            baseUrl: import.meta.env.BASE_URL,
+          }
+        });
+      });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            p: 3,
+            textAlign: 'center'
+          }}
+        >
+          <Typography variant="h4" color="error" gutterBottom>
+            Something went wrong
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            {this.state.errorMessage || 'An unexpected error occurred'}
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => window.location.reload()}
+            sx={{ mt: 2 }}
+          >
+            Reload Application
+          </Button>
+        </Box>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
-// Page transition component
-const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return (
-    <Box
-      sx={{
-        animation: 'fadeIn 0.4s ease-in-out',
-        '@keyframes fadeIn': {
-          '0%': {
-            opacity: 0,
-            transform: 'translateY(10px)',
-          },
-          '100%': {
-            opacity: 1,
-            transform: 'translateY(0)',
-          },
-        },
-      }}
-    >
-      {children}
-    </Box>
-  );
-};
+// Fallback loading component
+const LoadingFallback = () => (
+  <Box
+    sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh'
+    }}
+  >
+    <CircularProgress size={60} />
+    <Typography variant="h6" sx={{ mt: 2 }}>
+      Loading...
+    </Typography>
+  </Box>
+);
 
 function App() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const location = useLocation();
-  
-  // Social media menu
-  const [socialAnchorEl, setSocialAnchorEl] = useState<null | HTMLElement>(null);
-  const socialMenuOpen = Boolean(socialAnchorEl);
-  
-  const handleSocialClick = (event: React.MouseEvent<HTMLElement>) => {
-    setSocialAnchorEl(event.currentTarget);
-  };
-  
-  const handleSocialClose = () => {
-    setSocialAnchorEl(null);
-  };
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
 
-  // Toggle the mobile drawer
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-  
-  // Close drawer when route changes on mobile
+  // Check API availability on mount
   useEffect(() => {
-    if (mobileOpen) {
-      setMobileOpen(false);
-    }
-  }, [location.pathname, mobileOpen]);
+    const checkApi = async () => {
+      try {
+        const isAvailable = await checkApiAvailability();
+        setApiAvailable(isAvailable);
+        
+        if (!isAvailable) {
+          setErrorMessage('Unable to connect to the backend server. Some features may be limited.');
+          setShowErrorSnackbar(true);
+        }
+      } catch (error) {
+        console.error('Error checking API:', error);
+        setApiAvailable(false);
+        setErrorMessage('Network error. Please check your connection.');
+        setShowErrorSnackbar(true);
+      }
+    };
+    
+    checkApi();
+  }, []);
 
-  // Navigation items
-  const navItems = [
-    { title: 'Home', path: '/', icon: <HomeIcon /> },
-    { title: 'Upload', path: '/upload', icon: <UploadFileIcon /> },
-    { title: 'Visualize', path: '/visualize', icon: <BarChartIcon /> },
-    { title: 'About', path: '/about', icon: <InfoIcon /> },
+  const handleDrawerToggle = () => {
+    setIsDrawerOpen(!isDrawerOpen);
+  };
+
+  const handleCloseSnackbar = () => {
+    setShowErrorSnackbar(false);
+  };
+
+  const drawerItems = [
+    { text: 'Home', icon: <HomeIcon />, path: '/' },
+    { text: 'Upload', icon: <UploadIcon />, path: '/upload' },
+    { text: 'Visualization', icon: <AnalyticsIcon />, path: '/visualization' },
+    { text: 'Biomarkers', icon: <ScienceIcon />, path: '/biomarkers' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   ];
 
-  // Drawer content
   const drawer = (
-    <Box sx={{ width: 250 }} role="presentation">
-      <Box sx={{ 
-        p: 2, 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03),
-        borderBottom: '1px solid',
-        borderColor: 'divider'
-      }}>
-        <BiotechIcon color="primary" sx={{ mr: 1 }} />
-        <Typography variant="h6" color="primary" component="div">
-          Vein Diagram
-        </Typography>
-      </Box>
+    <Box sx={{ width: 250 }} role="presentation" onClick={handleDrawerToggle}>
       <List>
-        {navItems.map((item) => (
+        {drawerItems.map((item) => (
           <ListItem 
             button 
+            key={item.text} 
             component={Link} 
             to={item.path} 
-            key={item.title}
-            selected={location.pathname === item.path}
             sx={{
-              '&.Mui-selected': {
-                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
-                '&:hover': {
-                  bgcolor: (theme) => alpha(theme.palette.primary.main, 0.15),
-                },
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
               },
             }}
           >
-            <ListItemIcon>
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText primary={item.title} />
+            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemText primary={item.text} />
           </ListItem>
         ))}
       </List>
-      <Divider sx={{ my: 2 }} />
-      <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.secondary">
-          © {new Date().getFullYear()} Vein Diagram
-        </Typography>
-      </Box>
     </Box>
   );
 
   return (
-    <>
-      <CssBaseline />
-      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <HideOnScroll>
-          <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-            <Toolbar>
-              {isMobile && (
+    <ThemeProvider theme={theme}>
+      <AppErrorBoundary>
+        <CssBaseline />
+          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <AppBar position="static">
+              <Toolbar>
                 <IconButton
                   color="inherit"
                   aria-label="open drawer"
@@ -183,184 +208,86 @@ function App() {
                 >
                   <MenuIcon />
                 </IconButton>
-              )}
-              
-              <Typography 
-                variant="h6" 
-                component={Link} 
-                to="/"
-                sx={{ 
-                  flexGrow: 1, 
-                  color: 'white', 
-                  textDecoration: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <BiotechIcon sx={{ mr: 1 }} />
-                Vein Diagram
-              </Typography>
-              
-              {!isMobile && (
-                <Box sx={{ display: 'flex' }}>
-                  {navItems.map((item) => (
-                    <Button
-                      key={item.title}
-                      component={Link}
-                      to={item.path}
-                      color="inherit"
-                      sx={{ 
-                        mx: 1,
-                        position: 'relative',
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          width: location.pathname === item.path ? '100%' : '0%',
-                          height: '3px',
-                          bottom: '0',
-                          left: '0',
-                          bgcolor: 'secondary.main',
-                          transition: 'width 0.3s ease',
-                        },
-                        '&:hover::after': {
-                          width: '100%',
-                        },
-                      }}
-                    >
-                      {item.title}
-                    </Button>
-                  ))}
-                </Box>
-              )}
-              
-              <Box sx={{ ml: 2 }}>
-                <Tooltip title="Social Media">
-                  <IconButton
-                    color="inherit"
-                    aria-label="social media"
-                    onClick={handleSocialClick}
-                    size="small"
-                  >
-                    <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                      <Typography variant="subtitle2">VD</Typography>
-                    </Avatar>
-                  </IconButton>
-                </Tooltip>
-                <Menu
-                  anchorEl={socialAnchorEl}
-                  open={socialMenuOpen}
-                  onClose={handleSocialClose}
-                  MenuListProps={{
-                    'aria-labelledby': 'social-button',
-                  }}
-                >
-                  <MenuItem onClick={handleSocialClose}>
-                    <GitHubIcon fontSize="small" sx={{ mr: 1 }} />
-                    GitHub
-                  </MenuItem>
-                  <MenuItem onClick={handleSocialClose}>
-                    <TwitterIcon fontSize="small" sx={{ mr: 1 }} />
-                    Twitter
-                  </MenuItem>
-                  <MenuItem onClick={handleSocialClose}>
-                    <LinkedInIcon fontSize="small" sx={{ mr: 1 }} />
-                    LinkedIn
-                  </MenuItem>
-                </Menu>
-              </Box>
-            </Toolbar>
-          </AppBar>
-        </HideOnScroll>
-        
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better mobile performance
-          }}
-          sx={{
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
-              width: 250 
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        
-        <Box component="main" sx={{ flexGrow: 1 }}>
-          <PageTransition>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/upload" element={<UploadPage />} />
-              <Route path="/visualize" element={<VisualizePage />} />
-            </Routes>
-          </PageTransition>
-        </Box>
-        
-        <Box 
-          component="footer" 
-          sx={{ 
-            py: 3, 
-            px: 2, 
-            mt: 'auto', 
-            backgroundColor: (theme) => theme.palette.grey[100],
-            borderTop: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Container maxWidth="lg">
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: { xs: 'column', sm: 'row' },
-              justifyContent: 'space-between',
-              alignItems: { xs: 'center', sm: 'flex-start' },
-              textAlign: { xs: 'center', sm: 'left' },
-            }}>
-              <Box sx={{ mb: { xs: 2, sm: 0 } }}>
-                <Typography variant="h6" color="primary" gutterBottom>
+                <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                   Vein Diagram
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Visualize and track your blood test results over time.
-                </Typography>
-              </Box>
-              
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  Quick Links
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  {navItems.map((item) => (
-                    <Button
-                      key={item.title}
-                      component={Link}
-                      to={item.path}
-                      color="inherit"
-                      size="small"
-                      sx={{ justifyContent: 'flex-start', py: 0.5 }}
-                    >
-                      {item.icon} 
-                      <Typography variant="body2" sx={{ ml: 1 }}>
-                        {item.title}
-                      </Typography>
-                    </Button>
-                  ))}
+                <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
+                  <Button color="inherit" component={Link} to="/">
+                    Home
+                  </Button>
+                  <Button color="inherit" component={Link} to="/upload">
+                    Upload
+                  </Button>
+                  <Button color="inherit" component={Link} to="/visualization">
+                    Visualization
+                  </Button>
                 </Box>
-              </Box>
+              </Toolbar>
+            </AppBar>
+            
+            <Drawer
+              anchor="left"
+              open={isDrawerOpen}
+              onClose={handleDrawerToggle}
+            >
+              {drawer}
+            </Drawer>
+            
+            <Container component="main" sx={{ flexGrow: 1, py: 3 }}>
+              <Suspense fallback={<LoadingFallback />}>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/upload" element={<UploadPage />} />
+                  <Route path="/visualization" element={<VisualizationPage />} />
+                  <Route path="*" element={
+                    <Box sx={{ textAlign: 'center', mt: 4 }}>
+                      <Typography variant="h4">Page Not Found</Typography>
+                      <Button 
+                        component={Link} 
+                        to="/" 
+                        variant="contained" 
+                        sx={{ mt: 2 }}
+                      >
+                        Go Home
+                      </Button>
+                    </Box>
+                  } />
+                </Routes>
+              </Suspense>
+            </Container>
+            
+            <Box component="footer" sx={{ py: 3, px: 2, mt: 'auto', backgroundColor: (theme) => theme.palette.mode === 'light' ? theme.palette.grey[200] : theme.palette.grey[800] }}>
+              <Container maxWidth="sm">
+                <Typography variant="body2" color="text.secondary" align="center">
+                  © {new Date().getFullYear()} Vein Diagram
+                </Typography>
+              </Container>
             </Box>
             
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-              <Typography variant="body2" color="text.secondary" align="center">
-                © {new Date().getFullYear()} Vein Diagram - Biomarker Visualization
-              </Typography>
-            </Box>
-          </Container>
-        </Box>
-      </Box>
-    </>
+            {/* API Status Indicator */}
+            <APIStatusIndicator position="bottom-right" showOnlyOnError={false} />
+            
+            {/* Error Snackbar */}
+            <Snackbar 
+              open={showErrorSnackbar} 
+              autoHideDuration={6000} 
+              onClose={handleCloseSnackbar}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+              ClickAwayListenerProps={{
+                mouseEvent: 'onMouseUp'
+              }}
+            >
+              <Alert 
+                onClose={handleCloseSnackbar} 
+                severity="error" 
+                sx={{ width: '100%' }}
+              >
+                {errorMessage}
+              </Alert>
+            </Snackbar>
+          </Box>
+      </AppErrorBoundary>
+    </ThemeProvider>
   );
 }
 
