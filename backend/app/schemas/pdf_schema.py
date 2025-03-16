@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
+from uuid import UUID
 
 class BiomarkerBase(BaseModel):
     """
@@ -62,24 +63,24 @@ class BiomarkerResponse(BiomarkerBase):
         orm_mode = True
 
 class PDFResponse(BaseModel):
-    """
-    Response model for PDF upload and processing.
-    """
+    """Schema for PDF upload response."""
     file_id: str
     filename: str
+    upload_date: Optional[datetime] = None
     status: str
     message: Optional[str] = None
-    
+    profile_id: Optional[UUID] = None
+
 class PDFStatusResponse(BaseModel):
-    """
-    Response model for PDF status.
-    """
+    """Schema for PDF status response."""
     file_id: str
     filename: str
-    status: str
     upload_date: datetime
+    status: str
     processed_date: Optional[datetime] = None
     error_message: Optional[str] = None
+    biomarker_count: int = 0
+    profile_id: Optional[UUID] = None
     lab_name: Optional[str] = None
     patient_name: Optional[str] = None
     patient_id: Optional[str] = None
