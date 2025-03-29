@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Tabs, Tab, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, Paper, Tabs, Tab, CircularProgress, Alert, Button } from '@mui/material';
 import { Biomarker } from './BiomarkerTable';
 import Plotly from 'plotly.js-basic-dist';
 import createPlotlyComponent from 'react-plotly.js/factory';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 
 // Create the Plot component
 const Plot = createPlotlyComponent(Plotly);
@@ -47,6 +48,7 @@ interface BiomarkerVisualizationProps {
   biomarkers: Biomarker[];
   isLoading?: boolean;
   error?: string | null;
+  onExplainWithAI?: (biomarker: Biomarker) => void;
 }
 
 interface TabPanelProps {
@@ -80,7 +82,8 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other })
 const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
   biomarkers,
   isLoading = false,
-  error = null
+  error = null,
+  onExplainWithAI
 }) => {
   const [tabValue, setTabValue] = useState(0);
   const [selectedBiomarker, setSelectedBiomarker] = useState<Biomarker | null>(null);
@@ -129,7 +132,7 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
           return bPercentage - aPercentage; // Descending by percentage
         }
         // Otherwise sort by abnormal status
-        return (b.is_abnormal ? 1 : 0) - (a.is_abnormal ? 1 : 0);
+        return (b.isAbnormal ? 1 : 0) - (a.isAbnormal ? 1 : 0);
       })
       .slice(0, 10); // Show only top 10 biomarkers
       
@@ -138,7 +141,7 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
       y: sortedBiomarkers.map(b => b.value),
       marker: {
         color: sortedBiomarkers.map(b => 
-          b.is_abnormal ? 'rgba(255, 99, 71, 0.7)' : 'rgba(75, 192, 192, 0.7)'
+          b.isAbnormal ? 'rgba(255, 99, 71, 0.7)' : 'rgba(75, 192, 192, 0.7)'
         ),
       },
       type: 'bar',
@@ -155,11 +158,11 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
       return null;
     }
     
-    const rangeText = biomarker.reference_range_text || 
+    const rangeText = biomarker.referenceRange || 
       ((hasLow && hasHigh) ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}` :
        (hasLow ? `> ${biomarker.reference_range_low}` : `< ${biomarker.reference_range_high}`));
        
-    const isOutOfRange = biomarker.is_abnormal || 
+    const isOutOfRange = biomarker.isAbnormal || 
       (hasLow && biomarker.value < biomarker.reference_range_low) ||
       (hasHigh && biomarker.value > biomarker.reference_range_high);
     
@@ -305,8 +308,8 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
                   <Typography 
                     variant="body1"
                     sx={{ 
-                      fontWeight: biomarker.is_abnormal ? 'bold' : 'normal',
-                      color: biomarker.is_abnormal ? 'error.main' : 'text.primary',
+                      fontWeight: biomarker.isAbnormal ? 'bold' : 'normal',
+                      color: biomarker.isAbnormal ? 'error.main' : 'text.primary',
                     }}
                   >
                     {biomarker.name}
@@ -353,6 +356,26 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
                   <Typography variant="body1">
                     {getBiomarkerInfo(selectedBiomarker.name).impact}
                   </Typography>
+                  
+                  {onExplainWithAI && (
+                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        onClick={() => onExplainWithAI(selectedBiomarker)}
+                        startIcon={<PsychologyIcon />}
+                        variant="contained"
+                        color="primary"
+                        sx={{
+                          backgroundColor: 'primary.main',
+                          color: '#fff',
+                          '&:hover': {
+                            backgroundColor: 'primary.dark',
+                          }
+                        }}
+                      >
+                        Get AI Explanation
+                      </Button>
+                    </Box>
+                  )}
                 </Paper>
                 
                 <Alert severity="info">

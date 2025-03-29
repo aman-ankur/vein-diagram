@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, List
 from pydantic import BaseModel, Field
 
 class BiomarkerResponse(BaseModel):
@@ -21,4 +21,25 @@ class BiomarkerResponse(BaseModel):
     notes: Optional[str] = Field(None, description="Additional notes or observations")
     
     class Config:
-        from_attributes = True  # Updated from orm_mode for Pydantic v2 compatibility 
+        from_attributes = True  # Updated from orm_mode for Pydantic v2 compatibility
+
+class BiomarkerExplanationRequest(BaseModel):
+    """
+    Schema for requesting AI-generated explanations for a biomarker.
+    """
+    name: str = Field(..., description="Name of the biomarker")
+    value: float = Field(..., description="Value of the biomarker")
+    unit: str = Field(..., description="Unit of measurement")
+    reference_range: str = Field(..., description="Reference range for the biomarker")
+    is_abnormal: bool = Field(False, description="Whether the value is outside the reference range")
+
+class BiomarkerExplanationResponse(BaseModel):
+    """
+    Schema for AI-generated explanations for a biomarker.
+    """
+    biomarker_id: int = Field(..., description="ID of the biomarker")
+    name: str = Field(..., description="Name of the biomarker")
+    general_explanation: str = Field(..., description="General explanation of what the biomarker measures")
+    specific_explanation: str = Field(..., description="Personalized interpretation of the specific value")
+    created_at: str = Field(..., description="Timestamp when the explanation was generated")
+    from_cache: bool = Field(False, description="Whether the explanation was retrieved from cache") 
