@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Profile, ProfileCreate, ProfileUpdate, ProfileListResponse } from '../types/Profile';
 import { API_BASE_URL } from '../config';
 
-const API_URL = `${API_BASE_URL}/profiles/`;
+const API_URL = `${API_BASE_URL}/api/profiles`;
 
 /**
  * Fetch all profiles with optional search and pagination
@@ -16,7 +16,9 @@ export const getProfiles = async (
   const params = { skip, limit, search };
   
   try {
-    const response = await axios.get<ProfileListResponse>(API_URL, { params });
+    const response = await axios.get(
+      `${API_URL}/?skip=${(page-1)*limit}&limit=${limit}&search=${search}`
+    );
     return response.data;
   } catch (error) {
     console.error('Error fetching profiles:', error);
@@ -42,7 +44,7 @@ export const getProfile = async (id: string): Promise<Profile> => {
  */
 export const createProfile = async (profile: ProfileCreate): Promise<Profile> => {
   try {
-    const response = await axios.post<Profile>(API_URL, profile);
+    const response = await axios.post(`${API_URL}`, profile);
     return response.data;
   } catch (error) {
     console.error('Error creating profile:', error);

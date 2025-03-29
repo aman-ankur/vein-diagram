@@ -3,6 +3,7 @@ API routes for profile management.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import String  # Add this import
 from typing import List, Optional
 from uuid import UUID
 import logging
@@ -122,15 +123,32 @@ async def get_profiles(
 
 @router.get("/{profile_id}", response_model=ProfileResponse)
 async def get_profile(
-    profile_id: UUID,
+    profile_id: str,
     db: Session = Depends(get_db)
 ):
     """
     Get details of a specific profile by ID.
     """
+    logger.info(f"GET endpoint called for profile ID: {profile_id}")
+
     try:
-        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        # Simplest approach: convert string to UUID and query directly
+        try:
+            profile_id_uuid = UUID(profile_id)
+            profile = db.query(Profile).filter(Profile.id == profile_id_uuid).first()
+        except ValueError as e:
+            logger.error(f"Invalid UUID format: {profile_id}")
+            raise HTTPException(status_code=400, detail="Invalid profile ID format")
         
+        if not profile:
+            # Manually check all profiles as a fallback
+            all_profiles = db.query(Profile).all()
+            for p in all_profiles:
+                if str(p.id).lower() == profile_id.lower():
+                    profile = p
+                    logger.info(f"Found profile through manual comparison")
+                    break
+                    
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
         
@@ -164,9 +182,26 @@ async def update_profile(
     """
     Update an existing profile.
     """
+    logger.info(f"PUT endpoint called for profile ID: {profile_id}")
+    
     try:
-        db_profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        # Simplest approach: convert string to UUID and query directly
+        try:
+            profile_id_uuid = UUID(profile_id)
+            db_profile = db.query(Profile).filter(Profile.id == profile_id_uuid).first()
+        except ValueError as e:
+            logger.error(f"Invalid UUID format: {profile_id}")
+            raise HTTPException(status_code=400, detail="Invalid profile ID format")
         
+        if not db_profile:
+            # Manually check all profiles as a fallback
+            all_profiles = db.query(Profile).all()
+            for p in all_profiles:
+                if str(p.id).lower() == profile_id.lower():
+                    db_profile = p
+                    logger.info(f"Found profile through manual comparison")
+                    break
+                    
         if not db_profile:
             raise HTTPException(status_code=404, detail="Profile not found")
         
@@ -214,34 +249,98 @@ async def update_profile(
 
 @router.delete("/{profile_id}", status_code=204)
 async def delete_profile(
-    profile_id: UUID,
+    profile_id: str,
     db: Session = Depends(get_db)
 ):
     """
     Delete a profile. 
     Note: This will not delete associated biomarkers or PDFs but will unlink them.
     """
+    # Strip any whitespace that might be in the ID
+    profile_id = profile_id.strip()
+    logger.info(f"DELETE endpoint called for profile ID: '{profile_id}'")
+    
     try:
-        # Get the profile
-        db_profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        # Get all profiles before deletion for debugging
+        all_profiles_before = db.query(Profile).all()
+        logger.info(f"Total profiles before deletion: {len(all_profiles_before)}")
+        logger.info(f"Profile IDs before deletion: {[str(p.id) for p in all_profiles_before]}")
+        
+        # Convert string to UUID
+        try:
+            profile_id_uuid = UUID(profile_id)
+            logger.info(f"Converted input to UUID: {profile_id_uuid}")
+        except ValueError as e:
+            logger.error(f"Invalid UUID format: '{profile_id}'")
+            raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {str(e)}")
+        
+        # Find the profile
+        db_profile = db.query(Profile).filter(Profile.id == profile_id_uuid).first()
         
         if not db_profile:
+            logger.warning(f"Profile with ID '{profile_id}' not found")
             raise HTTPException(status_code=404, detail="Profile not found")
         
+        logger.info(f"Found profile to delete: {db_profile.name} (ID: {db_profile.id})")
+        
         # Unlink biomarkers and PDFs
-        db.query(Biomarker).filter(Biomarker.profile_id == profile_id).update({"profile_id": None})
-        db.query(PDF).filter(PDF.profile_id == profile_id).update({"profile_id": None})
+        biomarker_count = db.query(Biomarker).filter(Biomarker.profile_id == db_profile.id).count()
+        pdf_count = db.query(PDF).filter(PDF.profile_id == db_profile.id).count()
+        
+        logger.info(f"Unlinking {biomarker_count} biomarkers and {pdf_count} PDFs")
+        
+        db.query(Biomarker).filter(Biomarker.profile_id == db_profile.id).update({"profile_id": None})
+        db.query(PDF).filter(PDF.profile_id == db_profile.id).update({"profile_id": None})
+        
+        # Store profile ID for verification
+        profile_id_to_check = db_profile.id
         
         # Delete the profile
+        logger.info(f"Executing db.delete on profile {db_profile.id}")
         db.delete(db_profile)
+        
+        # Flush changes to DB before commit to catch any issues
+        logger.info("Flushing database session...")
+        db.flush()
+        
+        # Commit the transaction
+        logger.info("Committing transaction...")
         db.commit()
         
+        # Verify deletion by checking if profile still exists
+        logger.info(f"Verifying deletion of profile {profile_id_to_check}...")
+        verification_check = db.query(Profile).filter(Profile.id == profile_id_to_check).first()
+        
+        if verification_check:
+            logger.error(f"DELETION FAILED! Profile {profile_id_to_check} still exists after deletion and commit!")
+            # Force another deletion attempt
+            logger.info("Attempting forced deletion...")
+            db.delete(verification_check)
+            db.commit()
+            
+            # Check again
+            second_verification = db.query(Profile).filter(Profile.id == profile_id_to_check).first()
+            if second_verification:
+                logger.error("CRITICAL: Second deletion attempt failed!")
+            else:
+                logger.info("Second deletion attempt successful")
+        else:
+            logger.info(f"Verification successful - Profile {profile_id_to_check} no longer exists in database")
+        
+        # Get all profiles after deletion for debugging
+        all_profiles_after = db.query(Profile).all()
+        logger.info(f"Total profiles after deletion: {len(all_profiles_after)}")
+        logger.info(f"Profile IDs after deletion: {[str(p.id) for p in all_profiles_after]}")
+        
+        logger.info(f"Successfully completed delete operation for profile {profile_id}")
         return None
+        
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
         logger.error(f"Error deleting profile {profile_id}: {str(e)}")
+        logger.exception("Full exception details:")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post("/extract/{pdf_id}", response_model=List[ProfileResponse])
