@@ -20,9 +20,11 @@ import CategoryIcon from '@mui/icons-material/Category';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
-import { getBiomarkersByFileId, getAllBiomarkers } from '../services/api';
+import { getBiomarkersByFileId, getAllBiomarkers, getBiomarkerExplanation } from '../services/api';
 import { Biomarker } from '../types/pdf';
 import BiomarkerTable from '../components/BiomarkerTable';
+import ExplanationModal from '../components/ExplanationModal';
+import type { BiomarkerExplanation } from '../types/api';
 
 // Define interface for TabPanel props
 interface TabPanelProps {
@@ -63,6 +65,13 @@ const VisualizationPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<number>(0);
   const [chartType, setChartType] = useState<'bar' | 'line' | 'scatter'>('line');
+
+  // State for AI explanation modal
+  const [explanationModalOpen, setExplanationModalOpen] = useState<boolean>(false);
+  const [currentBiomarker, setCurrentBiomarker] = useState<Biomarker | null>(null);
+  const [explanationLoading, setExplanationLoading] = useState<boolean>(false);
+  const [explanationError, setExplanationError] = useState<string | null>(null);
+  const [explanation, setExplanation] = useState<BiomarkerExplanation | null>(null);
 
   // Fetch biomarkers on component mount
   useEffect(() => {
@@ -119,6 +128,92 @@ const VisualizationPage: React.FC = () => {
   // Handler for chart type change
   const handleChartTypeChange = (type: 'bar' | 'line' | 'scatter') => {
     setChartType(type);
+  };
+
+  // Function to handle opening the explanation modal
+  const handleExplainBiomarker = async (biomarker: Biomarker) => {
+    console.log('=== EXPLAIN BIOMARKER FUNCTION CALLED ===');
+    console.log('Biomarker data received:', biomarker);
+    
+    // Make sure biomarker has expected fields
+    if (!biomarker || !biomarker.name) {
+      console.error('Invalid biomarker data received:', biomarker);
+      setExplanationError('Cannot explain this biomarker: invalid data');
+      return;
+    }
+    
+    console.log('Opening explanation modal for biomarker:', biomarker);
+    
+    // First open the modal with loading state
+    setCurrentBiomarker(biomarker);
+    setExplanationModalOpen(true);
+    setExplanationLoading(true);
+    setExplanationError(null);
+    setExplanation(null);
+    
+    try {
+      // Calculate the abnormal status
+      const isAbnormal = biomarker.isAbnormal !== undefined 
+        ? biomarker.isAbnormal 
+        : (biomarker.reference_range_low !== undefined && biomarker.reference_range_high !== undefined)
+          ? (biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high)
+          : false;
+      
+      // Format reference range
+      const referenceRange = biomarker.referenceRange || 
+        (biomarker.reference_range_low !== null && biomarker.reference_range_high !== null 
+          ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}` 
+          : "Not available");
+      
+      console.log('Calculated parameters:');
+      console.log('- isAbnormal:', isAbnormal);
+      console.log('- referenceRange:', referenceRange);
+      
+      // Make API call
+      const result = await getBiomarkerExplanation(
+        biomarker.id,
+        biomarker.name,
+        biomarker.value,
+        biomarker.unit,
+        referenceRange,
+        isAbnormal
+      );
+      
+      console.log('Received explanation result:', result);
+      
+      // Verify result structure
+      if (!result || !result.general_explanation || !result.specific_explanation) {
+        console.error('Invalid explanation data received:', result);
+        setExplanationError('Invalid explanation data received. Please try again.');
+        return;
+      }
+      
+      // Update state with result
+      setExplanation(result);
+    } catch (error) {
+      console.error('=== ERROR IN EXPLAIN BIOMARKER HANDLER ===');
+      console.error('Error details:', error);
+      
+      // Set user-friendly error message
+      let errorMessage = 'An unexpected error occurred. Please try again later.';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String(error.message);
+      }
+      
+      console.log('Setting error message:', errorMessage);
+      setExplanationError(errorMessage);
+    } finally {
+      // Always set loading to false
+      setExplanationLoading(false);
+    }
+  };
+  
+  // Handle closing the explanation modal
+  const handleCloseExplanationModal = () => {
+    setExplanationModalOpen(false);
   };
 
   // Render loading state
@@ -259,7 +354,10 @@ const VisualizationPage: React.FC = () => {
 
       {/* Table View */}
       <TabPanel value={activeTab} index={0}>
-        <BiomarkerTable biomarkers={biomarkers} />
+        <BiomarkerTable 
+          biomarkers={biomarkers} 
+          onExplainWithAI={handleExplainBiomarker}
+        />
       </TabPanel>
 
       {/* Chart View */}
@@ -364,6 +462,24 @@ const VisualizationPage: React.FC = () => {
           </Grid>
         </Paper>
       </TabPanel>
+
+      {/* AI Explanation Modal */}
+      {currentBiomarker && (
+        <ExplanationModal
+          open={explanationModalOpen}
+          onClose={handleCloseExplanationModal}
+          biomarkerName={currentBiomarker.name}
+          biomarkerValue={currentBiomarker.value}
+          biomarkerUnit={currentBiomarker.unit}
+          referenceRange={currentBiomarker.referenceRange || 
+            (currentBiomarker.reference_range_low !== null && currentBiomarker.reference_range_high !== null 
+              ? `${currentBiomarker.reference_range_low}-${currentBiomarker.reference_range_high}` 
+              : "Not available")}
+          isLoading={explanationLoading}
+          error={explanationError}
+          explanation={explanation}
+        />
+      )}
     </Container>
   );
 };

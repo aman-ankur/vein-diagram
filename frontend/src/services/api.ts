@@ -421,89 +421,102 @@ export const getBiomarkerExplanation = async (
 ): Promise<BiomarkerExplanation> => {
   console.log('==== API REQUEST: getBiomarkerExplanation ====');
   console.log('Parameters:', { biomarkerId, biomarkerName, value, unit, referenceRange, isAbnormal });
-  
+
+  // Define the payload once
+  const payload = {
+    name: biomarkerName,
+    value,
+    unit,
+    reference_range: referenceRange,
+    is_abnormal: isAbnormal
+  };
+
   try {
-    let response;
-    
+    let response: AxiosResponse<BiomarkerExplanation>; // Use AxiosResponse type for clarity
+
     // Check if we have a valid biomarkerId
     if (biomarkerId) {
-      console.log(`Making API call to /api/biomarkers/${biomarkerId}/explain`);
+      console.log(`Making API call to /api/biomarkers/${biomarkerId}/explain using configured 'api' instance`);
       try {
-        response = await axios.post(`/api/biomarkers/${biomarkerId}/explain`, {
-          name: biomarkerName,
-          value,
-          unit,
-          reference_range: referenceRange,
-          is_abnormal: isAbnormal
-        });
+        // Use the 'api' instance with the correct baseURL
+        response = await api.post<BiomarkerExplanation>(`/api/biomarkers/${biomarkerId}/explain`, payload);
         console.log('API response status:', response.status);
         console.log('API response data:', response.data);
+        // If successful, return the data
+        return response.data;
       } catch (error) {
-        // Handle 404 errors specifically
+        // Handle 404 errors specifically if falling back is desired
         if (axios.isAxiosError(error) && error.response?.status === 404) {
-          console.warn(`Biomarker ID ${biomarkerId} not found, falling back to generic endpoint`);
-          // Fall back to the generic endpoint
-          throw new Error(`Biomarker ID ${biomarkerId} not found`);
+          console.warn(`Biomarker ID ${biomarkerId} not found or specific endpoint unavailable, falling back to generic endpoint`);
+          // Proceed to the generic endpoint call below
         } else {
-          // For other errors, just rethrow
-          console.error('Error in specific biomarker endpoint:', error);
-          throw error;
+          // For other errors, log and rethrow to be handled by the outer catch block
+          console.error(`Error calling specific endpoint /api/biomarkers/${biomarkerId}/explain:`, error);
+          throw error; // Rethrow to be caught by the main catch block
         }
       }
-    } 
-    
-    // If we don't have a biomarkerId or the specific endpoint failed with 404,
-    // use the generic endpoint
-    if (!biomarkerId || !response) {
-      console.log('Making API call to generic /api/biomarkers/explain endpoint');
-      response = await axios.post('/api/biomarkers/explain', {
-        name: biomarkerName,
-        value,
-        unit,
-        reference_range: referenceRange,
-        is_abnormal: isAbnormal
-      });
-      console.log('Generic API response status:', response.status);
-      console.log('Generic API response data:', response.data);
     }
 
+    // If we don't have a biomarkerId OR the specific endpoint call resulted in a 404 (and didn't throw other errors)
+    console.log("Making API call to generic /api/biomarkers/explain endpoint using configured 'api' instance");
+    // Use the 'api' instance with the correct baseURL
+    response = await api.post<BiomarkerExplanation>('/api/biomarkers/explain', payload);
+    console.log('Generic API response status:', response.status);
+    console.log('Generic API response data:', response.data);
+
+    // Check status explicitly, although interceptor might handle some cases
     if (response.status !== 200) {
-      console.error('Non-200 response:', response.status, response.data);
-      throw new Error(`Failed to get explanation: ${response.statusText}`);
+       console.error('Non-200 response from generic endpoint:', response.status, response.data);
+       // Construct an error similar to what the interceptor would create
+       throw {
+         message: `Failed to get explanation (Status: ${response.status})`,
+         status: response.status,
+         data: response.data
+       };
     }
 
     return response.data;
+
   } catch (error) {
     console.error('==== ERROR IN getBiomarkerExplanation ====');
-    
+
+    // The error might already be an ApiError if it went through the interceptor (from api.post)
+    // Or it could be a raw AxiosError if the initial check failed differently, or a standard Error.
     if (axios.isAxiosError(error)) {
       console.error('Axios error details:', {
         message: error.message,
         status: error.response?.status,
         data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers,
-          data: error.config?.data
-        }
+        configUrl: error.config?.url, // Log the URL that was actually called
       });
-      
-      // Provide more specific error messages based on status code
-      if (error.response?.status === 404) {
-        throw new Error('The API endpoint for biomarker explanations was not found. Please check your server configuration.');
-      } else if (error.response?.status === 500) {
-        throw new Error('The server encountered an error while generating the explanation. Please try again later.');
-      } else if (error.code === 'ECONNABORTED') {
-        throw new Error('The request timed out. Please check your internet connection and try again.');
-      } else if (!error.response && error.request) {
-        // The request was made but no response was received
-        throw new Error('No response received from server. Please check your internet connection.');
-      }
+
+      // Create a standardized ApiError if it's not one already
+      const apiError: ApiError = {
+        message: error.response?.data?.detail || error.response?.data?.message || error.message || 'Failed to get biomarker explanation',
+        status: error.response?.status || 500,
+        data: error.response?.data || null,
+        isNetworkError: !error.response && error.message?.includes('Network Error'),
+      };
+
+       // Provide more specific user-friendly messages
+      if (apiError.status === 404) {
+         apiError.message = 'The biomarker explanation service could not be found. Please contact support.';
+       } else if (apiError.status >= 500) {
+         apiError.message = 'The server encountered an error generating the explanation. Please try again later.';
+       } else if (apiError.isNetworkError || apiError.status === 0) {
+         apiError.message = 'Network error. Could not reach the explanation service. Please check your connection.';
+       }
+
+       throw apiError; // Throw the standardized error
+
+    } else if (error instanceof Error) {
+        console.error('Non-Axios error:', error.message);
+        // Throw a generic ApiError structure
+        throw { message: error.message, status: 500, data: null } as ApiError;
+    } else {
+       console.error('Unknown error object:', error);
+       throw { message: 'An unknown error occurred.', status: 500, data: null } as ApiError;
     }
-    
-    // Re-throw the error to be handled by the caller
-    throw error;
   }
 };
 
