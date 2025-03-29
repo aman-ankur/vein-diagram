@@ -3,6 +3,7 @@ Biomarker data models for storing information extracted from PDFs.
 """
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 from app.db.database import Base
 
@@ -14,6 +15,7 @@ class Biomarker(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     pdf_id = Column(Integer, ForeignKey("pdfs.id"))
+    profile_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=True)
     
     # Basic biomarker info
     name = Column(String, index=True)  # Standardized name
@@ -44,8 +46,9 @@ class Biomarker(Base):
     # Notes and contextual information
     notes = Column(Text, nullable=True)
     
-    # Relationship with PDF
+    # Relationships
     pdf = relationship("PDF", back_populates="biomarkers")
+    profile = relationship("Profile", back_populates="biomarkers")
     
     def __repr__(self):
         """String representation of the biomarker."""

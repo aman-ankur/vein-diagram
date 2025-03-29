@@ -26,12 +26,16 @@ import {
   Analytics as AnalyticsIcon,
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
-  Science as ScienceIcon
+  Science as ScienceIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { theme } from './main';
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
 import VisualizationPage from './pages/VisualizationPage';
+import ProfileManagement from './pages/ProfileManagement';
 import APIStatusIndicator from './components/APIStatusIndicator';
 import { checkApiAvailability } from './services/api';
 
@@ -166,6 +170,7 @@ function App() {
     { text: 'Upload', icon: <UploadIcon />, path: '/upload' },
     { text: 'Visualization', icon: <AnalyticsIcon />, path: '/visualization' },
     { text: 'Biomarkers', icon: <ScienceIcon />, path: '/biomarkers' },
+    { text: 'Profiles', icon: <PersonIcon />, path: '/profiles' },
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   ];
 
@@ -194,8 +199,9 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <AppErrorBoundary>
-        <CssBaseline />
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <AppErrorBoundary>
+          <CssBaseline />
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <AppBar position="static">
               <Toolbar>
@@ -221,6 +227,9 @@ function App() {
                   <Button color="inherit" component={Link} to="/visualization">
                     Visualization
                   </Button>
+                  <Button color="inherit" component={Link} to="/profiles">
+                    Profiles
+                  </Button>
                 </Box>
               </Toolbar>
             </AppBar>
@@ -239,6 +248,7 @@ function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/upload" element={<UploadPage />} />
                   <Route path="/visualization" element={<VisualizationPage />} />
+                  <Route path="/profiles" element={<ProfileManagement />} />
                   <Route path="*" element={
                     <Box sx={{ textAlign: 'center', mt: 4 }}>
                       <Typography variant="h4">Page Not Found</Typography>
@@ -286,7 +296,8 @@ function App() {
               </Alert>
             </Snackbar>
           </Box>
-      </AppErrorBoundary>
+        </AppErrorBoundary>
+      </LocalizationProvider>
     </ThemeProvider>
   );
 }
