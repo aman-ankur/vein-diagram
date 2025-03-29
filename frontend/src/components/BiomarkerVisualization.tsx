@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Paper, Tabs, Tab, CircularProgress, Alert, Button } from '@mui/material';
-import { Biomarker } from './BiomarkerTable';
+import type { Biomarker } from '../types/biomarker';
 import Plotly from 'plotly.js-basic-dist';
 import createPlotlyComponent from 'react-plotly.js/factory';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -360,7 +360,19 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
                   {onExplainWithAI && (
                     <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                       <Button
-                        onClick={() => onExplainWithAI(selectedBiomarker)}
+                        onClick={() => {
+                          console.log('=== AI EXPLANATION BUTTON CLICKED IN VISUALIZATION ===');
+                          console.log('Selected biomarker:', selectedBiomarker);
+                          console.log('onExplainWithAI handler type:', typeof onExplainWithAI);
+                          console.log('onExplainWithAI handler defined:', !!onExplainWithAI);
+                          
+                          try {
+                            onExplainWithAI(selectedBiomarker);
+                            console.log('onExplainWithAI handler called successfully');
+                          } catch (error) {
+                            console.error('Error calling onExplainWithAI handler:', error);
+                          }
+                        }}
                         startIcon={<PsychologyIcon />}
                         variant="contained"
                         color="primary"

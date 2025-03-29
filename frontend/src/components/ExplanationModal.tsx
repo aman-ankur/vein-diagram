@@ -17,12 +17,12 @@ import { Close as CloseIcon, Psychology as PsychologyIcon } from '@mui/icons-mat
 
 // Define interfaces for the component props
 export interface BiomarkerExplanation {
-  biomarker_id: number;
+  biomarker_id?: number;
   name: string;
   general_explanation: string;
   specific_explanation: string;
-  created_at: string;
-  from_cache: boolean;
+  created_at?: string;
+  from_cache?: boolean;
 }
 
 interface ExplanationModalProps {
@@ -87,6 +87,7 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
           color="inherit" 
           onClick={onClose} 
           aria-label="close"
+          disabled={isLoading}
         >
           <CloseIcon />
         </IconButton>
@@ -115,10 +116,13 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
           </Box>
           
           {isLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', my: 8 }}>
-              <CircularProgress size={60} thickness={4} />
-              <Typography variant="h6" sx={{ ml: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', my: 8, flexDirection: 'column' }}>
+              <CircularProgress size={60} thickness={4} color="primary" />
+              <Typography variant="h6" sx={{ mt: 2 }}>
                 Generating explanation...
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                This may take a few moments while we analyze the biomarker data.
               </Typography>
             </Box>
           ) : error ? (
@@ -138,6 +142,30 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
               <Typography variant="body2" sx={{ mt: 1 }}>
                 Please try again later or contact support if the problem persists.
               </Typography>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                sx={{ mt: 2 }}
+                onClick={() => {
+                  // Notify parent to retry
+                  if (onClose) {
+                    onClose();
+                    // Small delay before potentially reopening the modal
+                    setTimeout(() => {
+                      if (explanation) {
+                        // This is a hacky way to trigger a retry, in a real implementation
+                        // the parent component would have a proper retry mechanism
+                        const retryEvent = new CustomEvent('retry-explanation', { 
+                          detail: { biomarkerName } 
+                        });
+                        window.dispatchEvent(retryEvent);
+                      }
+                    }, 300);
+                  }
+                }}
+              >
+                Try Again
+              </Button>
             </Box>
           ) : explanation ? (
             <>
@@ -166,7 +194,7 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
                 }}>
                   Your Results Explained
                 </Typography>
-                <Typography variant="body1" sx={{ mt: 2, lineHeight: 1.7 }}>
+                <Typography variant="body1" sx={{ mt: 2, lineHeight: 1.7, whiteSpace: 'pre-line' }}>
                   {explanation.specific_explanation}
                 </Typography>
               </Box>
@@ -176,9 +204,9 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
                 sx={{ 
                   mt: 4, 
                   p: 2, 
-                  backgroundColor: theme.palette.grey[100],
+                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : theme.palette.grey[100],
                   borderRadius: 2,
-                  border: `1px solid ${theme.palette.grey[300]}`
+                  border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : theme.palette.grey[300]}`
                 }}
               >
                 <Typography variant="caption" color="text.secondary">
@@ -193,15 +221,44 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
               <Typography variant="body1" color="text.secondary">
                 No explanation available. Please try again.
               </Typography>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                sx={{ mt: 2 }}
+                onClick={() => {
+                  if (onClose) onClose();
+                }}
+              >
+                Close
+              </Button>
             </Box>
           )}
         </Box>
       </DialogContent>
       
-      <DialogActions sx={{ p: 2, backgroundColor: theme.palette.grey[50] }}>
-        <Button onClick={onClose} variant="outlined">
+      <DialogActions sx={{ p: 2, backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : theme.palette.grey[50] }}>
+        <Button onClick={onClose} variant="outlined" disabled={isLoading}>
           Close
         </Button>
+        {explanation && (
+          <Button 
+            onClick={() => {
+              // Copy explanation to clipboard
+              const text = `${biomarkerName} (${biomarkerValue} ${biomarkerUnit}):\n\n${explanation.general_explanation}\n\n${explanation.specific_explanation}`;
+              navigator.clipboard.writeText(text)
+                .then(() => {
+                  // Could add a toast notification here
+                  console.log('Explanation copied to clipboard');
+                })
+                .catch(err => {
+                  console.error('Failed to copy explanation:', err);
+                });
+            }}
+            variant="contained"
+          >
+            Copy to Clipboard
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );
