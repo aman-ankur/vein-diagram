@@ -17,7 +17,7 @@ load_dotenv()
 logger.info("Loaded environment variables from .env file")
 
 # Import routers
-from app.api.routes import pdf_routes, biomarker_routes
+from app.api.routes import pdf_routes, biomarker_routes, profile_routes
 
 # Create FastAPI app
 app = FastAPI(
@@ -39,6 +39,7 @@ app.add_middleware(
 # Include routers
 app.include_router(pdf_routes.router, prefix="/api/pdf", tags=["PDF Processing"])
 app.include_router(biomarker_routes.router, prefix="/api", tags=["Biomarker Data"])
+app.include_router(profile_routes.router, prefix="/api/profiles", tags=["Profile Management"])
 
 # Initialize the database at startup
 @app.on_event("startup")
