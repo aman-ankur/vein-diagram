@@ -39,11 +39,11 @@ import {
   History as HistoryIcon,
   Psychology as PsychologyIcon
 } from '@mui/icons-material';
-import { Biomarker as BiomarkerType } from '../types/pdf';
 import { SvgIcon } from '@mui/material';
+import type { Biomarker } from '../types/biomarker';
 
-// Export the Biomarker type for other components to use
-export type Biomarker = BiomarkerType;
+// Re-export the Biomarker type
+export type { Biomarker };
 
 interface BiomarkerTableProps {
   fileId?: string;
@@ -170,6 +170,18 @@ const BiomarkerRow: React.FC<{
   const [open, setOpen] = useState(false);
   const theme = useTheme();
   
+  // Debug console logs
+  useEffect(() => {
+    console.log(`BiomarkerRow: Mounted for ${biomarker.name} (ID: ${biomarker.id})`, {
+      hasOnViewHistory: !!onViewHistory,
+      hasOnExplainWithAI: !!onExplainWithAI
+    });
+    
+    return () => {
+      console.log(`BiomarkerRow: Unmounted for ${biomarker.name} (ID: ${biomarker.id})`);
+    };
+  }, [biomarker.id, biomarker.name, onViewHistory, onExplainWithAI]);
+  
   return (
     <>
       <TableRow 
@@ -232,11 +244,20 @@ const BiomarkerRow: React.FC<{
               </Tooltip>
             )}
             <Button
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault(); // Prevent default behavior
                 console.log('Explain button clicked for biomarker:', biomarker);
+                console.log('onExplainWithAI is:', onExplainWithAI);
+                console.log('onExplainWithAI type:', typeof onExplainWithAI);
+                
                 if (onExplainWithAI) {
                   console.log('Calling onExplainWithAI handler...');
-                  onExplainWithAI(biomarker);
+                  try {
+                    onExplainWithAI(biomarker);
+                    console.log('onExplainWithAI handler called successfully');
+                  } catch (error) {
+                    console.error('Error calling onExplainWithAI handler:', error);
+                  }
                 } else {
                   console.warn('onExplainWithAI handler is not defined');
                 }
@@ -295,11 +316,20 @@ const BiomarkerRow: React.FC<{
                     size="medium"
                     color="primary"
                     startIcon={<PsychologyIcon />}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault(); // Prevent default behavior
                       console.log('Expanded Explain button clicked for biomarker:', biomarker);
+                      console.log('onExplainWithAI is:', onExplainWithAI);
+                      console.log('onExplainWithAI type:', typeof onExplainWithAI);
+                      
                       if (onExplainWithAI) {
                         console.log('Calling onExplainWithAI handler from expanded view...');
-                        onExplainWithAI(biomarker);
+                        try {
+                          onExplainWithAI(biomarker);
+                          console.log('onExplainWithAI handler called successfully from expanded view');
+                        } catch (error) {
+                          console.error('Error calling onExplainWithAI handler from expanded view:', error);
+                        }
                       } else {
                         console.warn('onExplainWithAI handler is not defined');
                       }
@@ -334,6 +364,25 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
+  // Debug console logs
+  console.log('BiomarkerTable: Props received', { 
+    biomarkersCount: biomarkers?.length,
+    isLoading,
+    error,
+    hasOnRefresh: !!onRefresh,
+    hasOnViewHistory: !!onViewHistory,
+    hasOnExplainWithAI: !!onExplainWithAI
+  });
+  
+  // Set up effect to log when component mounts and unmounts
+  useEffect(() => {
+    console.log('BiomarkerTable: Component mounted');
+    
+    return () => {
+      console.log('BiomarkerTable: Component unmounted');
+    };
+  }, []);
+  
   // Filter and sort biomarkers whenever the dependencies change
   useEffect(() => {
     // Filter biomarkers based on search term
@@ -366,6 +415,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
     });
     
     setFilteredBiomarkers(filtered);
+    console.log(`BiomarkerTable: Filtered biomarkers updated - ${filtered.length} items`);
   }, [biomarkers, searchTerm, orderBy, order]);
   
   // Handle sort request

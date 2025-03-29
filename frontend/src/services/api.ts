@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { API_BASE_URL } from '../config';
-import { ProcessingStatus, UploadResponse, Biomarker } from '../types/pdf';
+import { Biomarker } from '../types/pdf';
+import { BiomarkerExplanation, ApiError, FileMetadata, UserProfile, ProcessingStatus } from '../types/api';
 
 // Define types for API responses
 export interface PDFResponse {
@@ -54,7 +55,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  withCredentials: false // Set to true if you need to send cookies with requests
+  withCredentials: true // Set to true to send cookies with requests
 });
 
 // Add request interceptor for logging and enhancement
@@ -108,13 +109,9 @@ export interface ApiResponse<T> {
   status: number;
 }
 
-export interface ApiError {
-  message: string;
-  status: number;
-  data?: any;
-  isNetworkError?: boolean;
-  isOffline?: boolean;
-}
+// Define retry parameters
+const DEFAULT_RETRY_COUNT = 3;
+const DEFAULT_RETRY_DELAY = 1000; // 1 second
 
 // Utility to check if the device is offline
 const isOffline = (): boolean => {
@@ -415,136 +412,99 @@ export const getBiomarkerById = async (biomarkerId: number): Promise<Biomarker> 
  * Get an AI-generated explanation for a biomarker
  */
 export const getBiomarkerExplanation = async (
-  biomarkerId: number,
-  biomarkerName: string,
-  value: number,
-  unit: string,
-  referenceRange: string,
-  isAbnormal: boolean
-): Promise<any> => {
-  console.log('=== EXPLANATION REQUEST DETAILS ===');
-  console.log(`Biomarker ID: ${biomarkerId}`);
-  console.log(`Biomarker Name: ${biomarkerName}`);
-  console.log(`Value: ${value} ${unit}`);
-  console.log(`Reference Range: ${referenceRange}`);
-  console.log(`Is Abnormal: ${isAbnormal}`);
+  biomarkerId?: string | number,
+  biomarkerName?: string,
+  value?: number | string,
+  unit?: string,
+  referenceRange?: string,
+  isAbnormal?: boolean
+): Promise<BiomarkerExplanation> => {
+  console.log('==== API REQUEST: getBiomarkerExplanation ====');
+  console.log('Parameters:', { biomarkerId, biomarkerName, value, unit, referenceRange, isAbnormal });
   
-  return withRetry(async () => {
-    try {
-      console.log(`Getting explanation for biomarker ${biomarkerId}: ${biomarkerName}`);
-      
-      // Check if biomarkerId is valid - if not, use the general endpoint
-      if (!biomarkerId || biomarkerId <= 0) {
-        console.warn('Invalid biomarkerId provided, using generic endpoint instead');
-        console.log('Preparing request to /api/biomarkers/explain');
-        
-        // Use a direct endpoint that doesn't require ID
-        const genericPayload = {
+  try {
+    let response;
+    
+    // Check if we have a valid biomarkerId
+    if (biomarkerId) {
+      console.log(`Making API call to /api/biomarkers/${biomarkerId}/explain`);
+      try {
+        response = await axios.post(`/api/biomarkers/${biomarkerId}/explain`, {
           name: biomarkerName,
-          value: value,
-          unit: unit,
+          value,
+          unit,
           reference_range: referenceRange,
           is_abnormal: isAbnormal
-        };
-        
-        console.log('Generic request payload:', genericPayload);
-        
-        try {
-          console.log('Sending request to generic endpoint...');
-          const genericResponse = await api.post(`/api/biomarkers/explain`, genericPayload);
-          console.log('Generic endpoint response status:', genericResponse.status);
-          console.log('Received generic explanation response:', genericResponse.data);
-          return genericResponse.data;
-        } catch (genError) {
-          console.error('Error with generic endpoint:', genError);
-          throw genError;
+        });
+        console.log('API response status:', response.status);
+        console.log('API response data:', response.data);
+      } catch (error) {
+        // Handle 404 errors specifically
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          console.warn(`Biomarker ID ${biomarkerId} not found, falling back to generic endpoint`);
+          // Fall back to the generic endpoint
+          throw new Error(`Biomarker ID ${biomarkerId} not found`);
+        } else {
+          // For other errors, just rethrow
+          console.error('Error in specific biomarker endpoint:', error);
+          throw error;
         }
       }
-      
-      // Normal flow with valid biomarkerId
-      const endpoint = `/api/biomarkers/${biomarkerId}/explain`;
-      console.log('Calling API with URL:', endpoint);
-      
-      const payload = {
+    } 
+    
+    // If we don't have a biomarkerId or the specific endpoint failed with 404,
+    // use the generic endpoint
+    if (!biomarkerId || !response) {
+      console.log('Making API call to generic /api/biomarkers/explain endpoint');
+      response = await axios.post('/api/biomarkers/explain', {
         name: biomarkerName,
         value,
         unit,
         reference_range: referenceRange,
         is_abnormal: isAbnormal
-      };
-      
-      console.log('Request payload:', JSON.stringify(payload, null, 2));
-      
-      try {
-        console.log(`Sending request to ${endpoint}...`);
-        const response = await api.post(endpoint, payload);
-        
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
-        console.log('Received explanation response:', response.data);
-        
-        return response.data;
-      } catch (directError) {
-        console.error(`Error with direct endpoint ${endpoint}:`, directError);
-        throw directError;
-      }
-    } catch (error) {
-      console.error('=== ERROR GETTING BIOMARKER EXPLANATION ===');
-      console.error('Error details:', error);
-      
-      if (axios.isAxiosError(error)) {
-        console.error('Axios error detected');
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error code:', error.code);
-        console.error('Response status:', error.response?.status);
-        console.error('Response data:', error.response?.data);
-        
-        // Handle 404 specifically
-        if (error.response?.status === 404) {
-          console.error(`Biomarker with ID ${biomarkerId} not found`);
-          
-          // Try with a direct API call without the ID if the biomarker wasn't found
-          try {
-            console.log('Attempting to get explanation without specific biomarker ID');
-            const fallbackPayload = {
-              name: biomarkerName,
-              value: value,
-              unit: unit,
-              reference_range: referenceRange,
-              is_abnormal: isAbnormal
-            };
-            
-            console.log('Fallback request payload:', fallbackPayload);
-            const directResponse = await api.post(`/api/biomarkers/explain`, fallbackPayload);
-            console.log('Fallback response status:', directResponse.status);
-            console.log('Received fallback explanation response:', directResponse.data);
-            return directResponse.data;
-          } catch (directError) {
-            if (axios.isAxiosError(directError)) {
-              console.error(`Failed with direct explanation call too: ${directError.response?.status} - ${directError.message}`);
-              console.error('Response data:', directError.response?.data);
-            } else {
-              console.error('Unknown error with direct call:', directError);
-            }
-            throw new Error(`Could not generate explanation for ${biomarkerName}. The service may be temporarily unavailable.`);
-          }
-        }
-        
-        // For other errors
-        console.error(`API error: ${error.response?.status} - ${error.message}`);
-        console.error('Response data:', error.response?.data);
-        
-        throw {
-          message: error.response?.data?.detail || 
-                  error.response?.data?.message || 
-                  `Error getting explanation for ${biomarkerName}`,
-          status: error.response?.status
-        };
-      }
-      throw error;
+      });
+      console.log('Generic API response status:', response.status);
+      console.log('Generic API response data:', response.data);
     }
-  }, 3, 2000); // Higher retry count with longer delay for LLM operations
+
+    if (response.status !== 200) {
+      console.error('Non-200 response:', response.status, response.data);
+      throw new Error(`Failed to get explanation: ${response.statusText}`);
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('==== ERROR IN getBiomarkerExplanation ====');
+    
+    if (axios.isAxiosError(error)) {
+      console.error('Axios error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          data: error.config?.data
+        }
+      });
+      
+      // Provide more specific error messages based on status code
+      if (error.response?.status === 404) {
+        throw new Error('The API endpoint for biomarker explanations was not found. Please check your server configuration.');
+      } else if (error.response?.status === 500) {
+        throw new Error('The server encountered an error while generating the explanation. Please try again later.');
+      } else if (error.code === 'ECONNABORTED') {
+        throw new Error('The request timed out. Please check your internet connection and try again.');
+      } else if (!error.response && error.request) {
+        // The request was made but no response was received
+        throw new Error('No response received from server. Please check your internet connection.');
+      }
+    }
+    
+    // Re-throw the error to be handled by the caller
+    throw error;
+  }
 };
 
 // PDF upload service

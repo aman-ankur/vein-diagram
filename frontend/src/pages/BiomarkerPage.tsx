@@ -24,8 +24,8 @@ import { getAllBiomarkers, getBiomarkersByFileId, getBiomarkerCategories, getBio
 import BiomarkerTable from '../components/BiomarkerTable';
 import BiomarkerVisualization from '../components/BiomarkerVisualization';
 import ExplanationModal from '../components/ExplanationModal';
-import { Biomarker } from '../components/BiomarkerTable';
-import { BiomarkerExplanation } from '../components/ExplanationModal';
+import type { Biomarker } from '../types/biomarker';
+import { BiomarkerExplanation } from '../types/api';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -160,6 +160,7 @@ const BiomarkerPage: React.FC = () => {
   // Function to handle opening the explanation modal
   const handleExplainBiomarker = async (biomarker: Biomarker) => {
     console.log('=== EXPLAIN BIOMARKER FUNCTION CALLED ===');
+    console.log('Function reference:', handleExplainBiomarker);
     console.log('Biomarker data received:', biomarker);
     
     // Make sure biomarker has expected fields
@@ -170,6 +171,8 @@ const BiomarkerPage: React.FC = () => {
     }
     
     console.log('Opening explanation modal for biomarker:', biomarker);
+    
+    // First open the modal with loading state
     setCurrentBiomarker(biomarker);
     setExplanationModalOpen(true);
     setExplanationLoading(true);
@@ -177,12 +180,14 @@ const BiomarkerPage: React.FC = () => {
     setExplanation(null);
     
     try {
+      // Calculate the abnormal status
       const isAbnormal = biomarker.isAbnormal !== undefined 
         ? biomarker.isAbnormal 
         : (biomarker.reference_range_low !== undefined && biomarker.reference_range_high !== undefined)
           ? (biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high)
           : false;
       
+      // Format reference range
       const referenceRange = biomarker.referenceRange || 
         (biomarker.reference_range_low !== null && biomarker.reference_range_high !== null 
           ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}` 
@@ -201,6 +206,7 @@ const BiomarkerPage: React.FC = () => {
         isAbnormal
       });
       
+      // Make API call
       const result = await getBiomarkerExplanation(
         biomarker.id,
         biomarker.name,
@@ -211,22 +217,36 @@ const BiomarkerPage: React.FC = () => {
       );
       
       console.log('Received explanation result:', result);
+      
+      // Verify result structure
+      if (!result || !result.general_explanation || !result.specific_explanation) {
+        console.error('Invalid explanation data received:', result);
+        setExplanationError('Invalid explanation data received. Please try again.');
+        return;
+      }
+      
+      // Update state with result
       setExplanation(result);
     } catch (error) {
       console.error('=== ERROR IN EXPLAIN BIOMARKER HANDLER ===');
       console.error('Error type:', typeof error);
       console.error('Full error details:', error);
       
-      setExplanationError(
-        error instanceof Error 
-          ? error.message 
-          : typeof error === 'object' && error !== null && 'message' in error
-            ? String(error.message)
-            : 'An unexpected error occurred'
-      );
+      // Set user-friendly error message
+      let errorMessage = 'An unexpected error occurred. Please try again later.';
       
-      console.error('Set error message to:', explanationError);
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String(error.message);
+      }
+      
+      console.log('Setting error message:', errorMessage);
+      setExplanationError(errorMessage);
+      
+      // Keep the modal open to show the error
     } finally {
+      // Always set loading to false
       setExplanationLoading(false);
       console.log('Explanation loading set to false');
     }
