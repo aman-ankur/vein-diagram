@@ -94,7 +94,7 @@ Keep language accessible to non-medical professionals while being accurate.
 
 2. Backend:
    - app/routers/biomarkers.py (add new endpoint)
-   - app/services/llm_service.py (handle LLM interactions)
+   - app/services/llm_service.py (handle LLM interactions) [ maybe change name]
    - app/models/schemas.py (add explanation request/response models)
 
 Before implementing, please review the project structure and existing components to ensure consistency. Test each change thoroughly and make sure the UI is responsive across different device sizes.
