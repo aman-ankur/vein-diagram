@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { API_BASE_URL } from '../config';
-import { ProcessingStatus, UploadResponse, Biomarker } from '../types/pdf';
+import { Biomarker } from '../types/pdf';
+import { BiomarkerExplanation, ApiError, FileMetadata, UserProfile, ProcessingStatus } from '../types/api';
 
 // Define types for API responses
 export interface PDFResponse {
@@ -54,7 +55,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  withCredentials: false // Set to true if you need to send cookies with requests
+  withCredentials: true // Set to true to send cookies with requests
 });
 
 // Add request interceptor for logging and enhancement
@@ -108,13 +109,9 @@ export interface ApiResponse<T> {
   status: number;
 }
 
-export interface ApiError {
-  message: string;
-  status: number;
-  data?: any;
-  isNetworkError?: boolean;
-  isOffline?: boolean;
-}
+// Define retry parameters
+const DEFAULT_RETRY_COUNT = 3;
+const DEFAULT_RETRY_DELAY = 1000; // 1 second
 
 // Utility to check if the device is offline
 const isOffline = (): boolean => {
@@ -409,6 +406,118 @@ export const getBiomarkerById = async (biomarkerId: number): Promise<Biomarker> 
       throw error;
     }
   });
+};
+
+/**
+ * Get an AI-generated explanation for a biomarker
+ */
+export const getBiomarkerExplanation = async (
+  biomarkerId?: string | number,
+  biomarkerName?: string,
+  value?: number | string,
+  unit?: string,
+  referenceRange?: string,
+  isAbnormal?: boolean
+): Promise<BiomarkerExplanation> => {
+  console.log('==== API REQUEST: getBiomarkerExplanation ====');
+  console.log('Parameters:', { biomarkerId, biomarkerName, value, unit, referenceRange, isAbnormal });
+
+  // Define the payload once
+  const payload = {
+    name: biomarkerName,
+    value,
+    unit,
+    reference_range: referenceRange,
+    is_abnormal: isAbnormal
+  };
+
+  try {
+    let response: AxiosResponse<BiomarkerExplanation>; // Use AxiosResponse type for clarity
+
+    // Check if we have a valid biomarkerId
+    if (biomarkerId) {
+      console.log(`Making API call to /api/biomarkers/${biomarkerId}/explain using configured 'api' instance`);
+      try {
+        // Use the 'api' instance with the correct baseURL
+        response = await api.post<BiomarkerExplanation>(`/api/biomarkers/${biomarkerId}/explain`, payload);
+        console.log('API response status:', response.status);
+        console.log('API response data:', response.data);
+        // If successful, return the data
+        return response.data;
+      } catch (error) {
+        // Handle 404 errors specifically if falling back is desired
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          console.warn(`Biomarker ID ${biomarkerId} not found or specific endpoint unavailable, falling back to generic endpoint`);
+          // Proceed to the generic endpoint call below
+        } else {
+          // For other errors, log and rethrow to be handled by the outer catch block
+          console.error(`Error calling specific endpoint /api/biomarkers/${biomarkerId}/explain:`, error);
+          throw error; // Rethrow to be caught by the main catch block
+        }
+      }
+    }
+
+    // If we don't have a biomarkerId OR the specific endpoint call resulted in a 404 (and didn't throw other errors)
+    console.log("Making API call to generic /api/biomarkers/explain endpoint using configured 'api' instance");
+    // Use the 'api' instance with the correct baseURL
+    response = await api.post<BiomarkerExplanation>('/api/biomarkers/explain', payload);
+    console.log('Generic API response status:', response.status);
+    console.log('Generic API response data:', response.data);
+
+    // Check status explicitly, although interceptor might handle some cases
+    if (response.status !== 200) {
+       console.error('Non-200 response from generic endpoint:', response.status, response.data);
+       // Construct an error similar to what the interceptor would create
+       throw {
+         message: `Failed to get explanation (Status: ${response.status})`,
+         status: response.status,
+         data: response.data
+       };
+    }
+
+    return response.data;
+
+  } catch (error) {
+    console.error('==== ERROR IN getBiomarkerExplanation ====');
+
+    // The error might already be an ApiError if it went through the interceptor (from api.post)
+    // Or it could be a raw AxiosError if the initial check failed differently, or a standard Error.
+    if (axios.isAxiosError(error)) {
+      console.error('Axios error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        configUrl: error.config?.url, // Log the URL that was actually called
+      });
+
+      // Create a standardized ApiError if it's not one already
+      const apiError: ApiError = {
+        message: error.response?.data?.detail || error.response?.data?.message || error.message || 'Failed to get biomarker explanation',
+        status: error.response?.status || 500,
+        data: error.response?.data || null,
+        isNetworkError: !error.response && error.message?.includes('Network Error'),
+      };
+
+       // Provide more specific user-friendly messages
+      if (apiError.status === 404) {
+         apiError.message = 'The biomarker explanation service could not be found. Please contact support.';
+       } else if (apiError.status >= 500) {
+         apiError.message = 'The server encountered an error generating the explanation. Please try again later.';
+       } else if (apiError.isNetworkError || apiError.status === 0) {
+         apiError.message = 'Network error. Could not reach the explanation service. Please check your connection.';
+       }
+
+       throw apiError; // Throw the standardized error
+
+    } else if (error instanceof Error) {
+        console.error('Non-Axios error:', error.message);
+        // Throw a generic ApiError structure
+        throw { message: error.message, status: 500, data: null } as ApiError;
+    } else {
+       console.error('Unknown error object:', error);
+       throw { message: 'An unknown error occurred.', status: 500, data: null } as ApiError;
+    }
+  }
 };
 
 // PDF upload service
