@@ -20,7 +20,9 @@ import {
   Collapse,
   useTheme,
   alpha,
-  Button
+  Button,
+  TableSortLabel,
+  CircularProgress
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -33,12 +35,15 @@ import {
   Error as ErrorIcon,
   Warning as WarningIcon,
   Check as CheckIcon,
-  Timeline as TimelineIcon
+  Timeline as TimelineIcon,
+  History as HistoryIcon,
+  Psychology as PsychologyIcon
 } from '@mui/icons-material';
-import { Biomarker as BiomarkerType } from '../types/pdf';
+import { SvgIcon } from '@mui/material';
+import type { Biomarker } from '../types/biomarker';
 
-// Export the Biomarker type for other components to use
-export type Biomarker = BiomarkerType;
+// Re-export the Biomarker type
+export type { Biomarker };
 
 interface BiomarkerTableProps {
   fileId?: string;
@@ -47,6 +52,7 @@ interface BiomarkerTableProps {
   error?: string | null;
   onRefresh?: () => void;
   onViewHistory?: (biomarker: Biomarker) => void;
+  onExplainWithAI?: (biomarker: Biomarker) => void;
 }
 
 // Interface for the column definition
@@ -67,6 +73,7 @@ const columns: Column[] = [
   { id: 'referenceRange', label: 'Reference Range', minWidth: 120, align: 'center' },
   { id: 'status', label: 'Status', minWidth: 100, align: 'center' },
   { id: 'category', label: 'Category', minWidth: 120, align: 'center', sortable: true },
+  { id: 'actions', label: 'Actions', minWidth: 150, align: 'center' },
 ];
 
 // Function to determine if a value is outside the reference range
@@ -158,71 +165,124 @@ const StatusChip: React.FC<{ biomarker: Biomarker }> = ({ biomarker }) => {
 const BiomarkerRow: React.FC<{
   biomarker: Biomarker;
   onViewHistory?: (biomarker: Biomarker) => void;
-}> = ({ biomarker, onViewHistory }) => {
+  onExplainWithAI?: (biomarker: Biomarker) => void;
+}> = ({ biomarker, onViewHistory, onExplainWithAI }) => {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
   
-  const handleViewHistory = () => {
-    if (onViewHistory) {
-      onViewHistory(biomarker);
-    }
-  };
+  // Debug console logs
+  useEffect(() => {
+    console.log(`BiomarkerRow: Mounted for ${biomarker.name} (ID: ${biomarker.id})`, {
+      hasOnViewHistory: !!onViewHistory,
+      hasOnExplainWithAI: !!onExplainWithAI
+    });
+    
+    return () => {
+      console.log(`BiomarkerRow: Unmounted for ${biomarker.name} (ID: ${biomarker.id})`);
+    };
+  }, [biomarker.id, biomarker.name, onViewHistory, onExplainWithAI]);
   
   return (
     <>
       <TableRow 
-        hover 
         sx={{ 
-          '& > *': { borderBottom: 'unset' }, 
-          cursor: 'pointer',
+          '& > *': { borderBottom: 'unset' },
           '&:hover': {
-            backgroundColor: alpha(theme.palette.primary.main, 0.04),
+            backgroundColor: theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.08)' 
+              : 'rgba(0, 0, 0, 0.04)'
           }
         }}
-        onClick={() => setOpen(!open)}
       >
         <TableCell>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <IconButton
-              aria-label="expand row"
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(!open);
-              }}
-            >
-              {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-            </IconButton>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {biomarker.name}
-            </Typography>
-          </Box>
+          <IconButton
+            aria-label="expand row"
+            size="small"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+          </IconButton>
         </TableCell>
-        <TableCell align="right">
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {biomarker.value}
-          </Typography>
+        <TableCell component="th" scope="row">
+          {biomarker.name}
         </TableCell>
+        <TableCell align="right">{biomarker.value}</TableCell>
         <TableCell align="center">{biomarker.unit}</TableCell>
-        <TableCell align="center">{biomarker.referenceRange || 'Not available'}</TableCell>
+        <TableCell align="center">{biomarker.referenceRange}</TableCell>
         <TableCell align="center">
           <StatusChip biomarker={biomarker} />
         </TableCell>
         <TableCell align="center">
-          {biomarker.category ? (
-            <Chip 
-              size="small" 
-              label={biomarker.category} 
-              variant="outlined"
-              color="primary"
-            />
-          ) : (
-            'Uncategorized'
-          )}
+          <Chip
+            label={biomarker.category || 'Uncategorized'}
+            size="small"
+            sx={{
+              backgroundColor: theme.palette.mode === 'dark' 
+                ? 'rgba(255, 255, 255, 0.16)'
+                : 'rgba(0, 0, 0, 0.08)',
+              color: theme.palette.mode === 'dark'
+                ? theme.palette.primary.light
+                : theme.palette.primary.main
+            }}
+          />
+        </TableCell>
+        <TableCell align="center">
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'nowrap' }}>
+            {onViewHistory && (
+              <Tooltip title="View History">
+                <IconButton 
+                  onClick={() => onViewHistory(biomarker)}
+                  size="small"
+                  sx={{ 
+                    color: theme.palette.mode === 'dark' 
+                      ? theme.palette.primary.light
+                      : theme.palette.primary.main
+                  }}
+                >
+                  <HistoryIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button
+              onClick={(e) => {
+                e.preventDefault(); // Prevent default behavior
+                console.log('Explain button clicked for biomarker:', biomarker);
+                console.log('onExplainWithAI is:', onExplainWithAI);
+                console.log('onExplainWithAI type:', typeof onExplainWithAI);
+                
+                if (onExplainWithAI) {
+                  console.log('Calling onExplainWithAI handler...');
+                  try {
+                    onExplainWithAI(biomarker);
+                    console.log('onExplainWithAI handler called successfully');
+                  } catch (error) {
+                    console.error('Error calling onExplainWithAI handler:', error);
+                  }
+                } else {
+                  console.warn('onExplainWithAI handler is not defined');
+                }
+              }}
+              startIcon={<PsychologyIcon />}
+              variant="contained"
+              size="small"
+              sx={{
+                backgroundColor: theme.palette.primary.main,
+                color: '#fff',
+                whiteSpace: 'nowrap',
+                minWidth: 'auto',
+                px: 1,
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.dark,
+                }
+              }}
+            >
+              Explain
+            </Button>
+          </Box>
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 2 }}>
               <Typography variant="h6" gutterBottom component="div">
@@ -239,20 +299,45 @@ const BiomarkerRow: React.FC<{
                   )}
                 </Typography>
                 
-                {onViewHistory && (
+                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                  {onViewHistory && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<TimelineIcon />}
+                      onClick={() => onViewHistory(biomarker)}
+                    >
+                      View History
+                    </Button>
+                  )}
+                  
                   <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<TimelineIcon />}
+                    variant="contained"
+                    size="medium"
+                    color="primary"
+                    startIcon={<PsychologyIcon />}
                     onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewHistory();
+                      e.preventDefault(); // Prevent default behavior
+                      console.log('Expanded Explain button clicked for biomarker:', biomarker);
+                      console.log('onExplainWithAI is:', onExplainWithAI);
+                      console.log('onExplainWithAI type:', typeof onExplainWithAI);
+                      
+                      if (onExplainWithAI) {
+                        console.log('Calling onExplainWithAI handler from expanded view...');
+                        try {
+                          onExplainWithAI(biomarker);
+                          console.log('onExplainWithAI handler called successfully from expanded view');
+                        } catch (error) {
+                          console.error('Error calling onExplainWithAI handler from expanded view:', error);
+                        }
+                      } else {
+                        console.warn('onExplainWithAI handler is not defined');
+                      }
                     }}
-                    sx={{ mt: 1 }}
                   >
-                    View History
+                    Explain with AI
                   </Button>
-                )}
+                </Box>
               </Box>
             </Box>
           </Collapse>
@@ -269,7 +354,8 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   isLoading = false,
   error = null,
   onRefresh,
-  onViewHistory
+  onViewHistory,
+  onExplainWithAI
 }) => {
   const [filteredBiomarkers, setFilteredBiomarkers] = useState<Biomarker[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -277,6 +363,25 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  
+  // Debug console logs
+  console.log('BiomarkerTable: Props received', { 
+    biomarkersCount: biomarkers?.length,
+    isLoading,
+    error,
+    hasOnRefresh: !!onRefresh,
+    hasOnViewHistory: !!onViewHistory,
+    hasOnExplainWithAI: !!onExplainWithAI
+  });
+  
+  // Set up effect to log when component mounts and unmounts
+  useEffect(() => {
+    console.log('BiomarkerTable: Component mounted');
+    
+    return () => {
+      console.log('BiomarkerTable: Component unmounted');
+    };
+  }, []);
   
   // Filter and sort biomarkers whenever the dependencies change
   useEffect(() => {
@@ -310,6 +415,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
     });
     
     setFilteredBiomarkers(filtered);
+    console.log(`BiomarkerTable: Filtered biomarkers updated - ${filtered.length} items`);
   }, [biomarkers, searchTerm, orderBy, order]);
   
   // Handle sort request
@@ -362,7 +468,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   }
   
   return (
-    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+    <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: 2, boxShadow: 2 }}>
       {/* Error state */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -423,45 +529,92 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
       </Box>
       
       {/* Table */}
-      <TableContainer sx={{ maxHeight: 440 }}>
-        <Table stickyHeader aria-label="biomarkers table">
+      <TableContainer sx={{ maxHeight: 600 }}>
+        <Table stickyHeader aria-label="biomarker table">
           <TableHead>
             <TableRow>
+              <TableCell style={{ width: 50 }} /> {/* Empty cell for expand/collapse button */}
               {columns.map((column) => (
                 <TableCell
                   key={column.id}
                   align={column.align}
                   style={{ minWidth: column.minWidth }}
                   sortDirection={orderBy === column.id ? order : false}
-                  sx={{ 
-                    fontWeight: 'bold',
-                    cursor: column.sortable ? 'pointer' : 'default',
-                    '&:hover': {
-                      backgroundColor: column.sortable ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
-                    },
-                  }}
-                  onClick={() => column.sortable && handleRequestSort(column.id as keyof Biomarker)}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: column.align === 'right' ? 'flex-end' : (column.align === 'center' ? 'center' : 'flex-start') }}>
-                    {column.label}
-                    {orderBy === column.id ? (
-                      order === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownwardIcon fontSize="small" sx={{ ml: 0.5 }} />
-                    ) : null}
-                  </Box>
+                  {column.sortable ? (
+                    <TableSortLabel
+                      active={orderBy === column.id}
+                      direction={orderBy === column.id ? order : 'asc'}
+                      onClick={() => column.id !== 'status' && column.sortable && handleRequestSort(column.id as keyof Biomarker)}
+                    >
+                      {column.label}
+                    </TableSortLabel>
+                  ) : (
+                    column.label
+                  )}
                 </TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredBiomarkers
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((biomarker, index) => (
-                <BiomarkerRow 
-                  key={`${biomarker.name}-${index}`} 
-                  biomarker={biomarker}
-                  onViewHistory={onViewHistory}
-                />
-              ))}
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length + 1} sx={{ py: 5, textAlign: 'center' }}>
+                  <CircularProgress size={40} thickness={5} />
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    Loading biomarker data...
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={columns.length + 1} sx={{ py: 5, textAlign: 'center' }}>
+                  <Alert 
+                    severity="error" 
+                    sx={{ 
+                      justifyContent: 'center', 
+                      '& .MuiAlert-message': { width: 'auto' } 
+                    }}
+                  >
+                    {error}
+                  </Alert>
+                  {onRefresh && (
+                    <Button 
+                      startIcon={<RefreshIcon />} 
+                      onClick={onRefresh}
+                      sx={{ mt: 2 }}
+                    >
+                      Try Again
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ) : filteredBiomarkers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={columns.length + 1} sx={{ py: 5, textAlign: 'center' }}>
+                  {biomarkers.length === 0 ? (
+                    <Typography variant="body1" color="text.secondary">
+                      No biomarker data available
+                    </Typography>
+                  ) : (
+                    <Typography variant="body1" color="text.secondary">
+                      No biomarkers match your search
+                    </Typography>
+                  )}
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredBiomarkers
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((biomarker) => (
+                  <BiomarkerRow 
+                    key={biomarker.id} 
+                    biomarker={biomarker} 
+                    onViewHistory={onViewHistory}
+                    onExplainWithAI={onExplainWithAI}
+                  />
+                ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>

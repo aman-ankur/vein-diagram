@@ -1,0 +1,1 @@
+console.log('Starting test...'); const { getBiomarkerExplanation } = require('./src/services/api.ts'); (async () => { try { const result = await getBiomarkerExplanation(207, 'Glucose', 81.0, 'mg/dL', '70-99', false); console.log('Result:', result); } catch (error) { console.error('Error:', error); } })();

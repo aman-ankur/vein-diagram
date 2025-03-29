@@ -14,15 +14,18 @@ import {
   Link,
   Chip,
   Divider,
-  Alert
+  Alert,
+  useTheme
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import { getAllBiomarkers, getBiomarkersByFileId, getBiomarkerCategories } from '../services/api';
+import { getAllBiomarkers, getBiomarkersByFileId, getBiomarkerCategories, getBiomarkerExplanation } from '../services/api';
 import BiomarkerTable from '../components/BiomarkerTable';
 import BiomarkerVisualization from '../components/BiomarkerVisualization';
-import { Biomarker } from '../components/BiomarkerTable';
+import ExplanationModal from '../components/ExplanationModal';
+import type { Biomarker } from '../types/biomarker';
+import { BiomarkerExplanation } from '../types/api';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -49,6 +52,7 @@ function TabPanel(props: TabPanelProps) {
 const BiomarkerPage: React.FC = () => {
   const { fileId } = useParams<{ fileId: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
   
   const [tabValue, setTabValue] = useState(0);
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
@@ -61,6 +65,19 @@ const BiomarkerPage: React.FC = () => {
     report_date?: string;
     filename?: string;
   }>({});
+  
+  // State for AI explanation modal
+  const [explanationModalOpen, setExplanationModalOpen] = useState<boolean>(false);
+  const [currentBiomarker, setCurrentBiomarker] = useState<Biomarker | null>(null);
+  const [explanationLoading, setExplanationLoading] = useState<boolean>(false);
+  const [explanationError, setExplanationError] = useState<string | null>(null);
+  const [explanation, setExplanation] = useState<BiomarkerExplanation | null>(null);
+  
+  // This is a dummy function just for testing - will be replaced with actual history feature
+  const onViewHistory = (biomarker: Biomarker) => {
+    console.log('View history for biomarker:', biomarker);
+    // In a real implementation, this would show a history view
+  };
   
   // Fetch biomarkers on component mount
   useEffect(() => {
@@ -140,8 +157,108 @@ const BiomarkerPage: React.FC = () => {
     navigate('/upload');
   };
   
+  // Function to handle opening the explanation modal
+  const handleExplainBiomarker = async (biomarker: Biomarker) => {
+    console.log('=== EXPLAIN BIOMARKER FUNCTION CALLED ===');
+    console.log('Function reference:', handleExplainBiomarker);
+    console.log('Biomarker data received:', biomarker);
+    
+    // Make sure biomarker has expected fields
+    if (!biomarker || !biomarker.name) {
+      console.error('Invalid biomarker data received:', biomarker);
+      setExplanationError('Cannot explain this biomarker: invalid data');
+      return;
+    }
+    
+    console.log('Opening explanation modal for biomarker:', biomarker);
+    
+    // First open the modal with loading state
+    setCurrentBiomarker(biomarker);
+    setExplanationModalOpen(true);
+    setExplanationLoading(true);
+    setExplanationError(null);
+    setExplanation(null);
+    
+    try {
+      // Calculate the abnormal status
+      const isAbnormal = biomarker.isAbnormal !== undefined 
+        ? biomarker.isAbnormal 
+        : (biomarker.reference_range_low !== undefined && biomarker.reference_range_high !== undefined)
+          ? (biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high)
+          : false;
+      
+      // Format reference range
+      const referenceRange = biomarker.referenceRange || 
+        (biomarker.reference_range_low !== null && biomarker.reference_range_high !== null 
+          ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}` 
+          : "Not available");
+      
+      console.log('Calculated parameters:');
+      console.log('- isAbnormal:', isAbnormal);
+      console.log('- referenceRange:', referenceRange);
+      
+      console.log('Calling API with parameters:', {
+        id: biomarker.id,
+        name: biomarker.name,
+        value: biomarker.value,
+        unit: biomarker.unit,
+        referenceRange,
+        isAbnormal
+      });
+      
+      // Make API call
+      const result = await getBiomarkerExplanation(
+        biomarker.id,
+        biomarker.name,
+        biomarker.value,
+        biomarker.unit,
+        referenceRange,
+        isAbnormal
+      );
+      
+      console.log('Received explanation result:', result);
+      
+      // Verify result structure
+      if (!result || !result.general_explanation || !result.specific_explanation) {
+        console.error('Invalid explanation data received:', result);
+        setExplanationError('Invalid explanation data received. Please try again.');
+        return;
+      }
+      
+      // Update state with result
+      setExplanation(result);
+    } catch (error) {
+      console.error('=== ERROR IN EXPLAIN BIOMARKER HANDLER ===');
+      console.error('Error type:', typeof error);
+      console.error('Full error details:', error);
+      
+      // Set user-friendly error message
+      let errorMessage = 'An unexpected error occurred. Please try again later.';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String(error.message);
+      }
+      
+      console.log('Setting error message:', errorMessage);
+      setExplanationError(errorMessage);
+      
+      // Keep the modal open to show the error
+    } finally {
+      // Always set loading to false
+      setExplanationLoading(false);
+      console.log('Explanation loading set to false');
+    }
+  };
+  
+  // Handle closing the explanation modal
+  const handleCloseExplanationModal = () => {
+    setExplanationModalOpen(false);
+  };
+  
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
       {/* Breadcrumbs navigation */}
       <Breadcrumbs 
         separator={<NavigateNextIcon fontSize="small" />} 
@@ -222,6 +339,8 @@ const BiomarkerPage: React.FC = () => {
             <BiomarkerTable 
               biomarkers={biomarkers} 
               error={error}
+              onExplainWithAI={handleExplainBiomarker}
+              onViewHistory={onViewHistory}
             />
           )}
         </TabPanel>
@@ -235,8 +354,10 @@ const BiomarkerPage: React.FC = () => {
               </Box>
             ) : (
               <BiomarkerTable 
-                biomarkers={biomarkers.filter(b => b.is_abnormal)} 
+                biomarkers={biomarkers.filter(b => b.isAbnormal)} 
                 error={error}
+                onExplainWithAI={handleExplainBiomarker}
+                onViewHistory={onViewHistory}
               />
             )}
           </TabPanel>
@@ -251,7 +372,15 @@ const BiomarkerPage: React.FC = () => {
           ) : (
             <Box>
               <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
+                <Typography 
+                  variant="h6" 
+                  gutterBottom
+                  sx={{ 
+                    color: theme.palette.mode === 'dark' 
+                      ? theme.palette.grey[100] 
+                      : theme.palette.grey[900] 
+                  }}
+                >
                   Filter by Category
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -260,8 +389,29 @@ const BiomarkerPage: React.FC = () => {
                       key={category}
                       label={category}
                       onClick={() => handleCategoryClick(category)}
-                      color={selectedCategory === category ? 'primary' : 'default'}
-                      variant={selectedCategory === category ? 'filled' : 'outlined'}
+                      sx={{
+                        backgroundColor: selectedCategory === category
+                          ? theme.palette.mode === 'dark'
+                            ? theme.palette.primary.dark
+                            : theme.palette.primary.main
+                          : theme.palette.mode === 'dark'
+                            ? 'rgba(255, 255, 255, 0.16)'
+                            : 'rgba(0, 0, 0, 0.08)',
+                        color: selectedCategory === category
+                          ? '#fff'
+                          : theme.palette.mode === 'dark'
+                            ? theme.palette.primary.light
+                            : theme.palette.primary.main,
+                        '&:hover': {
+                          backgroundColor: selectedCategory === category
+                            ? theme.palette.mode === 'dark'
+                              ? theme.palette.primary.main
+                              : theme.palette.primary.dark
+                            : theme.palette.mode === 'dark'
+                              ? 'rgba(255, 255, 255, 0.24)'
+                              : 'rgba(0, 0, 0, 0.12)'
+                        }
+                      }}
                     />
                   ))}
                 </Box>
@@ -273,6 +423,8 @@ const BiomarkerPage: React.FC = () => {
                 <BiomarkerTable 
                   biomarkers={biomarkers} 
                   error={error}
+                  onExplainWithAI={handleExplainBiomarker}
+                  onViewHistory={onViewHistory}
                 />
               ) : (
                 <Alert severity="info">
@@ -293,10 +445,29 @@ const BiomarkerPage: React.FC = () => {
             <BiomarkerVisualization 
               biomarkers={biomarkers} 
               error={error}
+              onExplainWithAI={handleExplainBiomarker}
             />
           )}
         </TabPanel>
       </Paper>
+      
+      {/* AI Explanation Modal */}
+      {currentBiomarker && (
+        <ExplanationModal
+          open={explanationModalOpen}
+          onClose={handleCloseExplanationModal}
+          biomarkerName={currentBiomarker.name}
+          biomarkerValue={currentBiomarker.value}
+          biomarkerUnit={currentBiomarker.unit}
+          referenceRange={currentBiomarker.referenceRange || 
+            (currentBiomarker.reference_range_low !== null && currentBiomarker.reference_range_high !== null 
+              ? `${currentBiomarker.reference_range_low}-${currentBiomarker.reference_range_high}` 
+              : "Not available")}
+          isLoading={explanationLoading}
+          error={explanationError}
+          explanation={explanation}
+        />
+      )}
     </Container>
   );
 };
