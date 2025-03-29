@@ -97,19 +97,19 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
         <Box sx={{ p: 3 }}>
           <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             <Paper elevation={1} sx={{ p: 1.5, borderRadius: 2, flex: '1 1 auto', minWidth: '150px' }}>
-              <Typography variant="overline" color="text.secondary">
+              <Typography variant="overline" color={theme.palette.mode === 'dark' ? 'primary.light' : 'text.secondary'}>
                 Your Value
               </Typography>
-              <Typography variant="h5" color="primary.main" sx={{ fontWeight: 'bold' }}>
+              <Typography variant="h5" color={theme.palette.mode === 'dark' ? 'primary.light' : 'primary.main'} sx={{ fontWeight: 'bold' }}>
                 {biomarkerValue} {biomarkerUnit}
               </Typography>
             </Paper>
             
             <Paper elevation={1} sx={{ p: 1.5, borderRadius: 2, flex: '1 1 auto', minWidth: '150px' }}>
-              <Typography variant="overline" color="text.secondary">
+              <Typography variant="overline" color={theme.palette.mode === 'dark' ? 'primary.light' : 'text.secondary'}>
                 Reference Range
               </Typography>
-              <Typography variant="h6">
+              <Typography variant="h6" color={theme.palette.mode === 'dark' ? 'text.primary' : 'inherit'}>
                 {referenceRange || 'Not available'}
               </Typography>
             </Paper>
@@ -170,15 +170,16 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
           ) : explanation ? (
             <>
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom color="primary" sx={{ 
+                <Typography variant="h6" gutterBottom sx={{ 
                   display: 'flex', 
                   alignItems: 'center',
                   pb: 1,
-                  borderBottom: `1px solid ${theme.palette.divider}`
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                  color: theme.palette.mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.main
                 }}>
                   About this Biomarker
                 </Typography>
-                <Typography variant="body1" sx={{ mt: 2, lineHeight: 1.7 }}>
+                <Typography variant="body1" sx={{ mt: 2, lineHeight: 1.7, color: theme.palette.mode === 'dark' ? 'text.primary' : 'inherit' }}>
                   {explanation.general_explanation}
                 </Typography>
               </Box>
@@ -186,15 +187,16 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
               <Divider sx={{ my: 3 }} />
               
               <Box>
-                <Typography variant="h6" gutterBottom color="primary" sx={{ 
+                <Typography variant="h6" gutterBottom sx={{ 
                   display: 'flex', 
                   alignItems: 'center',
                   pb: 1,
-                  borderBottom: `1px solid ${theme.palette.divider}`
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                  color: theme.palette.mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.main
                 }}>
                   Your Results Explained
                 </Typography>
-                <Typography variant="body1" sx={{ mt: 2, lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                <Typography variant="body1" sx={{ mt: 2, lineHeight: 1.7, whiteSpace: 'pre-line', color: theme.palette.mode === 'dark' ? 'text.primary' : 'inherit' }}>
                   {explanation.specific_explanation}
                 </Typography>
               </Box>
