@@ -15,7 +15,7 @@ export const SUPPORTED_FILE_TYPES = [
 ];
 
 // API Polling Configuration
-export const STATUS_CHECK_INTERVAL = 2000; // 2 seconds
+export const STATUS_CHECK_INTERVAL = 3000; // 3 seconds
 export const MAX_POLLING_RETRIES = 10;
 
 // LocalStorage Keys

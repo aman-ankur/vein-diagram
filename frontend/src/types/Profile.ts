@@ -39,4 +39,32 @@ export interface ProfileUpdate {
 export interface ProfileListResponse {
   profiles: Profile[];
   total: number;
+}
+
+/**
+ * Interface for profile match with confidence score
+ */
+export interface ProfileMatch {
+  profile: Profile;
+  confidence: number;
+}
+
+/**
+ * Interface for extracted profile metadata
+ */
+export interface ProfileMetadata {
+  patient_name?: string;
+  patient_dob?: string;
+  patient_gender?: string;
+  patient_id?: string;
+  lab_name?: string;
+  report_date?: string;
+}
+
+/**
+ * Interface for profile matching response
+ */
+export interface ProfileMatchingResponse {
+  matches: ProfileMatch[];
+  metadata: ProfileMetadata;
 } 
