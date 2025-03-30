@@ -55,19 +55,49 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  withCredentials: true // Set to true to send cookies with requests
+  withCredentials: true, // Set to true to send cookies with requests
+  // Enforce consistency in query parameters
+  paramsSerializer: params => {
+    // Use URLSearchParams to properly format and encode parameters
+    const searchParams = new URLSearchParams();
+    for (const key in params) {
+      if (params[key] !== undefined && params[key] !== null) {
+        searchParams.append(key, params[key]);
+      }
+    }
+    const serialized = searchParams.toString();
+    console.log('🔍 Serialized params:', serialized);
+    return serialized;
+  }
 });
 
 // Add request interceptor for logging and enhancement
 api.interceptors.request.use(
   (config) => {
-    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, config);
+    const fullUrl = config.baseURL && config.url ? config.baseURL + config.url : config.url || '';
+    console.log(`🔶 API Request: ${config.method?.toUpperCase()} ${fullUrl}`, {
+      params: config.params ? JSON.stringify(config.params) : 'none',
+      headers: config.headers,
+      data: config.data,
+      withCredentials: config.withCredentials
+    });
     
-    // Add timestamp to prevent caching issues
-    const url = config.url || '';
-    config.url = url.includes('?') 
-      ? `${url}&_t=${Date.now()}` 
-      : `${url}?_t=${Date.now()}`;
+    // Enable this log for detailed debugging of query params
+    console.log('🔍 Request configuration:', {
+      baseURL: config.baseURL,
+      url: config.url,
+      params: config.params,
+      paramsSerializer: config.paramsSerializer ? 'custom serializer present' : 'no serializer'
+    });
+    
+    // Don't modify URL with timestamp - this was causing issues
+    // Just preserve the original URL and let Axios handle params normally
+    console.log(`🚨 NOT adding timestamp to URL: ${config.url}`);
+    
+    // Extra debug log to ensure params are included after URL modification
+    if (config.params) {
+      console.log('🔧 Final params that will be sent:', config.params);
+    }
     
     return config;
   },
@@ -187,7 +217,7 @@ const withRetry = async <T>(
 };
 
 // Upload a PDF file with retry
-export const uploadPDF = async (file: File): Promise<UploadResponse> => {
+export const uploadPDF = async (file: File): Promise<PDFResponse> => {
   return withRetry(async () => {
     const formData = new FormData();
     formData.append('file', file);
@@ -275,15 +305,26 @@ export const getPDFStatus = async (fileId: string): Promise<ProcessingStatus> =>
 };
 
 // Get biomarkers for a specific PDF with retry
-export const getBiomarkersByFileId = async (fileId: string): Promise<Biomarker[]> => {
+export const getBiomarkersByFileId = async (fileId: string, profile_id?: string): Promise<Biomarker[]> => {
   if (!fileId || fileId === 'undefined') {
     throw new Error('Invalid fileId provided to getBiomarkersByFileId');
   }
   
   return withRetry(async () => {
     try {
-      // Use the correct API endpoint format: /api/pdf/{fileId}/biomarkers
-      const response = await api.get(`/api/pdf/${fileId}/biomarkers`);
+      // Directly build the URL with the query parameter
+      let url = `/api/pdf/${fileId}/biomarkers`;
+      
+      // Add profile_id directly to the URL if provided
+      if (profile_id) {
+        url += `?profile_id=${encodeURIComponent(profile_id)}`;
+        console.log(`🌟 Explicitly adding profile_id=${profile_id} to URL: ${url}`);
+      }
+      
+      console.log(`Making API request to ${url} with profile_id=${profile_id || 'undefined'}`);
+      // Don't pass params object since we're adding params directly to URL
+      const response = await api.get(url);
+      console.log(`API response received for ${url} with ${response.data.length} biomarkers`);
       
       // Map the backend response to the frontend Biomarker model
       return response.data.map((item: any) => ({
@@ -297,7 +338,9 @@ export const getBiomarkersByFileId = async (fileId: string): Promise<Biomarker[]
         category: item.category || 'Other',
         isAbnormal: item.is_abnormal || false,
         fileId,
-        date: new Date().toISOString() // Use current date as fallback
+        date: item.created_at || new Date().toISOString(),
+        // Use the report date from the PDF file if available
+        reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString()
       }));
     } catch (error) {
       console.error(`Failed to get biomarkers for file ${fileId}:`, error);
@@ -317,10 +360,43 @@ export const getAllBiomarkers = async (params?: {
   category?: string;
   limit?: number;
   offset?: number;
+  profile_id?: string;
 }): Promise<Biomarker[]> => {
   return withRetry(async () => {
     try {
-      const response = await api.get('/api/biomarkers', { params });
+      // Start with base URL
+      let url = '/api/biomarkers';
+      
+      // Manually build query string for better visibility and control
+      if (params) {
+        const queryParams: string[] = [];
+        
+        if (params.profile_id) {
+          queryParams.push(`profile_id=${encodeURIComponent(params.profile_id)}`);
+          console.log(`🌟 Explicitly adding profile_id=${params.profile_id} to URL`);
+        }
+        
+        if (params.category) {
+          queryParams.push(`category=${encodeURIComponent(params.category)}`);
+        }
+        
+        if (params.limit) {
+          queryParams.push(`limit=${params.limit}`);
+        }
+        
+        if (params.offset) {
+          queryParams.push(`offset=${params.offset}`);
+        }
+        
+        // Add query parameters to URL if there are any
+        if (queryParams.length > 0) {
+          url += `?${queryParams.join('&')}`;
+        }
+      }
+      
+      console.log(`Making API request to ${url} with params:`, params);
+      const response = await api.get(url);
+      console.log(`API response received for ${url} with ${response.data.length} biomarkers`);
       
       // Map the backend response to the frontend Biomarker model
       return response.data.map((item: any) => ({
@@ -334,7 +410,9 @@ export const getAllBiomarkers = async (params?: {
         category: item.category || 'Other',
         isAbnormal: item.is_abnormal || false,
         fileId: item.pdf ? item.pdf.file_id : undefined,
-        date: new Date().toISOString() // Use current date as fallback
+        date: item.created_at || new Date().toISOString(),
+        // Use the report date from the PDF file if available
+        reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString()
       }));
     } catch (error) {
       console.error('Failed to get all biomarkers:', error);

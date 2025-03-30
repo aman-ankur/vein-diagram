@@ -161,6 +161,11 @@ export interface Biomarker {
    * Source file ID
    */
   fileId?: string;
+
+  /**
+   * Date when the report containing this biomarker was uploaded
+   */
+  reportDate?: string;
 }
 
 /**
