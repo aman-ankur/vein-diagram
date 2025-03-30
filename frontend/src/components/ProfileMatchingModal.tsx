@@ -176,10 +176,19 @@ const ProfileMatchingModal: React.FC<ProfileMatchingModalProps> = ({
   
   return (
     <Modal
-      title="Associate Lab Report with Profile"
+      title={
+        <div style={{ textAlign: 'center', padding: '12px 0' }}>
+          <Title level={3}>Associate Lab Report with Profile</Title>
+          <Text type="secondary">
+            Choose how you want to associate this lab report with a profile
+          </Text>
+        </div>
+      }
       open={visible}
       onCancel={onCancel}
-      width={700}
+      width={800}
+      centered
+      maskClosable={false}
       footer={[
         <Button key="cancel" onClick={onCancel}>
           Skip for Now
@@ -190,6 +199,7 @@ const ProfileMatchingModal: React.FC<ProfileMatchingModalProps> = ({
           loading={loading}
           onClick={handleConfirm}
           disabled={!createNew && !selectedProfileId}
+          size="large"
         >
           {createNew ? "Create & Associate" : "Associate"}
         </Button>

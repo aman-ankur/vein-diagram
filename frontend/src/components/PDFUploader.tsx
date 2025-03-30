@@ -123,8 +123,9 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
           setExtractedMetadata(metadata);
           findMatches(response.data.file_id);
         } else {
-          // Wait a moment to allow the server to extract metadata
-          setTimeout(() => findMatches(response.data.file_id), 1000);
+          // Wait a moment to allow the server to extract metadata and begin processing
+          // Then trigger profile matching
+          setTimeout(() => findMatches(response.data.file_id), 2000);
         }
       } else {
         // Call the success callback with the file ID if a profile was manually selected
@@ -155,17 +156,17 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
           console.log("PDF processing status:", response.data.status);
           
           // If the PDF has been processed, we can proceed with matching
-          if (response.data.status === "processed") {
+          if (response.data.status === "processed" || response.data.status === "completed") {
             return true;
           }
           
           // If it's still processing and we haven't hit max attempts, try again
-          if (response.data.status === "processing" && statusCheckAttempts < maxAttempts) {
+          if ((response.data.status === "processing" || response.data.status === "pending") && statusCheckAttempts < maxAttempts) {
             return false;
           }
           
           // If the PDF has an error status, throw an error
-          if (response.data.status === "error") {
+          if (response.data.status === "error" || response.data.status === "failed") {
             throw new Error(`PDF processing failed: ${response.data.error_message || "Unknown error"}`);
           }
           
@@ -187,10 +188,12 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
         const isProcessed = await checkPdfProcessed();
         
         if (isProcessed) {
+          console.log("PDF is processed, proceeding to profile matching");
           break;
         }
         
         // Wait for 2 seconds before checking again
+        console.log(`PDF still processing, waiting before checking again (attempt ${statusCheckAttempts}/${maxAttempts})`);
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
@@ -205,6 +208,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
       
       // Always show the matching modal, even if no matches are found
       // In that case, it will default to the "Create New Profile" option
+      console.log("Showing profile matching modal");
       setIsMatchingModalVisible(true);
     } catch (error) {
       console.error('Error finding matching profiles:', error);
@@ -264,7 +268,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
     <Card title="Upload Lab Report PDF">
       <div className="profile-selection-container">
         <h3>Step 1: Select a Profile (Optional)</h3>
-        <p>If you want to manually select a profile, you can do so here. Otherwise, we'll help you match after upload.</p>
+        <p>If you want to manually select a profile, you can do so here. Otherwise, we'll help you match the lab report to a profile after upload.</p>
         <ProfileSelector
           selectedProfileId={selectedProfileId}
           onProfileSelect={handleProfileSelect}
@@ -283,6 +287,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
       
       <div className="upload-container" style={{ marginTop: 24 }}>
         <h3>Step 2: Upload Lab Report</h3>
+        <p>After uploading, the system will extract biomarkers and help you associate them with the right profile.</p>
         <Dragger
           name="file"
           multiple={false}
