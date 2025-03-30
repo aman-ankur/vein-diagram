@@ -17,6 +17,9 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
   message: string;
   status?: number;
+  data?: any;
+  isNetworkError?: boolean;
+  isOffline?: boolean;
 }
 
 export interface BiomarkerExplanation {

@@ -1,7 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { API_BASE_URL } from '../config';
 import { Biomarker } from '../types/pdf';
-import { BiomarkerExplanation, ApiError, FileMetadata, UserProfile, ProcessingStatus } from '../types/api';
+import { BiomarkerExplanation, ApiError, FileMetadata, UserProfile } from '../types/api';
 
 // Define types for API responses
 export interface PDFResponse {
@@ -45,6 +45,20 @@ export interface ParsedPDFResponse {
   filename: string;
   date?: string;
   biomarkers: BiomarkerData[];
+}
+
+// Extend the ProcessingStatus interface to include profile information
+export interface PDFProcessingStatus {
+  file_id: string;
+  filename: string;
+  status: 'uploaded' | 'processing' | 'processed' | 'error';
+  message?: string;
+  upload_date?: string;
+  processed_date?: string;
+  lab_name?: string;
+  report_date?: string;
+  profileId?: string;  // Add profileId to the interface
+  profile_name?: string;  // Add profile name to the interface
 }
 
 // Create axios instance with enhanced configuration
@@ -195,7 +209,8 @@ const withRetry = async <T>(
       };
       
       // Only retry on network errors or 5xx server errors
-      const shouldRetry = apiError.isNetworkError || (apiError.status >= 500 && apiError.status < 600);
+      const shouldRetry = apiError.isNetworkError || 
+        (apiError.status !== undefined && apiError.status >= 500 && apiError.status < 600);
       
       if (!shouldRetry || retryCount >= retries) {
         throw apiError;
@@ -235,15 +250,12 @@ export const uploadPDF = async (file: File): Promise<PDFResponse> => {
       
       console.log('Raw backend response:', response.data);
       
-      // Map snake_case to camelCase if needed
+      // Return the exact format expected by PDFResponse interface
       return {
-        fileId: response.data.file_id,
+        file_id: response.data.file_id,
         filename: response.data.filename,
         status: response.data.status,
-        message: response.data.message,
-        timestamp: new Date().toISOString(), // Backend might not provide this
-        fileSize: file.size,
-        mimeType: file.type,
+        message: response.data.message
       };
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -266,36 +278,33 @@ export const uploadPDF = async (file: File): Promise<PDFResponse> => {
 };
 
 // Get PDF processing status with retry
-export const getPDFStatus = async (fileId: string): Promise<ProcessingStatus> => {
-  if (!fileId || fileId === 'undefined') {
-    throw new Error('Invalid fileId provided to getPDFStatus');
-  }
-  
+export const getPDFStatus = async (fileId: string): Promise<PDFProcessingStatus> => {
   return withRetry(async () => {
     try {
+      console.log(`Making API request to /api/pdf/status/${fileId}`);
       const response = await api.get(`/api/pdf/status/${fileId}`);
-      console.log('Raw status response:', response.data);
       
-      // Map snake_case to camelCase
+      // Log the full response for debugging
+      console.log('PDF status response:', JSON.stringify(response.data, null, 2));
+      
+      // Map backend response to frontend interface
       return {
-        fileId: response.data.file_id,
+        file_id: response.data.file_id,
         filename: response.data.filename,
         status: response.data.status,
-        uploadTimestamp: response.data.upload_date,
-        completedTimestamp: response.data.processed_date,
-        error: response.data.error_message,
-        labName: response.data.lab_name,
-        patientName: response.data.patient_name,
-        patientId: response.data.patient_id,
-        patientAge: response.data.patient_age,
-        patientGender: response.data.patient_gender,
-        reportDate: response.data.report_date,
-        parsingConfidence: response.data.parsing_confidence
+        message: response.data.message,
+        upload_date: response.data.upload_date,
+        processed_date: response.data.processed_date,
+        lab_name: response.data.lab_name,
+        report_date: response.data.report_date,
+        profileId: response.data.profile_id,  // Map profileId from backend
+        profile_name: response.data.profile_name  // Map profile name from backend
       };
     } catch (error) {
+      console.error(`Failed to get PDF status for file ${fileId}:`, error);
       if (axios.isAxiosError(error) && error.response) {
         throw {
-          message: error.response.data?.detail || error.response.data?.message || 'Error getting PDF status',
+          message: error.response.data?.detail || error.response.data?.message || `Error getting PDF status for file ${fileId}`,
           status: error.response.status,
         };
       }
@@ -312,19 +321,25 @@ export const getBiomarkersByFileId = async (fileId: string, profile_id?: string)
   
   return withRetry(async () => {
     try {
-      // Directly build the URL with the query parameter
+      // Build the URL with parameters
       let url = `/api/pdf/${fileId}/biomarkers`;
       
-      // Add profile_id directly to the URL if provided
+      // Always include profile_id in the parameters if provided
+      const params: Record<string, string> = {};
       if (profile_id) {
-        url += `?profile_id=${encodeURIComponent(profile_id)}`;
-        console.log(`🌟 Explicitly adding profile_id=${profile_id} to URL: ${url}`);
+        params.profile_id = profile_id;
+        console.log(`🌟 Including profile_id=${profile_id} in request params`);
       }
       
       console.log(`Making API request to ${url} with profile_id=${profile_id || 'undefined'}`);
-      // Don't pass params object since we're adding params directly to URL
-      const response = await api.get(url);
+      // Use params object for consistency
+      const response = await api.get(url, { params });
       console.log(`API response received for ${url} with ${response.data.length} biomarkers`);
+
+      // Log the first biomarker to inspect its structure
+      if (response.data.length > 0) {
+        console.log('Sample biomarker data:', JSON.stringify(response.data[0], null, 2));
+      }
       
       // Map the backend response to the frontend Biomarker model
       return response.data.map((item: any) => ({
@@ -340,7 +355,11 @@ export const getBiomarkersByFileId = async (fileId: string, profile_id?: string)
         fileId,
         date: item.created_at || new Date().toISOString(),
         // Use the report date from the PDF file if available
-        reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString()
+        reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString(),
+        // Add profile ID for history view functionality - be flexible about where we get this from
+        profileId: item.profile_id || (item.pdf && item.pdf.profile_id) || profile_id || null,
+        // Add file name for source information in history view
+        fileName: item.pdf?.filename || null
       }));
     } catch (error) {
       console.error(`Failed to get biomarkers for file ${fileId}:`, error);
@@ -358,45 +377,20 @@ export const getBiomarkersByFileId = async (fileId: string, profile_id?: string)
 // Get all biomarkers with optional filtering and retry
 export const getAllBiomarkers = async (params?: {
   category?: string;
+  profile_id?: string;
   limit?: number;
   offset?: number;
-  profile_id?: string;
 }): Promise<Biomarker[]> => {
   return withRetry(async () => {
     try {
-      // Start with base URL
-      let url = '/api/biomarkers';
-      
-      // Manually build query string for better visibility and control
-      if (params) {
-        const queryParams: string[] = [];
-        
-        if (params.profile_id) {
-          queryParams.push(`profile_id=${encodeURIComponent(params.profile_id)}`);
-          console.log(`🌟 Explicitly adding profile_id=${params.profile_id} to URL`);
-        }
-        
-        if (params.category) {
-          queryParams.push(`category=${encodeURIComponent(params.category)}`);
-        }
-        
-        if (params.limit) {
-          queryParams.push(`limit=${params.limit}`);
-        }
-        
-        if (params.offset) {
-          queryParams.push(`offset=${params.offset}`);
-        }
-        
-        // Add query parameters to URL if there are any
-        if (queryParams.length > 0) {
-          url += `?${queryParams.join('&')}`;
-        }
+      console.log('Getting all biomarkers with params:', JSON.stringify(params, null, 2));
+      const response = await api.get('/api/biomarkers', { params });
+      console.log(`Retrieved ${response.data.length} biomarkers`);
+
+      // Log the first biomarker to inspect its structure
+      if (response.data.length > 0) {
+        console.log('Sample biomarker data:', JSON.stringify(response.data[0], null, 2));
       }
-      
-      console.log(`Making API request to ${url} with params:`, params);
-      const response = await api.get(url);
-      console.log(`API response received for ${url} with ${response.data.length} biomarkers`);
       
       // Map the backend response to the frontend Biomarker model
       return response.data.map((item: any) => ({
@@ -412,7 +406,11 @@ export const getAllBiomarkers = async (params?: {
         fileId: item.pdf ? item.pdf.file_id : undefined,
         date: item.created_at || new Date().toISOString(),
         // Use the report date from the PDF file if available
-        reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString()
+        reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString(),
+        // Add profile ID for history view functionality - be flexible about where we get this from
+        profileId: item.profile_id || (item.pdf && item.pdf.profile_id) || params?.profile_id || null,
+        // Add file name for source information in history view
+        fileName: item.pdf?.filename || null
       }));
     } catch (error) {
       console.error('Failed to get all biomarkers:', error);
@@ -577,13 +575,17 @@ export const getBiomarkerExplanation = async (
       };
 
        // Provide more specific user-friendly messages
-      if (apiError.status === 404) {
-         apiError.message = 'The biomarker explanation service could not be found. Please contact support.';
-       } else if (apiError.status >= 500) {
-         apiError.message = 'The server encountered an error generating the explanation. Please try again later.';
-       } else if (apiError.isNetworkError || apiError.status === 0) {
-         apiError.message = 'Network error. Could not reach the explanation service. Please check your connection.';
-       }
+      if (apiError.status !== undefined) {
+        if (apiError.status === 404) {
+          apiError.message = 'The biomarker explanation service could not be found. Please contact support.';
+        } else if (apiError.status >= 500) {
+          apiError.message = 'The server encountered an error generating the explanation. Please try again later.';
+        } else if (apiError.status === 0) {
+          apiError.message = 'Network error. Could not reach the explanation service. Please check your connection.';
+        }
+      } else if (apiError.isNetworkError) {
+        apiError.message = 'Network error. Could not reach the explanation service. Please check your connection.';
+      }
 
        throw apiError; // Throw the standardized error
 

@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 import json
 from datetime import datetime, timedelta
+import uuid
+from uuid import UUID
 
 from app.db.session import get_db
 from app.models.biomarker_model import Biomarker, BiomarkerDictionary
@@ -46,7 +48,12 @@ def get_biomarkers_by_file_id(
     # Apply profile filter if provided
     if profile_id:
         print(f"Filtering biomarkers by profile_id={profile_id}")
-        query = query.filter(Biomarker.profile_id == profile_id)
+        try:
+            # Convert string to UUID
+            profile_uuid = UUID(profile_id)
+            query = query.filter(Biomarker.profile_id == profile_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
     
     # Execute the query
     biomarkers = query.all()
@@ -90,7 +97,12 @@ def get_all_biomarkers(
     # Apply profile filter if provided
     if profile_id:
         print(f"Filtering biomarkers by profile_id={profile_id}")
-        query = query.filter(Biomarker.profile_id == profile_id)
+        try:
+            # Convert string to UUID
+            profile_uuid = UUID(profile_id)
+            query = query.filter(Biomarker.profile_id == profile_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
     
     # Apply pagination
     query = query.offset(offset).limit(limit)
@@ -150,7 +162,12 @@ def search_biomarkers(
     
     # Apply profile filter if provided
     if profile_id:
-        db_query = db_query.filter(Biomarker.profile_id == profile_id)
+        try:
+            # Convert string to UUID
+            profile_uuid = UUID(profile_id)
+            db_query = db_query.filter(Biomarker.profile_id == profile_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
     
     # Apply limit
     db_query = db_query.limit(limit)
