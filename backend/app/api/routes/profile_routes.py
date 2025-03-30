@@ -575,14 +575,18 @@ async def associate_pdf_with_profile(
             
             # Apply any metadata updates
             if request.metadata_updates:
+                logger.info(f"Applying metadata updates: {request.metadata_updates}")
                 metadata.update(request.metadata_updates)
             
             # Create the profile
+            logger.info(f"Creating profile with metadata: {metadata}")
             profile = create_profile_from_metadata(db, metadata)
             
             if not profile:
                 logger.error(f"Failed to create profile from PDF {request.pdf_id} metadata")
                 raise HTTPException(status_code=500, detail="Failed to create profile from metadata")
+            
+            logger.info(f"Successfully created new profile: {profile.id} ({profile.name})")
         
         # Case 2: Use an existing profile
         elif request.profile_id:
@@ -599,6 +603,8 @@ async def associate_pdf_with_profile(
             if not profile:
                 logger.error(f"Profile not found: {request.profile_id}")
                 raise HTTPException(status_code=404, detail="Profile not found")
+            
+            logger.info(f"Found existing profile: {profile.id} ({profile.name})")
         
         # Case 3: No profile specified and not creating a new one
         else:
@@ -608,17 +614,22 @@ async def associate_pdf_with_profile(
         # Associate the PDF with the profile
         pdf.profile_id = profile.id
         db.commit()
-        
-        # Count biomarkers and PDFs
-        biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
-        pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
+        logger.info(f"Associated PDF {pdf.id} with profile {profile.id}")
         
         # Associate biomarkers with profile
         biomarkers = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id).all()
+        biomarker_count = len(biomarkers)
+        logger.info(f"Found {biomarker_count} biomarkers to associate with profile {profile.id}")
+        
         for biomarker in biomarkers:
             biomarker.profile_id = profile.id
         
         db.commit()
+        logger.info(f"Associated {biomarker_count} biomarkers with profile {profile.id}")
+        
+        # Get updated counts
+        updated_biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
+        pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
         
         # Create response
         response = ProfileResponse(
@@ -629,7 +640,7 @@ async def associate_pdf_with_profile(
             patient_id=profile.patient_id,
             created_at=profile.created_at,
             last_modified=profile.last_modified,
-            biomarker_count=biomarker_count,
+            biomarker_count=updated_biomarker_count,
             pdf_count=pdf_count
         )
         

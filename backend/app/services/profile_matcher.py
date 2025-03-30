@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from fuzzywuzzy import fuzz
 from app.models.profile_model import Profile
+from dateutil import parser
 
 # Configure logging
 logging.basicConfig(
@@ -193,29 +194,54 @@ def create_profile_from_metadata(db: Session, metadata: Dict[str, Any]) -> Optio
     
     Args:
         db: Database session
-        metadata: Extracted metadata from PDF
+        metadata: Extracted metadata dictionary
         
     Returns:
-        Newly created Profile object, or None if creation failed
+        Profile object or None if creation failed
     """
+    logger.info(f"Creating new profile from metadata: {metadata}")
+    
+    # Extract name or use default
+    name = metadata.get('patient_name', 'Unknown Profile')
+    if not name or name.strip() == '':
+        name = "Default Profile"
+        logger.warning("No valid name found in metadata, using default name")
+    
+    # Extract date of birth if available (might be None)
+    date_of_birth = None
+    if metadata.get('patient_dob'):
+        try:
+            # If it's already a datetime, use it directly
+            if isinstance(metadata['patient_dob'], datetime):
+                date_of_birth = metadata['patient_dob']
+            # Otherwise try to parse it
+            else:
+                date_of_birth = parser.parse(metadata['patient_dob'])
+                logger.info(f"Parsed date of birth: {date_of_birth}")
+        except Exception as e:
+            logger.error(f"Error parsing date of birth: {str(e)}")
+    
+    # Extract gender
+    gender = metadata.get('patient_gender')
+    
+    # Extract patient ID
+    patient_id = metadata.get('patient_id')
+    
     try:
-        # Preprocess metadata
-        processed_metadata = preprocess_profile_metadata(metadata)
-        
-        # Create profile with available data
-        new_profile = Profile(
-            name=metadata.get('patient_name', 'Unknown'),
-            date_of_birth=processed_metadata.get('patient_dob'),
-            gender=processed_metadata.get('patient_gender'),
-            patient_id=processed_metadata.get('patient_id')
+        # Create the profile
+        profile = Profile(
+            name=name,
+            date_of_birth=date_of_birth,
+            gender=gender,
+            patient_id=patient_id
         )
         
-        db.add(new_profile)
+        db.add(profile)
         db.commit()
-        db.refresh(new_profile)
+        db.refresh(profile)
         
-        logger.info(f"Created new profile from metadata: {new_profile.id} ({new_profile.name})")
-        return new_profile
+        logger.info(f"Created new profile: ID={profile.id}, Name={profile.name}")
+        return profile
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating profile from metadata: {str(e)}")
