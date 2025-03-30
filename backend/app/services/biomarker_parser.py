@@ -163,40 +163,26 @@ def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[
     logger.debug(f"[TEXT_PREPROCESSING] Preprocessed text from {len(text)} to {len(processed_text)} characters")
     
     # Prepare the prompt for Claude
-    prompt = f"""
-You are a medical laboratory data extraction specialist. Your task is to extract biomarker information from the medical lab report text below, focusing ONLY on legitimate clinical biomarkers that have a measurable result.
+    prompt = """
+Extract ONLY legitimate clinical biomarkers from this medical lab report. Focus exclusively on measurements that have numeric values and units.
 
-IMPORTANT: Biomarkers have these key characteristics:
-1. They have a measurable numerical result (e.g., 95, 5.2, <0.5)
-2. They have a unit of measurement (e.g., mg/dL, mmol/L)
-3. They typically have a reference range (e.g., 70-99, <5.0)
-4. They are specific tests measuring something in the body (glucose, cholesterol, vitamin levels, etc.)
+For each biomarker, provide:
+- name: Standardized name
+- original_name: Exact name as it appears
+- value: Numerical result (convert ranges to midpoint)
+- original_value: Result as shown in report
+- unit: Standardized unit
+- original_unit: Unit as shown
+- reference_range: Normal range text
+- reference_range_low: Lower bound as number
+- reference_range_high: Upper bound as number
+- category: One of: Lipid, Metabolic, Liver, Kidney, Electrolyte, Blood, Thyroid, Vitamin, Hormone, Immunology, Cardiovascular, Other
+- is_abnormal: true if outside reference range
+- confidence: 0.0-1.0 score of certainty
 
-For EACH biomarker you identify, provide:
-- name: The standardized name of the biomarker
-- original_name: The name exactly as it appears in the report
-- value: The numerical value of the result (as a number, convert ranges to the midpoint)
-- original_value: The original result text as seen in the report
-- unit: The standardized unit of measurement
-- original_unit: The unit exactly as it appears in the report
-- reference_range: The reference/normal range as text
-- reference_range_low: The lower bound of the reference range as a number (if available)
-- reference_range_high: The upper bound of the reference range as a number (if available)
-- category: Categorize into: Lipid, Metabolic, Liver, Kidney, Electrolyte, Blood, Thyroid, Vitamin, Hormone, Immunology, Cardiovascular, or Other
-- is_abnormal: true if the result is outside the reference range, false otherwise
-- confidence: A number between 0.0 and 1.0 representing your confidence that this is a legitimate biomarker
+CRITICAL: DO NOT extract page numbers, headers, footers, patient info, dates, IDs, URLs, or explanatory text.
 
-DO NOT extract:
-- Page numbers, headers, footers, or section titles
-- Patient information like names, dates of birth, addresses
-- Formatting elements like columns, rows, or delimiters
-- Test or sample IDs
-- Collection times or dates
-- Reference ranges by themselves without corresponding measurements
-- Text that looks like URLs, email addresses, or identifiers
-- Sentences or paragraphs of explanatory text
-
-Provide all results in this exact JSON format:
+Return valid JSON matching exactly this structure:
 {{
   "biomarkers": [
     {{
@@ -223,10 +209,8 @@ Provide all results in this exact JSON format:
   }}
 }}
 
-Here is the lab report text to extract from:
-
-{processed_text}
-"""
+Lab report text:
+""" + processed_text
 
     try:
         logger.debug("[CLAUDE_API_CALL] Sending request to Claude API")
@@ -247,9 +231,9 @@ Here is the lab report text to extract from:
         def call_claude_api():
             # Make the API call with max tokens and timeout
             response = client.messages.create(
-                model="claude-3-opus-20240229",
-                max_tokens=4000,
-                temperature=0.1,
+                model="claude-3-sonnet-20240229",
+                max_tokens=3000,
+                temperature=0.0,
                 system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Avoid patient info, headers, footers, and page numbers.",
                 messages=[
                     {"role": "user", "content": prompt}
@@ -350,8 +334,11 @@ Here is the lab report text to extract from:
                 logger.error("[JSON_PARSING_ERROR] Could not extract JSON from Claude API response")
                 raise ValueError("Failed to extract JSON from Claude API response")
         except json.JSONDecodeError as json_error:
+            debug_json_path = os.path.join(log_dir, f"invalid_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            with open(debug_json_path, "w") as f:
+                f.write(json_str)
             logger.error(f"[JSON_PARSING_ERROR] Could not parse Claude API response as JSON: {str(json_error)}")
-            logger.debug(f"[CLAUDE_RESPONSE] Raw response: {response_content[:500]}...")
+            logger.debug(f"[CLAUDE_RESPONSE] Raw response: {response_content[:50]}...")
             
             # Fall back to text-based parser
             logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to JSON parsing error")
@@ -936,6 +923,9 @@ def _preprocess_text_for_claude(text: str) -> str:
     
     # Replace problematic characters that might cause parsing issues
     text = text.replace('\x00', '')  # Remove null bytes
+    
+    # Escape % characters to prevent string formatting issues
+    # text = text.replace('%', '%%')
     
     # Try to clean up awkward line breaks in potential biomarker data
     # Pattern: number followed by line break followed by unit
