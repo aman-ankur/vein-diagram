@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Card, Avatar, Divider, Space, Row, Col, Progress, Form, Input, DatePicker, Select, Typography } from 'antd';
+import { Modal, Button, Card, Avatar, Divider, Space, Row, Col, Progress, Form, Input, DatePicker, Select, Typography, Alert } from 'antd';
 import { UserOutlined, CheckCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import { Profile, ProfileMatch, ProfileMetadata } from '../types/Profile';
 import moment from 'moment';
@@ -34,35 +34,57 @@ const ProfileMatchingModal: React.FC<ProfileMatchingModalProps> = ({
   
   // When matches change or modal becomes visible, pre-select highest confidence match
   useEffect(() => {
-    if (visible && matches.length > 0) {
-      // Sort by confidence and select the highest
-      const sortedMatches = [...matches].sort((a, b) => b.confidence - a.confidence);
-      setSelectedProfileId(sortedMatches[0].profile.id);
-      setCreateNew(false);
-    } else {
-      setSelectedProfileId(null);
-      setCreateNew(matches.length === 0);
+    if (visible) {
+      console.log("ProfileMatchingModal became visible with metadata:", metadata);
+      console.log("Available matches:", matches);
+      
+      if (matches && matches.length > 0) {
+        // Sort by confidence and select the highest
+        const sortedMatches = [...matches].sort((a, b) => b.confidence - a.confidence);
+        setSelectedProfileId(sortedMatches[0].profile.id);
+        setCreateNew(false);
+        console.log("Selected highest confidence match:", sortedMatches[0].profile.name, `(${Math.round(sortedMatches[0].confidence * 100)}%)`);
+      } else {
+        setSelectedProfileId(null);
+        setCreateNew(true);
+        console.log("No matches found, defaulting to create new profile");
+      }
     }
   }, [visible, matches]);
   
   // When metadata changes, update form values
   useEffect(() => {
     if (visible && createNew) {
+      console.log("Updating form with metadata:", metadata);
+      
+      // Format the date if it exists
+      let dateObj = undefined;
+      if (metadata.patient_dob) {
+        try {
+          dateObj = moment(metadata.patient_dob);
+          console.log("Parsed DOB:", dateObj.format('YYYY-MM-DD'));
+        } catch (e) {
+          console.error("Error parsing date:", e);
+        }
+      }
+      
       form.setFieldsValue({
         name: metadata.patient_name || '',
         gender: metadata.patient_gender?.toLowerCase() || '',
         patient_id: metadata.patient_id || '',
-        date_of_birth: metadata.patient_dob ? moment(metadata.patient_dob) : undefined
+        date_of_birth: dateObj
       });
     }
   }, [visible, createNew, metadata, form]);
   
   const handleSelect = (profileId: string) => {
+    console.log("Selected profile:", profileId);
     setSelectedProfileId(profileId);
     setCreateNew(false);
   };
   
   const handleCreateNew = () => {
+    console.log("User chose to create a new profile");
     setSelectedProfileId(null);
     setCreateNew(true);
     
@@ -77,8 +99,11 @@ const ProfileMatchingModal: React.FC<ProfileMatchingModalProps> = ({
   
   const handleConfirm = () => {
     if (createNew) {
+      console.log("Confirming new profile creation");
       // Submit form for validation
       form.validateFields().then(values => {
+        console.log("Form values:", values);
+        
         const newMetadata: ProfileMetadata = {
           ...metadata,
           patient_name: values.name,
@@ -87,11 +112,13 @@ const ProfileMatchingModal: React.FC<ProfileMatchingModalProps> = ({
           patient_dob: values.date_of_birth ? values.date_of_birth.format('YYYY-MM-DD') : undefined
         };
         
+        console.log("Submitting new profile with metadata:", newMetadata);
         onCreateNewProfile(newMetadata);
       }).catch(info => {
         console.log('Validate Failed:', info);
       });
     } else if (selectedProfileId) {
+      console.log("Confirming association with existing profile:", selectedProfileId);
       onSelectProfile(selectedProfileId);
     }
   };
@@ -149,105 +176,95 @@ const ProfileMatchingModal: React.FC<ProfileMatchingModalProps> = ({
   
   return (
     <Modal
-      title="Link Lab Report to Profile"
+      title="Associate Lab Report with Profile"
       open={visible}
-      width={800}
       onCancel={onCancel}
+      width={700}
       footer={[
         <Button key="cancel" onClick={onCancel}>
-          Cancel
+          Skip for Now
         </Button>,
-        <Button 
-          key="confirm" 
-          type="primary" 
-          onClick={handleConfirm}
-          disabled={!selectedProfileId && !createNew}
+        <Button
+          key="submit"
+          type="primary"
           loading={loading}
+          onClick={handleConfirm}
+          disabled={!createNew && !selectedProfileId}
         >
-          Confirm Selection
+          {createNew ? "Create & Associate" : "Associate"}
         </Button>
       ]}
     >
       {matches.length > 0 && (
-        <div className="profile-matches">
-          <Title level={4}>
-            <CheckCircleOutlined /> Matching Profiles
-          </Title>
-          <Text type="secondary">
-            We found these existing profiles that might match this lab report. 
-            Select one to link this report to that profile.
-          </Text>
+        <div className="matches-container">
+          <Title level={4}>Potential Profile Matches</Title>
+          <p>We found these potential matches based on the lab report information.</p>
+          
+          <div className="profile-matches">
+            {matches.map(match => renderProfileCard(match))}
+          </div>
+          
           <Divider />
-          {matches.map(match => renderProfileCard(match))}
         </div>
       )}
       
-      <div className="create-new-profile">
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <Title level={4} style={{ margin: 0, marginRight: 16 }}>
-            <PlusCircleOutlined /> Create New Profile
-          </Title>
-          <Button 
-            type={createNew ? 'primary' : 'default'} 
+      <div className="create-profile-container" style={{ marginTop: 16 }}>
+        {matches.length > 0 ? (
+          <Button
+            type="dashed"
+            icon={<PlusCircleOutlined />}
             onClick={handleCreateNew}
+            style={{ marginBottom: 16, display: 'block' }}
           >
-            {createNew ? 'Selected' : 'Select'}
+            Create New Profile Instead
           </Button>
-        </div>
+        ) : (
+          <Alert
+            message="No Matching Profiles Found"
+            description="We couldn't find any existing profiles that match this lab report. You can create a new profile below."
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
         
         {createNew && (
-          <Form
-            form={form}
-            layout="vertical"
-            initialValues={{
-              name: metadata.patient_name || '',
-              gender: metadata.patient_gender?.toLowerCase() || '',
-              patient_id: metadata.patient_id || '',
-              date_of_birth: metadata.patient_dob ? moment(metadata.patient_dob) : undefined
-            }}
-          >
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="name"
-                  label="Name"
-                  rules={[{ required: true, message: 'Please enter a name' }]}
-                >
-                  <Input placeholder="Full Name" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="date_of_birth"
-                  label="Date of Birth"
-                >
-                  <DatePicker style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="gender"
-                  label="Gender"
-                >
-                  <Select placeholder="Select gender">
-                    <Option value="male">Male</Option>
-                    <Option value="female">Female</Option>
-                    <Option value="other">Other</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="patient_id"
-                  label="Patient ID"
-                >
-                  <Input placeholder="Patient ID from lab reports" />
-                </Form.Item>
-              </Col>
-            </Row>
-          </Form>
+          <Card title="Create New Profile" className={createNew ? '' : 'hidden'}>
+            <Form
+              form={form}
+              layout="vertical"
+              initialValues={{
+                name: metadata.patient_name || '',
+                gender: metadata.patient_gender?.toLowerCase() || '',
+                patient_id: metadata.patient_id || '',
+                date_of_birth: metadata.patient_dob ? moment(metadata.patient_dob) : undefined
+              }}
+            >
+              <Form.Item
+                name="name"
+                label="Name"
+                rules={[{ required: true, message: 'Please enter a name' }]}
+              >
+                <Input />
+              </Form.Item>
+              
+              <Form.Item name="date_of_birth" label="Date of Birth">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+              
+              <Form.Item name="gender" label="Gender">
+                <Select placeholder="Select gender">
+                  <Option value="male">Male</Option>
+                  <Option value="female">Female</Option>
+                  <Option value="other">Other</Option>
+                </Select>
+              </Form.Item>
+              
+              <Form.Item name="patient_id" label="Patient ID">
+                <Input />
+              </Form.Item>
+            </Form>
+          </Card>
         )}
       </div>
     </Modal>

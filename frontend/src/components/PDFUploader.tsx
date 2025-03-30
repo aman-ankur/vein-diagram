@@ -141,16 +141,77 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
   };
   
   const findMatches = async (pdfId: string) => {
+    console.log("Starting profile matching for PDF:", pdfId);
     setLoadingMatches(true);
     try {
+      // Wait until the PDF is fully processed
+      let statusCheckAttempts = 0;
+      const maxAttempts = 15; // 15 attempts with 2 second intervals = 30 seconds max wait time
+      
+      // Check if the PDF has been processed before attempting to match profiles
+      const checkPdfProcessed = async (): Promise<boolean> => {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/pdf/status/${pdfId}`);
+          console.log("PDF processing status:", response.data.status);
+          
+          // If the PDF has been processed, we can proceed with matching
+          if (response.data.status === "processed") {
+            return true;
+          }
+          
+          // If it's still processing and we haven't hit max attempts, try again
+          if (response.data.status === "processing" && statusCheckAttempts < maxAttempts) {
+            return false;
+          }
+          
+          // If the PDF has an error status, throw an error
+          if (response.data.status === "error") {
+            throw new Error(`PDF processing failed: ${response.data.error_message || "Unknown error"}`);
+          }
+          
+          // If max attempts reached, give up
+          if (statusCheckAttempts >= maxAttempts) {
+            throw new Error("PDF processing timed out after multiple attempts");
+          }
+          
+          return false;
+        } catch (error) {
+          console.error("Error checking PDF status:", error);
+          throw error;
+        }
+      };
+      
+      // Poll until the PDF is processed or max attempts reached
+      while (statusCheckAttempts < maxAttempts) {
+        statusCheckAttempts++;
+        const isProcessed = await checkPdfProcessed();
+        
+        if (isProcessed) {
+          break;
+        }
+        
+        // Wait for 2 seconds before checking again
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      console.log("Calling profile matching API for PDF:", pdfId);
+      
       const result: ProfileMatchingResponse = await findMatchingProfiles(pdfId);
+      console.log("Profile matching results:", result);
+      
+      // If we have valid results, show the modal
       setProfileMatches(result.matches || []);
       setExtractedMetadata(result.metadata || {});
+      
+      // Always show the matching modal, even if no matches are found
+      // In that case, it will default to the "Create New Profile" option
       setIsMatchingModalVisible(true);
     } catch (error) {
       console.error('Error finding matching profiles:', error);
-      message.error('Failed to find matching profiles');
+      message.error('Failed to find matching profiles. Using default profile.');
+      
       // Fall back to default behavior - just pass the fileId back
+      // In a production app, we might want to offer a retry option
       onUploadSuccess(pdfId);
     } finally {
       setLoadingMatches(false);
