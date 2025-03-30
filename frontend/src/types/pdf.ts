@@ -42,6 +42,11 @@ export interface UploadResponse {
    * MIME type of the file
    */
   mimeType: string;
+  
+  /**
+   * Profile ID if the file is associated with a profile
+   */
+  profileId?: string;
 }
 
 /**

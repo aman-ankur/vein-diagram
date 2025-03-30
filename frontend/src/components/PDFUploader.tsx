@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, Button, message, Card, Alert, Spin } from 'antd';
 import { UploadOutlined, InboxOutlined } from '@ant-design/icons';
 import { RcFile } from 'antd/lib/upload';
@@ -14,20 +14,28 @@ const { Dragger } = Upload;
 
 interface PDFUploaderProps {
   onUploadSuccess: (fileId: string) => void;
+  initialFileId?: string;
 }
 
-const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
+const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess, initialFileId }) => {
   const [uploading, setUploading] = useState<boolean>(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [profileRequired, setProfileRequired] = useState<boolean>(false);
   
   // States for the smart profile association feature
   const [isMatchingModalVisible, setIsMatchingModalVisible] = useState<boolean>(false);
-  const [currentPdfId, setCurrentPdfId] = useState<string | null>(null);
+  const [currentPdfId, setCurrentPdfId] = useState<string | null>(initialFileId || null);
   const [profileMatches, setProfileMatches] = useState<ProfileMatch[]>([]);
   const [extractedMetadata, setExtractedMetadata] = useState<ProfileMetadata>({});
   const [loadingMatches, setLoadingMatches] = useState<boolean>(false);
   const [processingAssociation, setProcessingAssociation] = useState<boolean>(false);
+
+  // If initialFileId is provided, trigger profile matching immediately
+  useEffect(() => {
+    if (initialFileId && !isMatchingModalVisible && !selectedProfileId) {
+      findMatches(initialFileId);
+    }
+  }, [initialFileId]);
 
   const handleProfileSelect = (profileId: string | null) => {
     setSelectedProfileId(profileId);
@@ -249,10 +257,11 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
     
     setProcessingAssociation(true);
     try {
-      await associatePdfWithProfile(currentPdfId, profileId);
+      const profile = await associatePdfWithProfile(currentPdfId, profileId);
       message.success('Lab report associated with profile successfully');
       setIsMatchingModalVisible(false);
-      onUploadSuccess(currentPdfId);
+      // Pass back both the fileId and profileId
+      onUploadSuccess(`${currentPdfId}?profileId=${profile.id}`);
     } catch (error) {
       console.error('Error associating PDF with profile:', error);
       message.error('Failed to associate lab report with profile');
@@ -266,10 +275,11 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
     
     setProcessingAssociation(true);
     try {
-      await createProfileFromPdf(currentPdfId, metadata);
+      const profile = await createProfileFromPdf(currentPdfId, metadata);
       message.success('New profile created and lab report associated successfully');
       setIsMatchingModalVisible(false);
-      onUploadSuccess(currentPdfId);
+      // Pass back both the fileId and profileId
+      onUploadSuccess(`${currentPdfId}?profileId=${profile.id}`);
     } catch (error) {
       console.error('Error creating new profile:', error);
       message.error('Failed to create new profile');
@@ -282,6 +292,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
     setIsMatchingModalVisible(false);
     // If the user cancels, still proceed with the upload
     if (currentPdfId) {
+      // Just pass the fileId without a profileId
       onUploadSuccess(currentPdfId);
     }
   };

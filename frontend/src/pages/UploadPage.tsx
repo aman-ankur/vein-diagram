@@ -375,7 +375,19 @@ const UploadPage: React.FC = () => {
 
   const handleViewResults = () => {
     if (uploadResponse) {
-      navigate(`/visualization?fileId=${uploadResponse.fileId}`);
+      // Navigate to visualization only if a profile is already associated
+      // Note: PDFUploader handles profile matching for newly uploaded PDFs
+      if (uploadResponse.profileId) {
+        navigate(`/visualization?fileId=${uploadResponse.fileId}`);
+      } else {
+        // Set activeStep back to 0 with the current fileId to trigger profile matching in PDFUploader
+        setActiveStep(0);
+        setFile(null);
+        setIsPolling(false);
+        
+        // We don't need to clear the uploadResponse, as it contains the fileId
+        // which is needed for profile matching
+      }
     }
   };
 
@@ -404,20 +416,41 @@ const UploadPage: React.FC = () => {
         return (
           <Box sx={{ mt: 2 }}>
             <PDFUploader 
-              onUploadSuccess={(fileId) => {
-                // Instead of navigating away immediately, set the upload response and move to the processing step
-                const mockResponse: UploadResponse = {
-                  fileId: fileId,
-                  filename: 'Uploaded PDF',
-                  status: 'success',
-                  timestamp: new Date().toISOString(),
-                  fileSize: 0,
-                  mimeType: 'application/pdf'
-                };
-                setUploadResponse(mockResponse);
-                setActiveStep(2);
-                startStatusPolling(fileId);
-              }} 
+              onUploadSuccess={(fileIdString) => {
+                // If we already have an uploadResponse, we're in the profile matching flow
+                // Otherwise, it's a new upload
+                
+                // Parse fileId and profileId from the callback string
+                let fileId = fileIdString;
+                let profileId: string | undefined = undefined;
+                
+                if (fileIdString.includes('?profileId=')) {
+                  const parts = fileIdString.split('?profileId=');
+                  fileId = parts[0];
+                  profileId = parts[1];
+                }
+                
+                if (uploadResponse) {
+                  // We've been redirected back from processing to do profile matching
+                  // Just navigate to visualization after profile selection
+                  navigate(`/visualization?fileId=${fileId}`);
+                } else {
+                  // This is a new upload - create mock response and start processing
+                  const mockResponse: UploadResponse = {
+                    fileId: fileId,
+                    filename: 'Uploaded PDF',
+                    status: 'success',
+                    timestamp: new Date().toISOString(),
+                    fileSize: 0,
+                    mimeType: 'application/pdf',
+                    profileId: profileId
+                  };
+                  setUploadResponse(mockResponse);
+                  setActiveStep(2);
+                  startStatusPolling(fileId);
+                }
+              }}
+              initialFileId={uploadResponse?.fileId}
             />
             
             {uploadHistory.length > 0 && (
