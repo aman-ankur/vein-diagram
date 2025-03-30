@@ -27,6 +27,7 @@ import { MAX_FILE_SIZE, SUPPORTED_FILE_TYPES, STATUS_CHECK_INTERVAL } from '../c
 import { FilePreview } from '../components/FilePreview';
 import { UploadResponse, ProcessingStatus } from '../types/pdf';
 import PDFUploader from '../components/PDFUploader';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 const steps = [
   {
@@ -62,6 +63,7 @@ const UploadPage: React.FC = () => {
   const [uploadHistory, setUploadHistory] = useState<UploadResponse[]>([]);
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
 
   // Load upload history from localStorage
@@ -85,6 +87,9 @@ const UploadPage: React.FC = () => {
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
+      }
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
       }
     };
   }, []);
@@ -134,6 +139,9 @@ const UploadPage: React.FC = () => {
       
       console.log('Uploading file:', file.name);
       
+      // Immediately move to processing step to show facts
+      setActiveStep(2);
+      
       // Simulate progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
@@ -170,9 +178,6 @@ const UploadPage: React.FC = () => {
           console.error('Error updating upload history:', historyError);
           // Continue with upload process even if history update fails
         }
-        
-        // Move to the next step
-        setActiveStep(2);
         
         // Start polling for status
         startStatusPolling(response.fileId);
@@ -234,12 +239,31 @@ const UploadPage: React.FC = () => {
     const startTime = Date.now();
     // Maximum polling time - 10 minutes (600,000 ms)
     const MAX_POLLING_TIME = 600000;
+    // Minimum display time for facts carousel - 10 seconds (10,000 ms)
+    const MIN_DISPLAY_TIME = 10000;
+    
+    // Set a fallback timeout to ensure minimum display time
+    // This will run if polling fails or completes too quickly
+    fallbackTimeoutRef.current = setTimeout(() => {
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime < MIN_DISPLAY_TIME) {
+        console.log('Using fallback to complete the minimum display time');
+        setTimeout(() => {
+          if (isPolling) {  // Only proceed if we're still in polling state
+            clearInterval(pollingRef.current!);
+            setIsPolling(false);
+            setActiveStep(3);
+          }
+        }, MIN_DISPLAY_TIME - elapsedTime);
+      }
+    }, MIN_DISPLAY_TIME);
     
     const checkStatus = async () => {
       // Check if we've exceeded the maximum polling time
       if (Date.now() - startTime > MAX_POLLING_TIME) {
         console.error('Maximum polling time exceeded');
         clearInterval(pollingRef.current!);
+        if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
         setIsPolling(false);
         setError('Processing is taking longer than expected. Please check back later or contact support if this persists.');
         setSnackbarOpen(true);
@@ -254,18 +278,57 @@ const UploadPage: React.FC = () => {
         // Reset consecutive errors counter on successful response
         consecutiveErrors = 0;
         
-        // If completed or processed or failed, stop polling
+        // If completed or processed or failed, check min display time
         if (status.status === 'completed' || status.status === 'processed') {
           console.log('Processing complete! Status:', status.status);
-          clearInterval(pollingRef.current!);
-          setIsPolling(false);
-          setActiveStep(3);
+          
+          // Calculate how long we've been showing the facts carousel
+          const elapsedTime = Date.now() - startTime;
+          
+          if (elapsedTime >= MIN_DISPLAY_TIME) {
+            // If we've shown the facts for long enough, proceed
+            clearInterval(pollingRef.current!);
+            if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
+            setIsPolling(false);
+            setActiveStep(3);
+          } else {
+            // Otherwise, wait until we've shown the facts for the minimum time
+            console.log(`Processing complete, but waiting ${(MIN_DISPLAY_TIME - elapsedTime) / 1000} more seconds to show facts`);
+            
+            // Set a timeout to move to the next step after min display time
+            setTimeout(() => {
+              clearInterval(pollingRef.current!);
+              if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
+              setIsPolling(false);
+              setActiveStep(3);
+            }, MIN_DISPLAY_TIME - elapsedTime);
+            
+            // Clear the interval since we don't need to poll anymore
+            clearInterval(pollingRef.current!);
+          }
         } else if (status.status === 'failed' || status.status === 'error') {
           console.log('Processing failed! Status:', status.status);
-          clearInterval(pollingRef.current!);
-          setIsPolling(false);
-          setError(`Processing failed: ${status.error || 'Unknown error'}`);
-          setSnackbarOpen(true);
+          
+          // For errors, still respect the minimum display time
+          const elapsedTime = Date.now() - startTime;
+          
+          if (elapsedTime >= MIN_DISPLAY_TIME) {
+            clearInterval(pollingRef.current!);
+            if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
+            setIsPolling(false);
+            setError(`Processing failed: ${status.error || 'Unknown error'}`);
+            setSnackbarOpen(true);
+          } else {
+            setTimeout(() => {
+              clearInterval(pollingRef.current!);
+              if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
+              setIsPolling(false);
+              setError(`Processing failed: ${status.error || 'Unknown error'}`);
+              setSnackbarOpen(true);
+            }, MIN_DISPLAY_TIME - elapsedTime);
+            
+            clearInterval(pollingRef.current!);
+          }
         } else {
           console.log('Still processing. Current status:', status.status);
         }
@@ -326,6 +389,9 @@ const UploadPage: React.FC = () => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
     }
+    if (fallbackTimeoutRef.current) {
+      clearTimeout(fallbackTimeoutRef.current);
+    }
   };
 
   const handleSnackbarClose = () => {
@@ -339,7 +405,18 @@ const UploadPage: React.FC = () => {
           <Box sx={{ mt: 2 }}>
             <PDFUploader 
               onUploadSuccess={(fileId) => {
-                navigate(`/visualization?fileId=${fileId}`);
+                // Instead of navigating away immediately, set the upload response and move to the processing step
+                const mockResponse: UploadResponse = {
+                  fileId: fileId,
+                  filename: 'Uploaded PDF',
+                  status: 'success',
+                  timestamp: new Date().toISOString(),
+                  fileSize: 0,
+                  mimeType: 'application/pdf'
+                };
+                setUploadResponse(mockResponse);
+                setActiveStep(2);
+                startStatusPolling(fileId);
               }} 
             />
             
@@ -412,11 +489,18 @@ const UploadPage: React.FC = () => {
             <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
               Status: {processingStatus?.status || 'pending'}
             </Typography>
+            
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
               <Button onClick={handleReset} disabled={isPolling}>
                 Cancel
               </Button>
             </Box>
+            
+            <LoadingOverlay 
+              isActive={activeStep === 2} 
+              status={processingStatus} 
+              onClose={handleReset}
+            />
           </Box>
         );
       case 3:
