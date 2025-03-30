@@ -26,11 +26,12 @@ import { getUploadHistory, saveUploadHistory } from '../services/localStorage';
 import { MAX_FILE_SIZE, SUPPORTED_FILE_TYPES, STATUS_CHECK_INTERVAL } from '../config';
 import { FilePreview } from '../components/FilePreview';
 import { UploadResponse, ProcessingStatus } from '../types/pdf';
+import PDFUploader from '../components/PDFUploader';
 
 const steps = [
   {
     label: 'Select file',
-    description: 'Drag and drop a PDF file or click to upload.',
+    description: 'Drag and drop a PDF file, select a profile (optional), and upload.',
   },
   {
     label: 'Upload file',
@@ -38,11 +39,11 @@ const steps = [
   },
   {
     label: 'Process file',
-    description: 'Server will extract biomarkers from the PDF.',
+    description: 'Server will extract biomarkers and profile information from the PDF.',
   },
   {
     label: 'Complete',
-    description: 'Processing complete! You can now view the results.',
+    description: 'Processing complete! Your data is now associated with a profile and ready to view.',
   },
 ];
 
@@ -313,35 +314,11 @@ const UploadPage: React.FC = () => {
       case 0:
         return (
           <Box sx={{ mt: 2 }}>
-            <Paper
-              {...getRootProps()}
-              sx={{
-                border: '2px dashed',
-                borderColor: isDragActive ? 'primary.main' : 'grey.400',
-                borderRadius: 2,
-                p: 6,
-                textAlign: 'center',
-                backgroundColor: isDragActive ? 'rgba(0, 0, 0, 0.04)' : 'transparent',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                  borderColor: 'primary.main',
-                },
-              }}
-            >
-              <input {...getInputProps()} />
-              <CloudUploadIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-              <Typography variant="h6" gutterBottom>
-                {isDragActive ? 'Drop the files here...' : 'Drag & drop files here'}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                or click to select files
-              </Typography>
-              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-                Supported file types: PDF (Max size: {MAX_FILE_SIZE / 1000000}MB)
-              </Typography>
-            </Paper>
+            <PDFUploader 
+              onUploadSuccess={(fileId) => {
+                navigate(`/visualization?fileId=${fileId}`);
+              }} 
+            />
             
             {uploadHistory.length > 0 && (
               <Box sx={{ mt: 4 }}>
