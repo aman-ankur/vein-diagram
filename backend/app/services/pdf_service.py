@@ -36,9 +36,13 @@ file_handler = logging.FileHandler(os.path.join(log_dir, 'pdf_service.log'))
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'))
 logger.addHandler(file_handler)
 
+# Maximum number of pages to extract from PDFs
+MAX_PAGES = 5
+
 def extract_text_from_pdf(file_path: str) -> str:
     """
     Extract text from a PDF file using PyPDF2 or Tesseract OCR for image-based PDFs.
+    Limited to the first MAX_PAGES pages.
     
     Args:
         file_path: Path to the PDF file
@@ -60,7 +64,8 @@ def extract_text_from_pdf(file_path: str) -> str:
             pdf_reader = PyPDF2.PdfReader(file)
             
             # Log PDF metadata
-            logger.debug(f"[PDF_METADATA] Number of pages: {len(pdf_reader.pages)}")
+            total_pages = len(pdf_reader.pages)
+            logger.debug(f"[PDF_METADATA] Number of pages: {total_pages}")
             if pdf_reader.metadata:
                 logger.debug(f"[PDF_METADATA] Author: {pdf_reader.metadata.get('/Author', 'None')}")
                 logger.debug(f"[PDF_METADATA] Creation date: {pdf_reader.metadata.get('/CreationDate', 'None')}")
@@ -68,8 +73,12 @@ def extract_text_from_pdf(file_path: str) -> str:
             # Initialize an empty string to store the text
             text = ""
             
-            # Loop through each page and extract text
-            for page_num in range(len(pdf_reader.pages)):
+            # Determine how many pages to extract (limited to MAX_PAGES)
+            pages_to_extract = min(total_pages, MAX_PAGES)
+            logger.info(f"[PAGE_LIMIT] Extracting only the first {pages_to_extract} pages of {total_pages} total pages")
+            
+            # Loop through each page and extract text (up to MAX_PAGES)
+            for page_num in range(pages_to_extract):
                 page = pdf_reader.pages[page_num]
                 page_text = page.extract_text()
                 text += page_text if page_text else ""
@@ -109,6 +118,7 @@ def extract_text_from_pdf(file_path: str) -> str:
 def _extract_text_with_ocr(file_path: str) -> str:
     """
     Extract text from an image-based PDF using Tesseract OCR.
+    Limited to the first MAX_PAGES pages.
     
     Args:
         file_path: Path to the PDF file
@@ -148,13 +158,15 @@ def _extract_text_with_ocr(file_path: str) -> str:
         
         # Convert PDF to images
         logger.debug("[OCR_PROCESS] Converting PDF to images")
-        pages = pdf2image.convert_from_path(file_path, dpi=300)
-        logger.debug(f"[OCR_PROCESS] Converted {len(pages)} pages to images")
+        # Limit to first MAX_PAGES pages
+        pages = pdf2image.convert_from_path(file_path, dpi=300, first_page=1, last_page=MAX_PAGES)
+        total_pages_converted = len(pages)
+        logger.debug(f"[OCR_PROCESS] Converted {total_pages_converted} pages to images (limited to first {MAX_PAGES} pages)")
         
         # Extract text from each page
         full_text = ""
         for i, page in enumerate(pages):
-            logger.debug(f"[OCR_PAGE_PROCESSING] Processing page {i+1} of {len(pages)}")
+            logger.debug(f"[OCR_PAGE_PROCESSING] Processing page {i+1} of {total_pages_converted}")
             page_start_time = datetime.utcnow()
             
             # Save the page image for debugging

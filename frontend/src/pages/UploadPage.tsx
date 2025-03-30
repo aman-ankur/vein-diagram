@@ -35,11 +35,11 @@ const steps = [
   },
   {
     label: 'Upload file',
-    description: 'File will be uploaded to the server for processing.',
+    description: 'File will be uploaded to the server for processing. Only the first 3 pages will be processed.',
   },
   {
     label: 'Process file',
-    description: 'Server will extract biomarkers and profile information from the PDF.',
+    description: 'Server will extract biomarkers and profile information from the first 3 pages of your PDF.',
   },
   {
     label: 'Complete',
@@ -228,11 +228,31 @@ const UploadPage: React.FC = () => {
       clearInterval(pollingRef.current);
     }
     
+    // Track how many consecutive errors occur
+    let consecutiveErrors = 0;
+    // Track how long we've been polling
+    const startTime = Date.now();
+    // Maximum polling time - 10 minutes (600,000 ms)
+    const MAX_POLLING_TIME = 600000;
+    
     const checkStatus = async () => {
+      // Check if we've exceeded the maximum polling time
+      if (Date.now() - startTime > MAX_POLLING_TIME) {
+        console.error('Maximum polling time exceeded');
+        clearInterval(pollingRef.current!);
+        setIsPolling(false);
+        setError('Processing is taking longer than expected. Please check back later or contact support if this persists.');
+        setSnackbarOpen(true);
+        return;
+      }
+      
       try {
         const status = await getPDFStatus(fileId);
         console.log('Status update:', status);
         setProcessingStatus(status);
+        
+        // Reset consecutive errors counter on successful response
+        consecutiveErrors = 0;
         
         // If completed or processed or failed, stop polling
         if (status.status === 'completed' || status.status === 'processed') {
@@ -253,6 +273,9 @@ const UploadPage: React.FC = () => {
         console.error('Status check error:', error);
         setRetryCount(prev => prev + 1);
         
+        // Increment consecutive errors counter
+        consecutiveErrors++;
+        
         // Show a more user-friendly error based on error type
         let errorMessage = 'Error checking processing status.';
         
@@ -266,13 +289,13 @@ const UploadPage: React.FC = () => {
           errorMessage = error.message;
         }
         
-        // Stop after 5 failed retries
-        if (retryCount >= 5) {
+        // Only stop polling after 10 consecutive errors or 20 total retries
+        if (consecutiveErrors >= 10 || retryCount >= 20) {
           clearInterval(pollingRef.current!);
           setIsPolling(false);
           setError(`${errorMessage} Maximum retry attempts reached.`);
           setSnackbarOpen(true);
-        } else if (retryCount >= 2) {
+        } else if (retryCount >= 5) {
           // Show error message after a few retries, but continue polling
           setError(errorMessage);
           setSnackbarOpen(true);
@@ -430,7 +453,8 @@ const UploadPage: React.FC = () => {
           Upload PDF
         </Typography>
         <Typography variant="subtitle1" color="textSecondary" paragraph>
-          Upload your PDF lab report to extract biomarkers and visualize your health data.
+          Upload your PDF lab report to extract biomarkers and visualize your health data. 
+          For optimal processing, only the first 3 pages will be analyzed.
         </Typography>
         
         <Box sx={{ mt: 4 }}>

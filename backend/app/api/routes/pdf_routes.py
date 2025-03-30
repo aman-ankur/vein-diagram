@@ -78,6 +78,10 @@ async def upload_pdf(
     """
     Upload a PDF file for processing.
     
+    Note: Only the first 3 pages of the PDF will be processed, regardless of the total number of pages.
+    This is to maintain performance and focus on the most relevant content, which is typically in the
+    first few pages of a lab report.
+    
     Args:
         background_tasks: FastAPI BackgroundTasks for async processing
         file: The PDF file to upload

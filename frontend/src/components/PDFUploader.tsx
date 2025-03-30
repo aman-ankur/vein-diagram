@@ -94,7 +94,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
     try {
       // Upload the file
       const response = await axios.post(
-        `${API_BASE_URL}/pdf/upload`,
+        `${API_BASE_URL}/api/pdf/upload`,
         formData,
         {
           headers: {
@@ -147,12 +147,12 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
     try {
       // Wait until the PDF is fully processed
       let statusCheckAttempts = 0;
-      const maxAttempts = 15; // 15 attempts with 2 second intervals = 30 seconds max wait time
+      const maxAttempts = 60; // 60 attempts with 2 second intervals = 2 minutes max wait time
       
       // Check if the PDF has been processed before attempting to match profiles
       const checkPdfProcessed = async (): Promise<boolean> => {
         try {
-          const response = await axios.get(`${API_BASE_URL}/pdf/status/${pdfId}`);
+          const response = await axios.get(`${API_BASE_URL}/api/pdf/status/${pdfId}`);
           console.log("PDF processing status:", response.data.status);
           
           // If the PDF has been processed, we can proceed with matching
@@ -178,23 +178,44 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
           return false;
         } catch (error) {
           console.error("Error checking PDF status:", error);
-          throw error;
+          
+          // Only throw if we've reached max attempts, otherwise continue trying
+          if (statusCheckAttempts >= maxAttempts) {
+            throw error;
+          }
+          return false;
         }
       };
       
       // Poll until the PDF is processed or max attempts reached
-      while (statusCheckAttempts < maxAttempts) {
+      let isProcessed = false;
+      while (statusCheckAttempts < maxAttempts && !isProcessed) {
         statusCheckAttempts++;
-        const isProcessed = await checkPdfProcessed();
-        
-        if (isProcessed) {
-          console.log("PDF is processed, proceeding to profile matching");
-          break;
+        try {
+          isProcessed = await checkPdfProcessed();
+          
+          if (isProcessed) {
+            console.log("PDF is processed, proceeding to profile matching");
+            break;
+          }
+          
+          // Wait for 2 seconds before checking again
+          console.log(`PDF still processing, waiting before checking again (attempt ${statusCheckAttempts}/${maxAttempts})`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (error) {
+          // Log error but continue trying until max attempts
+          console.error(`Error during status check attempt ${statusCheckAttempts}:`, error);
+          if (statusCheckAttempts >= maxAttempts) {
+            throw error;
+          }
+          // Wait a bit longer after an error
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
-        
-        // Wait for 2 seconds before checking again
-        console.log(`PDF still processing, waiting before checking again (attempt ${statusCheckAttempts}/${maxAttempts})`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      // If we've reached max attempts without successful processing, throw error
+      if (!isProcessed) {
+        throw new Error("PDF processing timed out. The server might be experiencing high load or the PDF is taking too long to process.");
       }
       
       console.log("Calling profile matching API for PDF:", pdfId);
@@ -300,7 +321,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
           </p>
           <p className="ant-upload-text">Click or drag PDF file to this area to upload</p>
           <p className="ant-upload-hint">
-            Support for a single PDF file upload. File size limit: 30MB.
+            Support for a single PDF file upload. File size limit: 30MB. Note: Only the first 3 pages will be processed.
           </p>
           {uploading && <Spin tip="Uploading..." />}
         </Dragger>
