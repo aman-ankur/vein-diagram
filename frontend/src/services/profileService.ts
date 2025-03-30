@@ -1,5 +1,12 @@
 import axios from 'axios';
-import { Profile, ProfileCreate, ProfileUpdate, ProfileListResponse } from '../types/Profile';
+import { 
+  Profile, 
+  ProfileCreate, 
+  ProfileUpdate, 
+  ProfileListResponse,
+  ProfileMatchingResponse,
+  ProfileMetadata
+} from '../types/Profile';
 import { API_BASE_URL } from '../config';
 
 const API_URL = `${API_BASE_URL}/api/profiles`;
@@ -44,7 +51,7 @@ export const getProfile = async (id: string): Promise<Profile> => {
  */
 export const createProfile = async (profile: ProfileCreate): Promise<Profile> => {
   try {
-    const response = await axios.post(`${API_URL}`, profile);
+    const response = await axios.post<Profile>(`${API_URL}`, profile);
     return response.data;
   } catch (error) {
     console.error('Error creating profile:', error);
@@ -86,6 +93,53 @@ export const extractProfileFromPDF = async (pdfId: number): Promise<Profile[]> =
     return response.data;
   } catch (error) {
     console.error(`Error extracting profile from PDF ${pdfId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Find matching profiles for a PDF
+ */
+export const findMatchingProfiles = async (pdfId: string): Promise<ProfileMatchingResponse> => {
+  try {
+    const response = await axios.post<ProfileMatchingResponse>(`${API_URL}/match`, { pdf_id: pdfId });
+    return response.data;
+  } catch (error) {
+    console.error(`Error finding matching profiles for PDF ${pdfId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Associate a PDF with a profile
+ */
+export const associatePdfWithProfile = async (pdfId: string, profileId: string): Promise<Profile> => {
+  try {
+    const response = await axios.post<Profile>(`${API_URL}/associate`, {
+      pdf_id: pdfId,
+      profile_id: profileId,
+      create_new_profile: false
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error associating PDF ${pdfId} with profile ${profileId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new profile from PDF metadata
+ */
+export const createProfileFromPdf = async (pdfId: string, metadata: ProfileMetadata): Promise<Profile> => {
+  try {
+    const response = await axios.post<Profile>(`${API_URL}/associate`, {
+      pdf_id: pdfId,
+      create_new_profile: true,
+      metadata_updates: metadata
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error creating profile from PDF ${pdfId}:`, error);
     throw error;
   }
 }; 

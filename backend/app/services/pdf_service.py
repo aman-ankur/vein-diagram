@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import PyPDF2
 from PIL import Image
 import pytesseract
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 import pdfplumber
 import pandas as pd
 import re
+import dateutil.parser
 
 from app.services.biomarker_parser import (
     extract_biomarkers_with_claude,
@@ -21,6 +22,8 @@ from app.services.biomarker_parser import (
     _preprocess_text_for_claude
 )
 from app.models.biomarker_model import Biomarker
+from app.models.pdf_model import PDF  # Import the PDF model class
+from app.db.database import SessionLocal  # Import SessionLocal for error handling
 
 # Configure logging with more detailed format
 logging.basicConfig(level=logging.INFO)
@@ -201,348 +204,181 @@ def _extract_text_with_ocr(file_path: str) -> str:
         logger.error(f"[OCR_ERROR] Error during OCR processing: {str(e)}")
         return f"OCR processing failed: {str(e)}"
 
-def process_pdf_background(pdf_id: int, db_session: Session) -> None:
+def process_pdf_background(pdf_id: int, db_session=None):
     """
-    Process PDF file in background.
+    Process PDF in the background.
     
     Args:
-        pdf_id: ID of the PDF record in the database
-        db_session: Database session
+        pdf_id: PDF ID from database
+        db_session: SQLAlchemy session
     """
-    logger.info(f"[PDF_PROCESSING_START] Starting processing of PDF with ID {pdf_id}")
-    start_time = datetime.utcnow()
+    # Create new session if not provided
+    if db_session is None:
+        db_session = SessionLocal()
     
+    # Get PDF from database
     try:
-        # Get the PDF from the database
-        from app.models.pdf_model import PDF as PDFModel
-        
-        pdf = db_session.query(PDFModel).filter(PDFModel.id == pdf_id).first()
+        pdf = db_session.query(PDF).filter(PDF.id == pdf_id).first()
         if not pdf:
-            logger.error(f"[DB_ERROR] PDF with ID {pdf_id} not found in database")
+            logger.error(f"PDF {pdf_id} not found in database")
             return
         
-        file_id = pdf.file_id
-        file_path = pdf.file_path
-        
-        if not file_path or not os.path.exists(file_path):
-            logger.error(f"[FILE_ERROR] File path {file_path} not found for PDF {file_id}")
-            pdf.status = "error"
-            pdf.error_message = "File not found"
-            db_session.commit()
-            return
-        
-        # Update status to processing
-        logger.debug(f"[STATUS_UPDATE] Setting status to 'processing' for PDF {file_id}")
+        # Update status
+        logger.info(f"Starting to process PDF {pdf_id}")
         pdf.status = "processing"
         db_session.commit()
         
-        # Process the PDF page by page to avoid Claude API timeouts
-        logger.info(f"[PAGE_BY_PAGE_PROCESSING] Starting page-by-page processing for PDF {file_id}")
-        biomarkers_data = []
-        metadata = {}
-        filename = os.path.basename(file_path)
+        # Extract text
+        logger.info(f"Extracting text from PDF {pdf_id}")
+        text = extract_text_from_pdf(pdf.file_path)
         
-        # Use pdfplumber for better text extraction with table support
-        with pdfplumber.open(file_path) as pdf_doc:
-            total_pages = len(pdf_doc.pages)
-            logger.info(f"[PDF_INFO] PDF has {total_pages} pages")
-            
-            # Limit to first 6 pages to reduce API costs
-            max_pages = min(3, total_pages)
-            logger.info(f"[PAGE_LIMIT] Processing only the first {max_pages} pages to optimize API usage")
-            
-            for page_num in range(max_pages):
-                logger.info(f"[PAGE_PROCESSING] Processing page {page_num + 1} of {total_pages} (limited to {max_pages})")
-                
-                # Extract text from the page
-                page = pdf_doc.pages[page_num]
-                page_text = page.extract_text() or ""
-                
-                # Preprocess the text for Claude
-                processed_text = _preprocess_text_for_claude(page_text)
-                
-                # Extract biomarkers from the processed text
-                page_biomarkers, page_metadata = extract_biomarkers_with_claude(
-                    processed_text, 
-                    f"{filename} - page {page_num + 1}"
-                )
-                
-                # Add page biomarkers to the overall list
-                if page_biomarkers:
-                    logger.info(f"[PAGE_BIOMARKERS_FOUND] Found {len(page_biomarkers)} biomarkers on page {page_num + 1}")
-                    biomarkers_data.extend(page_biomarkers)
-                
-                # Update metadata if empty
-                if not metadata and page_metadata:
-                    logger.debug(f"[PAGE_METADATA_FOUND] Found metadata on page {page_num + 1}")
-                    metadata = page_metadata
-                
-            # Log total biomarkers found
-            logger.info(f"[BIOMARKER_EXTRACTION_COMPLETE] Total biomarkers found: {len(biomarkers_data)}")
-            
-            # Deduplicate biomarkers based on name and value
-            unique_biomarkers = []
-            seen_biomarkers = set()
-            for biomarker in biomarkers_data:
-                key = (biomarker.get('name', ''), str(biomarker.get('value', '')))
-                if key not in seen_biomarkers:
-                    seen_biomarkers.add(key)
-                    unique_biomarkers.append(biomarker)
-            
-            biomarkers_data = unique_biomarkers
-            logger.info(f"[BIOMARKERS_DEDUPLICATED] After deduplication: {len(biomarkers_data)} unique biomarkers")
-        
-        # Log metadata
-        logger.debug(f"[METADATA] Extracted metadata: {json.dumps(metadata)}")
-        
-        # Update the PDF record with extracted metadata
-        if metadata:
-            logger.debug(f"[METADATA_UPDATE] Updating PDF record with metadata")
-            for key, value in metadata.items():
-                if hasattr(pdf, key) and value:
-                    # Special handling for date fields
-                    if key == "report_date" and value:
-                        try:
-                            from dateutil import parser
-                            parsed_date = parser.parse(value)
-                            logger.debug(f"[METADATA_DATE_PARSING] Parsed '{value}' to {parsed_date}")
-                            setattr(pdf, key, parsed_date)
-                        except Exception as date_error:
-                            logger.warning(f"[METADATA_DATE_ERROR] Could not parse {key} value '{value}': {str(date_error)}")
-                    else:
-                        logger.debug(f"[METADATA_FIELD] Setting {key} = {value}")
-                        setattr(pdf, key, value)
-            
-            # Store any additional metadata that doesn't have a dedicated column
-            processing_details = {}
-            for key, value in metadata.items():
-                if not hasattr(pdf, key):
-                    processing_details[key] = value
-            
-            if processing_details:
-                logger.debug(f"[ADDITIONAL_METADATA] Storing additional metadata: {json.dumps(processing_details)}")
-                pdf.processing_details = processing_details
-        
-        # Extract report date if possible (if not already extracted by Claude)
-        if not pdf.report_date and metadata.get("report_date"):
-            try:
-                # Parse date from metadata
-                from dateutil import parser
-                report_date = parser.parse(metadata.get("report_date"))
-                logger.info(f"[DATE_EXTRACTED] Found report date: {report_date.strftime('%m/%d/%Y')}")
-                pdf.report_date = report_date
-            except Exception as date_error:
-                logger.warning(f"[DATE_PARSING_ERROR] Could not parse report date: {str(date_error)}")
-        
-        # If report_date is still not found, try to extract from text
-        if not pdf.report_date:
-            try:
-                # Try to find a date in the format MM/DD/YYYY or similar
-                import re
-                date_matches = re.findall(r'(0[1-9]|1[0-2])[/\-](0[1-9]|[12][0-9]|3[01])[/\-](20\d{2})', page_text)
-                if date_matches:
-                    # Use the first date found (simplified)
-                    month, day, year = date_matches[0]
-                    report_date = datetime(int(year), int(month), int(day))
-                    logger.info(f"[DATE_EXTRACTED] Found report date: {report_date.strftime('%m/%d/%Y')}")
-                    pdf.report_date = report_date
-            except Exception as date_error:
-                logger.warning(f"[DATE_EXTRACTION_ERROR] Could not extract report date: {str(date_error)}")
-        
-        # Ensure report_date is a datetime object before commit
-        if hasattr(pdf, 'report_date') and pdf.report_date and not isinstance(pdf.report_date, datetime):
-            try:
-                from dateutil import parser
-                pdf.report_date = parser.parse(str(pdf.report_date))
-                logger.info(f"[DATE_CONVERSION] Converted report_date to datetime object: {pdf.report_date}")
-            except Exception as date_error:
-                logger.warning(f"[DATE_CONVERSION_ERROR] Could not convert report_date to datetime: {str(date_error)}")
-                # Set to None to avoid SQLite errors
-                pdf.report_date = None
-        
-        # Store the biomarker data
-        logger.info(f"[BIOMARKER_STORAGE] Storing {len(biomarkers_data)} biomarkers in database")
-        storage_start_time = datetime.utcnow()
-        successful_biomarkers = 0
-        
-        for i, biomarker_data in enumerate(biomarkers_data):
-            try:
-                logger.debug(f"[BIOMARKER_STORAGE] Processing biomarker {i+1}/{len(biomarkers_data)}: {biomarker_data.get('name', 'Unknown')}")
-                
-                # Get confidence score from Claude
-                confidence = float(biomarker_data.get("confidence", 0.5))
-                
-                name = biomarker_data.get("name", "").strip()
-                
-                # Apply minimal validation based on confidence
-                if not name or len(name) < 2:
-                    logger.warning(f"[INVALID_BIOMARKER_NAME] Skipping biomarker with invalid name: {name}")
-                    continue
-                    
-                # Skip if confidence is too low
-                if confidence < 0.6:  # Require at least 60% confidence
-                    logger.warning(f"[LOW_CONFIDENCE_BIOMARKER] Skipping low confidence biomarker: {name} (confidence: {confidence})")
-                    continue
-                    
-                # Skip biomarkers with invalid values
-                try:
-                    biomarker_value = float(biomarker_data.get("value", 0))
-                    if biomarker_value == 0 and "0" not in str(biomarker_data.get("original_value", "")):
-                        logger.warning(f"[INVALID_BIOMARKER_VALUE] Skipping biomarker with value 0: {name}")
-                        continue
-                except (ValueError, TypeError):
-                    logger.warning(f"[INVALID_BIOMARKER_VALUE] Could not convert value to float: {biomarker_data.get('value')}")
-                    continue
-                    
-                # Skip biomarkers with invalid units
-                unit = biomarker_data.get("unit", "").strip()
-                if not unit:
-                    logger.warning(f"[INVALID_BIOMARKER_UNIT] Skipping biomarker with no unit: {name}")
-                    continue
-                
-                # Fix method descriptions in parentheses if needed
-                if ")" in name and not name.endswith(")"):
-                    name_parts = name.split(")")
-                    if len(name_parts) > 1:
-                        # Use the part before the method description plus the closing parenthesis
-                        fixed_name = name_parts[0].strip() + ")"
-                        logger.info(f"[BIOMARKER_NAME_FIXED] Fixed method description in name: '{name}' -> '{fixed_name}'")
-                        biomarker_data["name"] = fixed_name
-                        name = fixed_name
-                
-                # Ensure original_value is always a string
-                original_value = str(biomarker_data.get("original_value", ""))
-                
-                # Ensure reference ranges are always float or None
-                reference_range_low = biomarker_data.get("reference_range_low")
-                if reference_range_low is not None:
-                    try:
-                        reference_range_low = float(reference_range_low)
-                    except (ValueError, TypeError):
-                        logger.warning(f"[REFERENCE_RANGE_CONVERSION] Invalid reference_range_low for {biomarker_data.get('name')}: {reference_range_low}")
-                        reference_range_low = None
-                
-                reference_range_high = biomarker_data.get("reference_range_high")
-                if reference_range_high is not None:
-                    try:
-                        reference_range_high = float(reference_range_high)
-                    except (ValueError, TypeError):
-                        logger.warning(f"[REFERENCE_RANGE_CONVERSION] Invalid reference_range_high for {biomarker_data.get('name')}: {reference_range_high}")
-                        reference_range_high = None
-
-                # Create a biomarker record
-                from app.services.biomarker_parser import standardize_unit
-                
-                original_unit = biomarker_data.get("original_unit", "")
-                unit = biomarker_data.get("unit", original_unit)
-                
-                # Check if this biomarker already exists to prevent duplicates
-                existing_biomarker = db_session.query(Biomarker).filter(
-                    Biomarker.name == biomarker_data["name"],
-                    Biomarker.value == biomarker_value,
-                    Biomarker.unit == standardize_unit(unit)
-                ).first()
-                
-                if existing_biomarker:
-                    logger.info(f"[BIOMARKER_DUPLICATE] Skipping duplicate biomarker: {biomarker_data['name']} = {biomarker_value} {unit}")
-                    continue
-                
-                # Process category to ensure it's a valid category
-                category = biomarker_data.get("category", "Other")
-                valid_categories = [
-                    "Lipid", "Metabolic", "Liver", "Kidney", "Electrolyte", 
-                    "Blood", "Thyroid", "Vitamin", "Hormone", "Immunology", 
-                    "Cardiovascular", "Other"
-                ]
-                if category not in valid_categories:
-                    category = "Other"
-                
-                # If biomarker doesn't exist, create a new one
-                biomarker = Biomarker(
-                    pdf_id=pdf.id,
-                    name=biomarker_data["name"],
-                    original_name=biomarker_data.get("original_name", biomarker_data["name"]),
-                    original_value=original_value,
-                    original_unit=original_unit,
-                    value=biomarker_value,
-                    unit=standardize_unit(unit),  # Ensure unit is standardized and never null
-                    reference_range_low=reference_range_low,
-                    reference_range_high=reference_range_high,
-                    reference_range_text=biomarker_data.get("reference_range_text", ""),
-                    category=category,
-                    is_abnormal=biomarker_data.get("is_abnormal", False),
-                    notes=biomarker_data.get("notes", "")
-                )
-                
-                db_session.add(biomarker)
-                successful_biomarkers += 1
-                
-                if i % 20 == 0 and i > 0:  # Log progress for every 20 biomarkers
-                    logger.debug(f"[STORAGE_PROGRESS] Stored {i} of {len(biomarkers_data)} biomarkers")
-                
-            except Exception as biomarker_error:
-                logger.error(f"[BIOMARKER_STORAGE_ERROR] Error adding biomarker {i} ({biomarker_data.get('name', 'Unknown')}): {str(biomarker_error)}")
-                continue
-        
-        storage_time = (datetime.utcnow() - storage_start_time).total_seconds()
-        logger.info(f"[BIOMARKER_STORAGE_COMPLETE] Successfully stored {successful_biomarkers} of {len(biomarkers_data)} biomarkers in {storage_time:.2f} seconds")
-        
-        # Update the PDF record
-        # Store a combined version of text from all pages, but limit to avoid DB issues
-        all_text = ""
-        with pdfplumber.open(file_path) as pdf_doc:
-            for page in pdf_doc.pages:
-                page_text = page.extract_text() or ""
-                all_text += page_text + "\n\n"
-                
-                # Limit to avoid extremely large DB entries
-                if len(all_text) > 100000:  # ~100KB
-                    all_text = all_text[:100000] + "... [truncated]"
-                    break
-        
-        pdf.extracted_text = all_text
-        pdf.status = "processed"
-        pdf.processed_date = datetime.utcnow()
-        
-        # Calculate the confidence score based on biomarker data
-        if biomarkers_data:
-            confidence_values = [b.get("confidence", 0.0) for b in biomarkers_data if "confidence" in b]
-            if confidence_values:
-                confidence_avg = sum(confidence_values) / len(confidence_values)
-                logger.debug(f"[CONFIDENCE_SCORE] Average confidence: {confidence_avg:.2f}")
-                pdf.parsing_confidence = confidence_avg
-        
-        # Save changes
-        logger.debug(f"[DB_COMMIT] Committing changes to database for PDF {file_id}")
+        # Save extracted text
+        pdf.extracted_text = text
         db_session.commit()
         
-        total_time = (datetime.utcnow() - start_time).total_seconds()
-        logger.info(f"[PDF_PROCESSING_COMPLETE] Successfully processed PDF {file_id} in {total_time:.2f} seconds with {len(biomarkers_data)} biomarkers")
-    except Exception as e:
-        logger.error(f"[PDF_PROCESSING_ERROR] Error processing PDF {file_id}: {str(e)}")
+        # Parse metadata using Claude API
+        logger.info(f"Parsing metadata from text for PDF {pdf_id}")
+        from app.services.metadata_parser import extract_metadata_with_claude
+        metadata = extract_metadata_with_claude(text, pdf.filename)
         
-        # Update the PDF record with error status
-        try:
-            pdf = db_session.query(PDFModel).filter(PDFModel.id == pdf_id).first()
-            if pdf:
-                logger.debug(f"[ERROR_STATUS_UPDATE] Setting status to 'error' for PDF {file_id}")
-                pdf.status = "error"
-                pdf.error_message = str(e)
+        # Update PDF with extracted metadata
+        if metadata:
+            logger.info(f"Extracted metadata for PDF {pdf_id}: {metadata}")
+            # First, handle the report_date separately to ensure proper conversion
+            if metadata.get("report_date"):
+                # Convert string date to datetime object
+                report_date_str = metadata.get("report_date")
+                try:
+                    pdf.report_date = dateutil.parser.parse(report_date_str)
+                    logger.info(f"Converted report date from '{report_date_str}' to {pdf.report_date}")
+                    db_session.commit()  # Commit report_date change immediately
+                except Exception as e:
+                    logger.error(f"Failed to parse report date '{report_date_str}': {str(e)}")
+            
+            # Handle other metadata fields that don't require type conversion
+            update_dict = {}
+            if metadata.get("patient_name"):
+                update_dict["patient_name"] = metadata.get("patient_name")
+            if metadata.get("patient_gender"):
+                update_dict["patient_gender"] = metadata.get("patient_gender")
+            if metadata.get("patient_id"):
+                update_dict["patient_id"] = metadata.get("patient_id")
+            if metadata.get("lab_name"):
+                update_dict["lab_name"] = metadata.get("lab_name")
+            
+            # Apply updates if there are any
+            if update_dict:
+                for key, value in update_dict.items():
+                    setattr(pdf, key, value)
+                logger.info(f"Updated PDF with metadata: {update_dict}")
                 db_session.commit()
-        except Exception as db_error:
-            logger.error(f"[DB_ERROR] Error updating PDF record: {str(db_error)}")
+            
+            # Finally, handle patient_age separately as it requires integer conversion
+            if metadata.get("patient_age"):
+                # Convert patient age to integer if it's a string
+                age_str = metadata.get("patient_age")
+                try:
+                    # Extract numeric part if it includes units like "33 years"
+                    age_numeric = re.search(r'\d+', str(age_str))
+                    if age_numeric:
+                        pdf.patient_age = int(age_numeric.group())
+                        logger.info(f"Converted patient age from '{age_str}' to {pdf.patient_age}")
+                        db_session.commit()  # Commit age change separately
+                    else:
+                        logger.warning(f"Could not extract numeric age from '{age_str}'")
+                except Exception as e:
+                    logger.error(f"Failed to parse patient age '{age_str}': {str(e)}")
+        else:
+            logger.warning(f"No metadata extracted for PDF {pdf_id}")
+        
+        # Parse biomarkers using Claude API
+        logger.info(f"Parsing biomarkers from text for PDF {pdf_id}")
+        biomarkers, metadata = extract_biomarkers_with_claude(text, pdf.filename)
+        
+        if not biomarkers:
+            logger.warning(f"No biomarkers found in PDF {pdf_id}")
+        else:
+            logger.info(f"Extracted {len(biomarkers)} biomarkers from PDF {pdf_id}")
+            
+            # Save biomarkers to database
+            for biomarker in biomarkers:
+                db_session.add(Biomarker(
+                    pdf_id=pdf.id,
+                    profile_id=pdf.profile_id,
+                    name=biomarker.get("name", "Unknown"),
+                    original_name=biomarker.get("original_name", "Unknown"),
+                    original_value=biomarker.get("original_value", ""),
+                    value=biomarker.get("value", 0.0),
+                    original_unit=biomarker.get("original_unit", ""),
+                    unit=biomarker.get("unit", ""),
+                    reference_range_low=biomarker.get("reference_range_low"),
+                    reference_range_high=biomarker.get("reference_range_high"),
+                    reference_range_text=biomarker.get("reference_range_text", ""),
+                    category=biomarker.get("category", "Other"),
+                    is_abnormal=biomarker.get("is_abnormal", False)
+                ))
+            
+            # Update parsing confidence
+            confidence = 0.0
+            for biomarker in biomarkers:
+                confidence += biomarker.get("confidence", 0.0)
+            confidence = confidence / len(biomarkers) if biomarkers else 0.0
+            pdf.parsing_confidence = confidence
+        
+        # Update status
+        pdf.status = "processed"
+        pdf.processed_date = datetime.utcnow()
+        db_session.commit()
+        
+        logger.info(f"Completed processing PDF {pdf_id}")
+    except Exception as e:
+        logger.error(f"Error processing PDF {pdf_id}: {str(e)}")
+        pdf.status = "error"
+        pdf.error_message = str(e)
+        try:
+            db_session.rollback()  # Rollback any pending transactions
+            db_session.commit()
+        except Exception as commit_error:
+            logger.error(f"Error during error handling commit: {str(commit_error)}")
+    finally:
+        # Only close the session if we created it in this function
+        if db_session is not None:
+            db_session.close()
+            logger.debug(f"Database session closed for PDF {pdf_id}")
 
 # This is kept for backward compatibility
-def parse_biomarkers_from_text(text: str) -> List[Dict[str, Any]]:
+def parse_biomarkers_from_text(text: str, pdf_id=None) -> Tuple[List[Dict[str, Any]], float]:
     """
     Parse biomarker data from extracted text.
     
     Args:
         text: Extracted text from the PDF
+        pdf_id: Optional PDF ID (for backward compatibility)
         
     Returns:
-        List[Dict[str, Any]]: List of biomarker data
+        Tuple containing a list of biomarker dictionaries and a confidence score
     """
     # Use the improved parser from biomarker_parser.py
-    from app.services.biomarker_parser import parse_biomarkers_from_text as new_parser
-    return new_parser(text) 
+    from app.services.biomarker_parser import parse_biomarkers_from_text as fallback_parser
+    
+    try:
+        # First try to use the Claude API for better results
+        if os.environ.get('ANTHROPIC_API_KEY'):
+            from app.services.biomarker_parser import extract_biomarkers_with_claude
+            biomarkers, _ = extract_biomarkers_with_claude(text, f"pdf_{pdf_id if pdf_id else 'unknown'}.pdf")
+            
+            # Calculate average confidence
+            confidence = 0.0
+            for biomarker in biomarkers:
+                confidence += biomarker.get("confidence", 0.0)
+            confidence = confidence / len(biomarkers) if biomarkers else 0.0
+            
+            return biomarkers, confidence
+    except Exception as e:
+        logger.warning(f"Failed to extract biomarkers with Claude API: {str(e)}. Falling back to pattern matching.")
+    
+    # Fallback to pattern matching
+    biomarkers = fallback_parser(text)
+    confidence = 0.5  # Lower confidence for fallback parser
+    
+    return biomarkers, confidence 

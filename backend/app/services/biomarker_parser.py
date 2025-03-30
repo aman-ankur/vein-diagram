@@ -8,6 +8,8 @@ import json
 import re
 import logging
 import os
+import threading
+import time
 from typing import Dict, List, Any, Optional, Tuple
 import httpx
 from datetime import datetime
@@ -108,6 +110,40 @@ BIOMARKER_ALIASES = {
     "tpo antibodies": ["thyroid peroxidase antibodies", "anti-tpo", "thyroid antibodies"],
 }
 
+class TimeoutError(Exception):
+    """Exception raised when a function call times out"""
+    pass
+
+def with_timeout(timeout_seconds, default_return=None):
+    """Decorator to apply a timeout to a function"""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            result = [default_return]
+            exception = [None]
+            
+            def target():
+                try:
+                    result[0] = func(*args, **kwargs)
+                except Exception as e:
+                    exception[0] = e
+            
+            thread = threading.Thread(target=target)
+            thread.daemon = True
+            thread.start()
+            thread.join(timeout_seconds)
+            
+            if thread.is_alive():
+                logger.warning(f"[TIMEOUT] Function {func.__name__} timed out after {timeout_seconds} seconds")
+                return default_return
+            
+            if exception[0]:
+                logger.error(f"[FUNCTION_ERROR] Function {func.__name__} raised: {str(exception[0])}")
+                raise exception[0]
+                
+            return result[0]
+        return wrapper
+    return decorator
+
 def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Extract biomarkers from PDF text using Claude API.
@@ -206,16 +242,31 @@ Here is the lab report text to extract from:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
         
-        # Make the API call with max tokens and timeout
-        response = client.messages.create(
-            model="claude-3-opus-20240229",
-            max_tokens=4000,
-            temperature=0.1,
-            system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Avoid patient info, headers, footers, and page numbers.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
+        # Use the timeout wrapper for the API call
+        @with_timeout(timeout_seconds=60, default_return=None)  # 60 second timeout
+        def call_claude_api():
+            # Make the API call with max tokens and timeout
+            response = client.messages.create(
+                model="claude-3-opus-20240229",
+                max_tokens=4000,
+                temperature=0.1,
+                system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Avoid patient info, headers, footers, and page numbers.",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response
+        
+        # Call the API with timeout
+        response = call_claude_api()
+        
+        # If the call timed out, return empty results and fall back to text-based parser
+        if response is None:
+            logger.error("[CLAUDE_API_TIMEOUT] API call timed out")
+            logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to timeout")
+            fallback_results = parse_biomarkers_from_text(text)
+            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
+            return fallback_results, {}
         
         api_duration = (datetime.now() - api_start_time).total_seconds()
         logger.info(f"[CLAUDE_API_RESPONSE] Received response from Claude API in {api_duration:.2f} seconds")
@@ -369,16 +420,28 @@ Respond with ONLY the numeric confidence score.
         
         client = anthropic.Anthropic(api_key=api_key)
         
-        # Make a lightweight API call just for validation
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",  # Use a smaller, faster model for validation
-            max_tokens=10,
-            temperature=0.0,
-            system="You are evaluating whether something is a legitimate clinical biomarker.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
+        # Use the timeout wrapper for the API call
+        @with_timeout(timeout_seconds=30, default_return=None)  # 30 second timeout
+        def call_claude_api():
+            # Make a lightweight API call just for validation
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",  # Use a smaller, faster model for validation
+                max_tokens=10,
+                temperature=0.0,
+                system="You are evaluating whether something is a legitimate clinical biomarker.",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response
+        
+        # Call the API with timeout
+        response = call_claude_api()
+        
+        # If the call timed out, return neutral confidence
+        if response is None:
+            logger.error("[CLAUDE_API_TIMEOUT_VALIDATION] API call timed out")
+            return 0.5  # Neutral confidence if the API times out
         
         # Get the response content
         response_content = response.content[0].text.strip()
