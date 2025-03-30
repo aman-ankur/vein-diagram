@@ -1,0 +1,182 @@
+[
+    {
+      "id": 1,
+      "text": "Your body contains enough iron to forge a metal nail about 3 inches long.",
+      "category": "minerals",
+      "icon": "iron"
+    },
+    {
+      "id": 2,
+      "text": "Vitamin D levels affect over 1,000 different genes in your body, impacting everything from immune function to mood.",
+      "category": "vitamins",
+      "icon": "sun"
+    },
+    {
+      "id": 3,
+      "text": "Your blood travels about 12,000 miles daily through your circulatory system—nearly half the Earth's circumference.",
+      "category": "circulation",
+      "icon": "blood"
+    },
+    {
+      "id": 4,
+      "text": "Cortisol, often called the \"stress hormone,\" naturally peaks in the morning to help you wake up.",
+      "category": "hormones",
+      "icon": "stress"
+    },
+    {
+      "id": 5,
+      "text": "A single drop of blood contains approximately 5 million red blood cells.",
+      "category": "blood",
+      "icon": "bloodDrop"
+    },
+    {
+      "id": 6,
+      "text": "High-sensitivity C-reactive protein (hs-CRP) can detect inflammation at levels 1/1000th the concentration of traditional tests.",
+      "category": "inflammation",
+      "icon": "test"
+    },
+    {
+      "id": 7,
+      "text": "Adults generate about 2-3 million new red blood cells every second.",
+      "category": "blood",
+      "icon": "cellGeneration"
+    },
+    {
+      "id": 8,
+      "text": "Your cholesterol levels can vary by up to 10% depending on whether you're standing or lying down during the blood draw.",
+      "category": "lipids",
+      "icon": "cholesterol"
+    },
+    {
+      "id": 9,
+      "text": "Hemoglobin A1c provides a three-month average of your blood glucose levels, while a standard glucose test only shows a moment in time.",
+      "category": "glucose",
+      "icon": "diabetes"
+    },
+    {
+      "id": 10,
+      "text": "The human body produces about 1-1.5 quarts of saliva daily, which contains important biomarkers for disease detection.",
+      "category": "digestion",
+      "icon": "saliva"
+    },
+    {
+      "id": 11,
+      "text": "Your resting heart rate is typically lower in the morning and can increase by 10-15 beats per minute after a meal.",
+      "category": "heart",
+      "icon": "heartRate"
+    },
+    {
+      "id": 12,
+      "text": "Ferritin levels can be up to 10 times higher in men than in women due to menstruation-related iron loss.",
+      "category": "minerals",
+      "icon": "iron"
+    },
+    {
+      "id": 13,
+      "text": "Your gut microbiome contains trillions of bacteria that produce biomarkers reflecting your overall health.",
+      "category": "digestion",
+      "icon": "bacteria"
+    },
+    {
+      "id": 14,
+      "text": "Blood pressure naturally dips by 10-20% during sleep in healthy individuals, a pattern called \"nocturnal dipping.\"",
+      "category": "heart",
+      "icon": "bloodPressure"
+    },
+    {
+      "id": 15,
+      "text": "Thyroid-stimulating hormone (TSH) levels fluctuate throughout the day, typically highest at night and lowest in the afternoon.",
+      "category": "hormones",
+      "icon": "thyroid"
+    },
+    {
+      "id": 16,
+      "text": "Dehydration of just 1-2% can decrease cognitive function by up to 10%.",
+      "category": "hydration",
+      "icon": "water"
+    },
+    {
+      "id": 17,
+      "text": "Over 50% of the calcium in your bloodstream is bound to proteins and doesn't show up in ionized calcium tests.",
+      "category": "minerals",
+      "icon": "calcium"
+    },
+    {
+      "id": 18,
+      "text": "Your body has enough DNA that, if stretched end to end, would reach from Earth to the Sun and back over 600 times.",
+      "category": "genetics",
+      "icon": "dna"
+    },
+    {
+      "id": 19,
+      "text": "Vitamin B12 levels can remain normal for years even with severe deficiency due to large liver storage reserves.",
+      "category": "vitamins",
+      "icon": "b12"
+    },
+    {
+      "id": 20,
+      "text": "A high-sensitivity troponin test can detect heart muscle damage at concentrations 1/1000th of what older tests could identify.",
+      "category": "heart",
+      "icon": "heartTest"
+    },
+    {
+      "id": 21,
+      "text": "The average adult has about 1.2-1.5 gallons (4.5-5.5 liters) of blood circulating in their body.",
+      "category": "blood",
+      "icon": "bloodVolume"
+    },
+    {
+      "id": 22,
+      "text": "Testosterone levels in men naturally decline by about 1% per year after age 30.",
+      "category": "hormones",
+      "icon": "testosterone"
+    },
+    {
+      "id": 23,
+      "text": "Your lungs contain approximately 300 million tiny air sacs (alveoli) with a total surface area roughly the size of a tennis court.",
+      "category": "respiratory",
+      "icon": "lungs"
+    },
+    {
+      "id": 24,
+      "text": "Homocysteine levels can increase by up to 10% after just one cup of coffee.",
+      "category": "metabolism",
+      "icon": "coffee"
+    },
+    {
+      "id": 25,
+      "text": "The electrical signals from your heart are about 60 times stronger than those from your brain.",
+      "category": "heart",
+      "icon": "electricity"
+    },
+    {
+      "id": 26,
+      "text": "Fasting for just 12 hours can increase human growth hormone (HGH) production by up to 1,300%.",
+      "category": "hormones",
+      "icon": "fasting"
+    },
+    {
+      "id": 27,
+      "text": "White blood cells make up less than 1% of your blood but are crucial for immune response.",
+      "category": "immunity",
+      "icon": "whiteBloodCell"
+    },
+    {
+      "id": 28,
+      "text": "Uric acid, which can indicate gout risk, naturally varies by up to 20% throughout the day.",
+      "category": "metabolism",
+      "icon": "crystal"
+    },
+    {
+      "id": 29,
+      "text": "Your body's pH is so tightly regulated that a change of just 0.5 units can be life-threatening.",
+      "category": "metabolism",
+      "icon": "ph"
+    },
+    {
+      "id": 30,
+      "text": "Magnesium is involved in over 300 enzymatic reactions in your body but is rarely measured in standard blood tests.",
+      "category": "minerals",
+      "icon": "magnesium"
+    }
+  ]

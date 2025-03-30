@@ -106,6 +106,10 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
       setUploading(false);
       onSuccess(response, file);
       
+      // Always call the success callback with the file ID first
+      // This ensures the facts carousel processing step is shown
+      onUploadSuccess(response.data.file_id);
+      
       // If no profile was manually selected, try smart profile association
       if (!selectedProfileId) {
         setCurrentPdfId(response.data.file_id);
@@ -127,9 +131,6 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
           // Then trigger profile matching
           setTimeout(() => findMatches(response.data.file_id), 2000);
         }
-      } else {
-        // Call the success callback with the file ID if a profile was manually selected
-        onUploadSuccess(response.data.file_id);
       }
       
       message.success(`${file.name} uploaded successfully`);
