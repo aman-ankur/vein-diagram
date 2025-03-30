@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { CssBaseline, ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material';
 import App from './App';
 import './styles/global.css';
+import { ProfileProvider } from './contexts/ProfileContext';
 
 // Create a dark, sleek, futuristic theme
 const baseTheme = createTheme({
@@ -307,7 +308,9 @@ function renderApp() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <BrowserRouter>
-            <App />
+            <ProfileProvider>
+              <App />
+            </ProfileProvider>
           </BrowserRouter>
         </ThemeProvider>
       </React.StrictMode>

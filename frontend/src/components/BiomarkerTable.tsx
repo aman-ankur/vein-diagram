@@ -73,6 +73,10 @@ const columns: Column[] = [
   { id: 'referenceRange', label: 'Reference Range', minWidth: 120, align: 'center' },
   { id: 'status', label: 'Status', minWidth: 100, align: 'center' },
   { id: 'category', label: 'Category', minWidth: 120, align: 'center', sortable: true },
+  { id: 'reportDate', label: 'Report Date', minWidth: 120, align: 'center', 
+    format: (value: string) => value ? new Date(value).toLocaleDateString() : 'N/A',
+    sortable: true 
+  },
   { id: 'actions', label: 'Actions', minWidth: 150, align: 'center' },
 ];
 
@@ -225,6 +229,9 @@ const BiomarkerRow: React.FC<{
                 : theme.palette.primary.main
             }}
           />
+        </TableCell>
+        <TableCell align="center">
+          {biomarker.reportDate ? new Date(biomarker.reportDate).toLocaleDateString() : 'N/A'}
         </TableCell>
         <TableCell align="center">
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'nowrap' }}>
