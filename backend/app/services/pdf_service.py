@@ -377,13 +377,16 @@ def parse_biomarkers_from_text(text: str, pdf_id=None) -> Tuple[List[Dict[str, A
         # First try to use the Claude API for better results
         if os.environ.get('ANTHROPIC_API_KEY'):
             from app.services.biomarker_parser import extract_biomarkers_with_claude
-            biomarkers, _ = extract_biomarkers_with_claude(text, f"pdf_{pdf_id if pdf_id else 'unknown'}.pdf")
+            # Ensure the pdf_id is properly formatted and sanitized to avoid format specifier issues
+            pdf_filename = f"pdf_{pdf_id if pdf_id else 'unknown'}.pdf"
+            biomarkers, _ = extract_biomarkers_with_claude(text, pdf_filename)
             
             # Calculate average confidence
             confidence = 0.0
-            for biomarker in biomarkers:
-                confidence += biomarker.get("confidence", 0.0)
-            confidence = confidence / len(biomarkers) if biomarkers else 0.0
+            if biomarkers:
+                for biomarker in biomarkers:
+                    confidence += biomarker.get("confidence", 0.0)
+                confidence = confidence / len(biomarkers)
             
             return biomarkers, confidence
     except Exception as e:
