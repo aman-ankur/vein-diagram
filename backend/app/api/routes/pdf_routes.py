@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
-from typing import List
+from typing import List, Optional
 import os
 import uuid
 import logging
@@ -8,6 +8,7 @@ from datetime import datetime
 import hashlib
 
 from app.services.pdf_service import extract_text_from_pdf, parse_biomarkers_from_text, process_pdf_background
+from app.services.metadata_parser import extract_metadata_with_claude
 from app.schemas.pdf_schema import PDFResponse, PDFStatusResponse, PDFListResponse
 from app.models.pdf_model import PDF as PDFModel
 from app.db.database import get_db
@@ -71,7 +72,7 @@ def compute_file_hash(file_content):
 async def upload_pdf(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    profile_id: uuid.UUID = None,
+    profile_id: Optional[uuid.UUID] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -110,7 +111,13 @@ async def upload_pdf(
                 filename=existing_pdf.filename,
                 upload_date=existing_pdf.upload_date,
                 status=existing_pdf.status,
-                profile_id=existing_pdf.profile_id
+                profile_id=existing_pdf.profile_id,
+                # Add extracted metadata details
+                patient_name=existing_pdf.patient_name,
+                patient_gender=existing_pdf.patient_gender,
+                patient_id=existing_pdf.patient_id,
+                lab_name=existing_pdf.lab_name,
+                report_date=existing_pdf.report_date
             )
         
         # Save file with unique name
@@ -144,7 +151,13 @@ async def upload_pdf(
             filename=pdf.filename,
             upload_date=pdf.upload_date,
             status=pdf.status,
-            profile_id=pdf.profile_id
+            profile_id=pdf.profile_id,
+            # Metadata fields will be null at this point
+            patient_name=None,
+            patient_gender=None,
+            patient_id=None,
+            lab_name=None,
+            report_date=None
         )
     except Exception as e:
         logger.error(f"Error uploading PDF: {str(e)}")

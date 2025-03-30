@@ -5,7 +5,10 @@ import { RcFile } from 'antd/lib/upload';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import ProfileSelector from './ProfileSelector';
+import ProfileMatchingModal from './ProfileMatchingModal';
 import { createProfile } from '../services/profileService';
+import { findMatchingProfiles, associatePdfWithProfile, createProfileFromPdf } from '../services/profileService';
+import { ProfileMatch, ProfileMetadata, ProfileMatchingResponse } from '../types/Profile';
 
 const { Dragger } = Upload;
 
@@ -17,6 +20,14 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
   const [uploading, setUploading] = useState<boolean>(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [profileRequired, setProfileRequired] = useState<boolean>(false);
+  
+  // States for the smart profile association feature
+  const [isMatchingModalVisible, setIsMatchingModalVisible] = useState<boolean>(false);
+  const [currentPdfId, setCurrentPdfId] = useState<string | null>(null);
+  const [profileMatches, setProfileMatches] = useState<ProfileMatch[]>([]);
+  const [extractedMetadata, setExtractedMetadata] = useState<ProfileMetadata>({});
+  const [loadingMatches, setLoadingMatches] = useState<boolean>(false);
+  const [processingAssociation, setProcessingAssociation] = useState<boolean>(false);
 
   const handleProfileSelect = (profileId: string | null) => {
     setSelectedProfileId(profileId);
@@ -49,12 +60,6 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
   };
 
   const beforeUpload = (file: RcFile) => {
-    // Check if a profile is selected
-    if (!selectedProfileId) {
-      setProfileRequired(true);
-      return false;
-    }
-    
     // Check file type
     const isPDF = file.type === 'application/pdf';
     if (!isPDF) {
@@ -79,7 +84,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
     const formData = new FormData();
     formData.append('file', file);
     
-    // Add profile_id if selected
+    // Add profile_id if manually selected from the dropdown
     if (selectedProfileId) {
       formData.append('profile_id', selectedProfileId);
     }
@@ -101,8 +106,30 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
       setUploading(false);
       onSuccess(response, file);
       
-      // Call the success callback with the file ID
-      onUploadSuccess(response.data.file_id);
+      // If no profile was manually selected, try smart profile association
+      if (!selectedProfileId) {
+        setCurrentPdfId(response.data.file_id);
+        
+        // If metadata is already available in the response, use it
+        if (response.data.patient_name || response.data.patient_gender) {
+          const metadata: ProfileMetadata = {
+            patient_name: response.data.patient_name,
+            patient_gender: response.data.patient_gender,
+            patient_id: response.data.patient_id,
+            lab_name: response.data.lab_name,
+            report_date: response.data.report_date
+          };
+          
+          setExtractedMetadata(metadata);
+          findMatches(response.data.file_id);
+        } else {
+          // Wait a moment to allow the server to extract metadata
+          setTimeout(() => findMatches(response.data.file_id), 1000);
+        }
+      } else {
+        // Call the success callback with the file ID if a profile was manually selected
+        onUploadSuccess(response.data.file_id);
+      }
       
       message.success(`${file.name} uploaded successfully`);
     } catch (error) {
@@ -112,11 +139,71 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
       console.error('Upload error:', error);
     }
   };
+  
+  const findMatches = async (pdfId: string) => {
+    setLoadingMatches(true);
+    try {
+      const result: ProfileMatchingResponse = await findMatchingProfiles(pdfId);
+      setProfileMatches(result.matches || []);
+      setExtractedMetadata(result.metadata || {});
+      setIsMatchingModalVisible(true);
+    } catch (error) {
+      console.error('Error finding matching profiles:', error);
+      message.error('Failed to find matching profiles');
+      // Fall back to default behavior - just pass the fileId back
+      onUploadSuccess(pdfId);
+    } finally {
+      setLoadingMatches(false);
+    }
+  };
+  
+  const handleSelectExistingProfile = async (profileId: string) => {
+    if (!currentPdfId) return;
+    
+    setProcessingAssociation(true);
+    try {
+      await associatePdfWithProfile(currentPdfId, profileId);
+      message.success('Lab report associated with profile successfully');
+      setIsMatchingModalVisible(false);
+      onUploadSuccess(currentPdfId);
+    } catch (error) {
+      console.error('Error associating PDF with profile:', error);
+      message.error('Failed to associate lab report with profile');
+    } finally {
+      setProcessingAssociation(false);
+    }
+  };
+  
+  const handleCreateNewProfile = async (metadata: ProfileMetadata) => {
+    if (!currentPdfId) return;
+    
+    setProcessingAssociation(true);
+    try {
+      await createProfileFromPdf(currentPdfId, metadata);
+      message.success('New profile created and lab report associated successfully');
+      setIsMatchingModalVisible(false);
+      onUploadSuccess(currentPdfId);
+    } catch (error) {
+      console.error('Error creating new profile:', error);
+      message.error('Failed to create new profile');
+    } finally {
+      setProcessingAssociation(false);
+    }
+  };
+  
+  const handleCancelMatching = () => {
+    setIsMatchingModalVisible(false);
+    // If the user cancels, still proceed with the upload
+    if (currentPdfId) {
+      onUploadSuccess(currentPdfId);
+    }
+  };
 
   return (
     <Card title="Upload Lab Report PDF">
       <div className="profile-selection-container">
-        <h3>Step 1: Select or Create a Profile</h3>
+        <h3>Step 1: Select a Profile (Optional)</h3>
+        <p>If you want to manually select a profile, you can do so here. Otherwise, we'll help you match after upload.</p>
         <ProfileSelector
           selectedProfileId={selectedProfileId}
           onProfileSelect={handleProfileSelect}
@@ -140,7 +227,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
           multiple={false}
           beforeUpload={beforeUpload}
           customRequest={customUpload}
-          disabled={uploading || !selectedProfileId}
+          disabled={uploading}
         >
           <p className="ant-upload-drag-icon">
             <InboxOutlined />
@@ -152,6 +239,18 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess }) => {
           {uploading && <Spin tip="Uploading..." />}
         </Dragger>
       </div>
+      
+      {/* Profile Matching Modal */}
+      <ProfileMatchingModal
+        visible={isMatchingModalVisible}
+        pdfId={currentPdfId || ''}
+        matches={profileMatches}
+        metadata={extractedMetadata}
+        onCancel={handleCancelMatching}
+        onSelectProfile={handleSelectExistingProfile}
+        onCreateNewProfile={handleCreateNewProfile}
+        loading={processingAssociation}
+      />
     </Card>
   );
 };

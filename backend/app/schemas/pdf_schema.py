@@ -70,6 +70,11 @@ class PDFResponse(BaseModel):
     status: str
     message: Optional[str] = None
     profile_id: Optional[UUID] = None
+    patient_name: Optional[str] = None
+    patient_gender: Optional[str] = None
+    patient_id: Optional[str] = None
+    lab_name: Optional[str] = None
+    report_date: Optional[datetime] = None
 
 class PDFStatusResponse(BaseModel):
     """Schema for PDF status response."""
