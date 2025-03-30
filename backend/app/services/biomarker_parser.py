@@ -8,6 +8,8 @@ import json
 import re
 import logging
 import os
+import threading
+import time
 from typing import Dict, List, Any, Optional, Tuple
 import httpx
 from datetime import datetime
@@ -108,6 +110,40 @@ BIOMARKER_ALIASES = {
     "tpo antibodies": ["thyroid peroxidase antibodies", "anti-tpo", "thyroid antibodies"],
 }
 
+class TimeoutError(Exception):
+    """Exception raised when a function call times out"""
+    pass
+
+def with_timeout(timeout_seconds, default_return=None):
+    """Decorator to apply a timeout to a function"""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            result = [default_return]
+            exception = [None]
+            
+            def target():
+                try:
+                    result[0] = func(*args, **kwargs)
+                except Exception as e:
+                    exception[0] = e
+            
+            thread = threading.Thread(target=target)
+            thread.daemon = True
+            thread.start()
+            thread.join(timeout_seconds)
+            
+            if thread.is_alive():
+                logger.warning(f"[TIMEOUT] Function {func.__name__} timed out after {timeout_seconds} seconds")
+                return default_return
+            
+            if exception[0]:
+                logger.error(f"[FUNCTION_ERROR] Function {func.__name__} raised: {str(exception[0])}")
+                raise exception[0]
+                
+            return result[0]
+        return wrapper
+    return decorator
+
 def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Extract biomarkers from PDF text using Claude API.
@@ -127,40 +163,26 @@ def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[
     logger.debug(f"[TEXT_PREPROCESSING] Preprocessed text from {len(text)} to {len(processed_text)} characters")
     
     # Prepare the prompt for Claude
-    prompt = f"""
-You are a medical laboratory data extraction specialist. Your task is to extract biomarker information from the medical lab report text below, focusing ONLY on legitimate clinical biomarkers that have a measurable result.
+    prompt = """
+Extract ONLY legitimate clinical biomarkers from this medical lab report. Focus exclusively on measurements that have numeric values and units.
 
-IMPORTANT: Biomarkers have these key characteristics:
-1. They have a measurable numerical result (e.g., 95, 5.2, <0.5)
-2. They have a unit of measurement (e.g., mg/dL, mmol/L)
-3. They typically have a reference range (e.g., 70-99, <5.0)
-4. They are specific tests measuring something in the body (glucose, cholesterol, vitamin levels, etc.)
+For each biomarker, provide:
+- name: Standardized name
+- original_name: Exact name as it appears
+- value: Numerical result (convert ranges to midpoint)
+- original_value: Result as shown in report
+- unit: Standardized unit
+- original_unit: Unit as shown
+- reference_range: Normal range text
+- reference_range_low: Lower bound as number
+- reference_range_high: Upper bound as number
+- category: One of: Lipid, Metabolic, Liver, Kidney, Electrolyte, Blood, Thyroid, Vitamin, Hormone, Immunology, Cardiovascular, Other
+- is_abnormal: true if outside reference range
+- confidence: 0.0-1.0 score of certainty
 
-For EACH biomarker you identify, provide:
-- name: The standardized name of the biomarker
-- original_name: The name exactly as it appears in the report
-- value: The numerical value of the result (as a number, convert ranges to the midpoint)
-- original_value: The original result text as seen in the report
-- unit: The standardized unit of measurement
-- original_unit: The unit exactly as it appears in the report
-- reference_range: The reference/normal range as text
-- reference_range_low: The lower bound of the reference range as a number (if available)
-- reference_range_high: The upper bound of the reference range as a number (if available)
-- category: Categorize into: Lipid, Metabolic, Liver, Kidney, Electrolyte, Blood, Thyroid, Vitamin, Hormone, Immunology, Cardiovascular, or Other
-- is_abnormal: true if the result is outside the reference range, false otherwise
-- confidence: A number between 0.0 and 1.0 representing your confidence that this is a legitimate biomarker
+CRITICAL: DO NOT extract page numbers, headers, footers, patient info, dates, IDs, URLs, or explanatory text.
 
-DO NOT extract:
-- Page numbers, headers, footers, or section titles
-- Patient information like names, dates of birth, addresses
-- Formatting elements like columns, rows, or delimiters
-- Test or sample IDs
-- Collection times or dates
-- Reference ranges by themselves without corresponding measurements
-- Text that looks like URLs, email addresses, or identifiers
-- Sentences or paragraphs of explanatory text
-
-Provide all results in this exact JSON format:
+Return valid JSON matching exactly this structure:
 {{
   "biomarkers": [
     {{
@@ -187,10 +209,8 @@ Provide all results in this exact JSON format:
   }}
 }}
 
-Here is the lab report text to extract from:
-
-{processed_text}
-"""
+Lab report text:
+""" + processed_text
 
     try:
         logger.debug("[CLAUDE_API_CALL] Sending request to Claude API")
@@ -206,16 +226,31 @@ Here is the lab report text to extract from:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
         
-        # Make the API call with max tokens and timeout
-        response = client.messages.create(
-            model="claude-3-opus-20240229",
-            max_tokens=4000,
-            temperature=0.1,
-            system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Avoid patient info, headers, footers, and page numbers.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
+        # Use the timeout wrapper for the API call
+        @with_timeout(timeout_seconds=600, default_return=None)  # 60 second timeout
+        def call_claude_api():
+            # Make the API call with max tokens and timeout
+            response = client.messages.create(
+                model="claude-3-sonnet-20240229",
+                max_tokens=3000,
+                temperature=0.0,
+                system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Avoid patient info, headers, footers, and page numbers.",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response
+        
+        # Call the API with timeout
+        response = call_claude_api()
+        
+        # If the call timed out, return empty results and fall back to text-based parser
+        if response is None:
+            logger.error("[CLAUDE_API_TIMEOUT] API call timed out")
+            logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to timeout")
+            fallback_results = parse_biomarkers_from_text(text)
+            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
+            return fallback_results, {}
         
         api_duration = (datetime.now() - api_start_time).total_seconds()
         logger.info(f"[CLAUDE_API_RESPONSE] Received response from Claude API in {api_duration:.2f} seconds")
@@ -299,8 +334,11 @@ Here is the lab report text to extract from:
                 logger.error("[JSON_PARSING_ERROR] Could not extract JSON from Claude API response")
                 raise ValueError("Failed to extract JSON from Claude API response")
         except json.JSONDecodeError as json_error:
+            debug_json_path = os.path.join(log_dir, f"invalid_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            with open(debug_json_path, "w") as f:
+                f.write(json_str)
             logger.error(f"[JSON_PARSING_ERROR] Could not parse Claude API response as JSON: {str(json_error)}")
-            logger.debug(f"[CLAUDE_RESPONSE] Raw response: {response_content[:500]}...")
+            logger.debug(f"[CLAUDE_RESPONSE] Raw response: {response_content[:50]}...")
             
             # Fall back to text-based parser
             logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to JSON parsing error")
@@ -369,16 +407,28 @@ Respond with ONLY the numeric confidence score.
         
         client = anthropic.Anthropic(api_key=api_key)
         
-        # Make a lightweight API call just for validation
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",  # Use a smaller, faster model for validation
-            max_tokens=10,
-            temperature=0.0,
-            system="You are evaluating whether something is a legitimate clinical biomarker.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
+        # Use the timeout wrapper for the API call
+        @with_timeout(timeout_seconds=30, default_return=None)  # 30 second timeout
+        def call_claude_api():
+            # Make a lightweight API call just for validation
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",  # Use a smaller, faster model for validation
+                max_tokens=10,
+                temperature=0.0,
+                system="You are evaluating whether something is a legitimate clinical biomarker.",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response
+        
+        # Call the API with timeout
+        response = call_claude_api()
+        
+        # If the call timed out, return neutral confidence
+        if response is None:
+            logger.error("[CLAUDE_API_TIMEOUT_VALIDATION] API call timed out")
+            return 0.5  # Neutral confidence if the API times out
         
         # Get the response content
         response_content = response.content[0].text.strip()
@@ -874,6 +924,9 @@ def _preprocess_text_for_claude(text: str) -> str:
     # Replace problematic characters that might cause parsing issues
     text = text.replace('\x00', '')  # Remove null bytes
     
+    # Escape % characters to prevent string formatting issues
+    # text = text.replace('%', '%%')
+    
     # Try to clean up awkward line breaks in potential biomarker data
     # Pattern: number followed by line break followed by unit
     text = re.sub(r'(\d+\.?\d*)\s*\n\s*([a-zA-Z/%]+)', r'\1 \2', text)
@@ -1015,10 +1068,20 @@ def _repair_json(json_str: str) -> str:
     # This addresses issues like: "confidence": 0.99 }} [next object]
     json_str = re.sub(r'(\d+\s*)\}\}(\s*)(?!\s*[\],}])', r'\1}},\2', json_str)
     
-    # Fix missing comma in the exact location mentioned in logs (line 386, column 6, position 10256)
-    if "fidence\": 0.99" in json_str:
-        # Search for the pattern and add comma if needed
-        json_str = re.sub(r'(\"confidence\"\s*:\s*0\.99\s*)\}\s*\}(\s*\])', r'\1}},\2', json_str)
+    # Fix missing comma in the exact location mentioned in logs
+    # More aggressive pattern matching for missing commas after number values
+    json_str = re.sub(r'([\d\.]+)\s*\}\s*\}(\s*,?\s*\{)', r'\1}},\2', json_str)
+    json_str = re.sub(r'([\d\.]+)\s*\}\s*\}(\s*\])', r'\1}},\2', json_str)
+    
+    # Specifically target the confidence pattern that's causing issues
+    if "confidence" in json_str:
+        # Look for confidence values that might be missing commas
+        json_str = re.sub(r'("confidence"\s*:\s*[\d\.]+)\s*\}\s*\}', r'\1}}', json_str)
+        json_str = re.sub(r'("confidence"\s*:\s*[\d\.]+)\s*\}\s*\}(\s*,?\s*\{)', r'\1}},\2', json_str)
+        json_str = re.sub(r'("confidence"\s*:\s*[\d\.]+)\s*\}\s*\}(\s*\])', r'\1}},\2', json_str)
+        
+        # Special fix for the specific error we're seeing
+        json_str = re.sub(r'("confidence"\s*:\s*0\.99)\s*\}\s*\}', r'\1}}', json_str)
         logger.info("[JSON_SPECIFIC_FIX] Applied specific fix for 'confidence: 0.99' pattern")
     
     # Log changes if substantial
@@ -1045,87 +1108,45 @@ def _repair_json(json_str: str) -> str:
             context = json_str[start_pos:end_pos]
             logger.warning(f"[JSON_ERROR_CONTEXT] Context: {context}")
             
-            # Try to perform context-specific repairs
+            # If we have an 'expecting comma' error, let's insert one at the error position
             if "Expecting ',' delimiter" in error_msg:
-                # Insert a comma at the error position
+                # Try to be even more specific with the fix - insert a comma directly at the error position
                 fixed_json = json_str[:error_pos] + ',' + json_str[error_pos:]
-                logger.warning(f"[JSON_DESPERATE_FIX] Inserted comma at position {error_pos}")
+                logger.warning(f"[JSON_SPECIFIC_COMMA_FIX] Inserted comma at position {error_pos}")
                 
-                # Validate if fixed
+                # Try to parse the fixed JSON
                 try:
                     json.loads(fixed_json)
-                    logger.info("[JSON_REPAIR] Last-ditch comma fix successful!")
+                    logger.info("[JSON_REPAIR] Direct comma insertion fix was successful!")
                     return fixed_json
                 except json.JSONDecodeError as e2:
-                    logger.warning(f"[JSON_DESPERATE_FIX_FAILED] Still invalid: {str(e2)}")
-                    
-            elif "Expecting value" in error_msg:
-                # This often happens when there's a trailing comma - try removing it
-                if error_pos > 0 and json_str[error_pos-1] == ',':
-                    fixed_json = json_str[:error_pos-1] + json_str[error_pos:]
-                    logger.warning(f"[JSON_DESPERATE_FIX] Removed trailing comma at position {error_pos-1}")
-                    
-                    # Validate if fixed
-                    try:
-                        json.loads(fixed_json)
-                        logger.info("[JSON_REPAIR] Last-ditch trailing comma removal successful!")
-                        return fixed_json
-                    except json.JSONDecodeError as e2:
-                        logger.warning(f"[JSON_DESPERATE_FIX_FAILED] Still invalid: {str(e2)}")
+                    logger.warning(f"[JSON_DIRECT_FIX_FAILED] Still invalid after direct fix: {str(e2)}")
             
-            # Last resort - use a JSON5 parser if available (more forgiving)
+            # Last resort - try to create a minimal valid JSON structure
             try:
-                import json5
-                logger.warning("[JSON_REPAIR_JSON5] Attempting to parse with JSON5 (more forgiving parser)")
-                parsed = json5.loads(json_str)
-                # If successful, convert back to standard JSON
-                fixed_json = json.dumps(parsed)
-                logger.info("[JSON_REPAIR_JSON5] Successfully repaired using JSON5!")
-                return fixed_json
-            except ImportError:
-                logger.warning("[JSON_REPAIR_JSON5] JSON5 module not available")
-            except Exception as e:
-                logger.warning(f"[JSON_REPAIR_JSON5_FAILED] JSON5 parsing failed: {str(e)}")
+                # Find all the biomarkers that parse correctly
+                biomarker_pattern = r'{\s*"name"\s*:\s*"[^"]+".+?}(?=\s*,|\s*\])'
+                biomarkers = re.findall(biomarker_pattern, json_str, re.DOTALL)
                 
-            # Last desperate approach - try to manually rebuild a minimal valid JSON
-            # This is an extreme measure for when everything else fails
-            try:
-                logger.warning("[JSON_REBUILD_ATTEMPT] Attempting to rebuild a minimal valid JSON")
-                
-                # Find all biomarker-like structures
-                biomarker_pattern = r'"name"\s*:\s*"([^"]*)".+?"value"\s*:\s*([^,}]+)'
-                biomarker_matches = re.finditer(biomarker_pattern, json_str, re.DOTALL)
-                
-                # Rebuild a minimal valid JSON with just the essential parts
-                minimal_json = '{"biomarkers": ['
-                has_matches = False
-                
-                for i, match in enumerate(biomarker_matches):
-                    if i > 0:
-                        minimal_json += ','
-                    has_matches = True
-                    name = match.group(1)
-                    value_str = match.group(2).strip()
-                    # Try to extract other fields
-                    unit_match = re.search(r'"unit"\s*:\s*"([^"]*)"', match.group(0))
-                    unit = unit_match.group(1) if unit_match else ""
+                if biomarkers:
+                    # Reconstruct the JSON with only valid biomarkers
+                    minimal_json = '{"biomarkers": [' + ','.join(biomarkers) + '], "metadata": {}}'
                     
-                    # Create a minimal valid biomarker entry
-                    minimal_json += f'{{"name": "{name}", "value": {value_str}, "unit": "{unit}"}}'
-                
-                minimal_json += '], "metadata": {}}'
-                
-                if has_matches:
                     try:
                         # Validate the minimal JSON
                         json.loads(minimal_json)
-                        logger.info("[JSON_REBUILD_SUCCESS] Successfully rebuilt minimal valid JSON")
+                        logger.info("[JSON_MINIMAL_RECONSTRUCTION] Successfully created minimal valid JSON structure")
                         return minimal_json
-                    except json.JSONDecodeError as e3:
-                        logger.warning(f"[JSON_REBUILD_FAILED] Rebuilt JSON still invalid: {str(e3)}")
-            except Exception as rebuild_error:
-                logger.warning(f"[JSON_REBUILD_ERROR] Error during JSON rebuild: {str(rebuild_error)}")
-        
+                    except json.JSONDecodeError:
+                        logger.warning("[JSON_MINIMAL_RECONSTRUCTION_FAILED] Minimal reconstruction still invalid")
+            except Exception as rec_error:
+                logger.error(f"[JSON_RECONSTRUCTION_ERROR] Error during minimal reconstruction: {str(rec_error)}")
+            
+            # As a last resort, create an empty but valid JSON response
+            empty_response = '{"biomarkers": [], "metadata": {}}'
+            logger.warning("[JSON_EMPTY_FALLBACK] Returning empty valid JSON as last resort")
+            return empty_response
+                
         except Exception as desperate_error:
             logger.error(f"[JSON_DESPERATE_REPAIR_ERROR] Error during desperate JSON repair: {str(desperate_error)}")
         

@@ -1,10 +1,10 @@
 """
 API routes for profile management.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import String  # Add this import
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 import logging
 from datetime import datetime
@@ -19,8 +19,15 @@ from app.schemas.profile_schema import (
     ProfileCreate, 
     ProfileUpdate, 
     ProfileResponse, 
-    ProfileList
+    ProfileList,
+    ProfileMatchingRequest,
+    ProfileMatchingResponse,
+    ProfileMatchScore,
+    ProfileExtractedMetadata,
+    ProfileAssociationRequest
 )
+from app.services.profile_matcher import find_matching_profiles, create_profile_from_metadata
+from app.services.metadata_parser import extract_metadata_with_claude
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -413,4 +420,236 @@ async def extract_profile_from_pdf(
         raise
     except Exception as e:
         logger.error(f"Error extracting profile from PDF {pdf_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# New endpoints for profile matching feature
+
+@router.post("/match", response_model=ProfileMatchingResponse)
+async def match_profile_from_pdf(
+    request: ProfileMatchingRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Extract metadata from a PDF and find matching profiles.
+    Returns matching profiles sorted by confidence score along with the extracted metadata.
+    """
+    logger.info(f"Processing profile matching request for PDF ID: {request.pdf_id}")
+    
+    # Retrieve the PDF
+    pdf = db.query(PDF).filter(PDF.file_id == request.pdf_id).first()
+    if not pdf:
+        logger.error(f"PDF not found: {request.pdf_id}")
+        raise HTTPException(status_code=404, detail="PDF not found")
+    
+    # Check if PDF has been processed
+    if pdf.status != "processed" and pdf.status != "processing":
+        logger.error(f"PDF {request.pdf_id} cannot be matched, status: {pdf.status}")
+        raise HTTPException(status_code=400, detail=f"PDF is not ready for matching, current status: {pdf.status}")
+    
+    try:
+        # Create metadata dictionary from PDF fields
+        metadata: Dict[str, Any] = {
+            "patient_name": pdf.patient_name,
+            "patient_gender": pdf.patient_gender,
+            "patient_id": pdf.patient_id,
+            "lab_name": pdf.lab_name,
+            "report_date": pdf.report_date
+        }
+        
+        # If metadata is incomplete, try to extract it using Claude
+        if not pdf.patient_name or not pdf.patient_gender:
+            logger.info(f"Incomplete metadata for PDF {request.pdf_id}, attempting extraction with Claude")
+            
+            if pdf.extracted_text:
+                extracted_metadata = extract_metadata_with_claude(pdf.extracted_text, pdf.filename)
+                
+                # Update PDF with extracted metadata
+                if extracted_metadata:
+                    # Update PDF record with extracted metadata
+                    if extracted_metadata.get("patient_name") and not pdf.patient_name:
+                        pdf.patient_name = extracted_metadata.get("patient_name")
+                    if extracted_metadata.get("patient_gender") and not pdf.patient_gender:
+                        pdf.patient_gender = extracted_metadata.get("patient_gender")
+                    if extracted_metadata.get("patient_id") and not pdf.patient_id:
+                        pdf.patient_id = extracted_metadata.get("patient_id")
+                    if extracted_metadata.get("lab_name") and not pdf.lab_name:
+                        pdf.lab_name = extracted_metadata.get("lab_name")
+                    if extracted_metadata.get("report_date") and not pdf.report_date:
+                        pdf.report_date = extracted_metadata.get("report_date")
+                    if extracted_metadata.get("patient_dob"):
+                        metadata["patient_dob"] = extracted_metadata.get("patient_dob")
+                    
+                    # Save changes
+                    db.commit()
+                    
+                    # Update metadata dictionary with extracted data
+                    metadata = {
+                        "patient_name": pdf.patient_name,
+                        "patient_gender": pdf.patient_gender,
+                        "patient_id": pdf.patient_id,
+                        "patient_dob": extracted_metadata.get("patient_dob"),
+                        "lab_name": pdf.lab_name,
+                        "report_date": pdf.report_date
+                    }
+        
+        # Find matching profiles
+        profile_matches = find_matching_profiles(db, metadata)
+        
+        # Create response
+        profile_match_scores = []
+        for profile, score in profile_matches:
+            # Get biomarker and PDF counts
+            biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
+            pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
+            
+            profile_response = ProfileResponse(
+                id=profile.id,
+                name=profile.name,
+                date_of_birth=profile.date_of_birth,
+                gender=profile.gender,
+                patient_id=profile.patient_id,
+                created_at=profile.created_at,
+                last_modified=profile.last_modified,
+                biomarker_count=biomarker_count,
+                pdf_count=pdf_count
+            )
+            
+            profile_match_scores.append(ProfileMatchScore(
+                profile=profile_response,
+                confidence=score
+            ))
+        
+        # Create metadata response
+        extracted_metadata = ProfileExtractedMetadata(
+            patient_name=metadata.get("patient_name"),
+            patient_dob=metadata.get("patient_dob"),
+            patient_gender=metadata.get("patient_gender"),
+            patient_id=metadata.get("patient_id"),
+            lab_name=metadata.get("lab_name"),
+            report_date=metadata.get("report_date")
+        )
+        
+        response = ProfileMatchingResponse(
+            matches=profile_match_scores,
+            metadata=extracted_metadata
+        )
+        
+        logger.info(f"Completed profile matching for PDF {request.pdf_id}, found {len(profile_match_scores)} matches")
+        return response
+    
+    except Exception as e:
+        logger.error(f"Error matching profile for PDF {request.pdf_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error matching profile: {str(e)}")
+
+@router.post("/associate", response_model=ProfileResponse)
+async def associate_pdf_with_profile(
+    request: ProfileAssociationRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Associate a PDF with an existing profile or create a new profile from the PDF metadata.
+    """
+    logger.info(f"Processing profile association request: {request}")
+    
+    # Retrieve the PDF
+    pdf = db.query(PDF).filter(PDF.file_id == request.pdf_id).first()
+    if not pdf:
+        logger.error(f"PDF not found: {request.pdf_id}")
+        raise HTTPException(status_code=404, detail="PDF not found")
+    
+    try:
+        profile = None
+        
+        # Case 1: Create a new profile from metadata
+        if request.create_new_profile:
+            logger.info(f"Creating new profile from PDF {request.pdf_id} metadata")
+            
+            # Create metadata dictionary from PDF fields with any updates
+            metadata = {
+                "patient_name": pdf.patient_name,
+                "patient_gender": pdf.patient_gender,
+                "patient_id": pdf.patient_id,
+                "lab_name": pdf.lab_name,
+                "report_date": pdf.report_date
+            }
+            
+            # Apply any metadata updates
+            if request.metadata_updates:
+                logger.info(f"Applying metadata updates: {request.metadata_updates}")
+                metadata.update(request.metadata_updates)
+            
+            # Create the profile
+            logger.info(f"Creating profile with metadata: {metadata}")
+            profile = create_profile_from_metadata(db, metadata)
+            
+            if not profile:
+                logger.error(f"Failed to create profile from PDF {request.pdf_id} metadata")
+                raise HTTPException(status_code=500, detail="Failed to create profile from metadata")
+            
+            logger.info(f"Successfully created new profile: {profile.id} ({profile.name})")
+        
+        # Case 2: Use an existing profile
+        elif request.profile_id:
+            logger.info(f"Associating PDF {request.pdf_id} with existing profile {request.profile_id}")
+            
+            # Find the profile
+            try:
+                profile_uuid = UUID(request.profile_id)
+                profile = db.query(Profile).filter(Profile.id == profile_uuid).first()
+            except ValueError:
+                logger.error(f"Invalid profile ID format: {request.profile_id}")
+                raise HTTPException(status_code=400, detail="Invalid profile ID format")
+            
+            if not profile:
+                logger.error(f"Profile not found: {request.profile_id}")
+                raise HTTPException(status_code=404, detail="Profile not found")
+            
+            logger.info(f"Found existing profile: {profile.id} ({profile.name})")
+        
+        # Case 3: No profile specified and not creating a new one
+        else:
+            logger.error("No profile specified and not creating a new profile")
+            raise HTTPException(status_code=400, detail="Must specify either a profile_id or set create_new_profile to true")
+        
+        # Associate the PDF with the profile
+        pdf.profile_id = profile.id
+        db.commit()
+        logger.info(f"Associated PDF {pdf.id} with profile {profile.id}")
+        
+        # Associate biomarkers with profile
+        biomarkers = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id).all()
+        biomarker_count = len(biomarkers)
+        logger.info(f"Found {biomarker_count} biomarkers to associate with profile {profile.id}")
+        
+        for biomarker in biomarkers:
+            biomarker.profile_id = profile.id
+        
+        db.commit()
+        logger.info(f"Associated {biomarker_count} biomarkers with profile {profile.id}")
+        
+        # Get updated counts
+        updated_biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
+        pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
+        
+        # Create response
+        response = ProfileResponse(
+            id=profile.id,
+            name=profile.name,
+            date_of_birth=profile.date_of_birth,
+            gender=profile.gender,
+            patient_id=profile.patient_id,
+            created_at=profile.created_at,
+            last_modified=profile.last_modified,
+            biomarker_count=updated_biomarker_count,
+            pdf_count=pdf_count
+        )
+        
+        logger.info(f"Successfully associated PDF {request.pdf_id} with profile {profile.id}")
+        return response
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error associating PDF {request.pdf_id} with profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error associating PDF with profile: {str(e)}") 
