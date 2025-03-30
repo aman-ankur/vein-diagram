@@ -62,4 +62,19 @@ export interface Biomarker {
    * Source file ID
    */
   fileId?: string;
+  
+  /**
+   * Report date when the biomarker was measured
+   */
+  reportDate?: string;
+  
+  /**
+   * Profile ID associated with this biomarker
+   */
+  profileId?: string | null;
+  
+  /**
+   * Original filename of the source PDF
+   */
+  fileName?: string | null;
 } 
