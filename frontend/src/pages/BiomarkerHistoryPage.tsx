@@ -18,11 +18,14 @@ import {
 } from '@mui/material';
 import { useParams } from 'react-router-dom';
 // Remove DatePicker and related imports
-import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns'; // Keep date-fns if needed for other logic
+import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 
-import BiomarkerTable, { Biomarker } from '../components/BiomarkerTable';
-import { getAllBiomarkers, getBiomarkerCategories } from '../services/api';
-import { ApiError } from '../types/api'; // Assuming ApiError type exists
+// Adjust BiomarkerTable import if Biomarker type is defined elsewhere
+import BiomarkerTable from '../components/BiomarkerTable';
+import { getAllBiomarkers, getBiomarkerCategories, getBiomarkerExplanation } from '../services/api'; // Added getBiomarkerExplanation
+import { ApiError, BiomarkerExplanation } from '../types/api'; // Added BiomarkerExplanation type
+import { Biomarker } from '../types/pdf'; // Ensure Biomarker type is imported
+import ExplanationModal from '../components/ExplanationModal'; // Added ExplanationModal import
 
 const BiomarkerHistoryPage: React.FC = () => {
   const { profileId } = useParams<{ profileId: string }>();
@@ -37,6 +40,13 @@ const BiomarkerHistoryPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('All'); // 'All', 'Normal', 'Abnormal'
   const [selectedReport, setSelectedReport] = useState<string>('All');
+
+  // State for AI explanation modal (copied from VisualizationPage)
+  const [explanationModalOpen, setExplanationModalOpen] = useState<boolean>(false);
+  const [currentBiomarker, setCurrentBiomarker] = useState<Biomarker | null>(null);
+  const [explanationLoading, setExplanationLoading] = useState<boolean>(false);
+  const [explanationError, setExplanationError] = useState<string | null>(null);
+  const [explanation, setExplanation] = useState<BiomarkerExplanation | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -132,6 +142,77 @@ const BiomarkerHistoryPage: React.FC = () => {
      }
   };
 
+  // Function to handle opening the explanation modal (copied from VisualizationPage)
+  const handleExplainBiomarker = async (biomarker: Biomarker) => {
+    console.log('=== EXPLAIN BIOMARKER FUNCTION CALLED (History Page) ===');
+    console.log('Biomarker data received:', biomarker);
+
+    if (!biomarker || !biomarker.name) {
+      console.error('Invalid biomarker data received:', biomarker);
+      setExplanationError('Cannot explain this biomarker: invalid data');
+      return;
+    }
+
+    setCurrentBiomarker(biomarker);
+    setExplanationModalOpen(true);
+    setExplanationLoading(true);
+    setExplanationError(null);
+    setExplanation(null);
+
+    try {
+      const isAbnormal = biomarker.isAbnormal !== undefined
+        ? biomarker.isAbnormal
+        : (typeof biomarker.value === 'number' && typeof biomarker.reference_range_low === 'number' && typeof biomarker.reference_range_high === 'number')
+          ? (biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high)
+          : false;
+
+      const referenceRange = biomarker.referenceRange ??
+        (typeof biomarker.reference_range_low === 'number' && typeof biomarker.reference_range_high === 'number'
+          ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}`
+          : "Not available");
+
+      console.log('Calculated parameters (History Page):');
+      console.log('- isAbnormal:', isAbnormal);
+      console.log('- referenceRange:', referenceRange);
+
+      const result = await getBiomarkerExplanation(
+        biomarker.id,
+        biomarker.name,
+        biomarker.value,
+        biomarker.unit,
+        referenceRange,
+        isAbnormal
+      );
+
+      console.log('Received explanation result (History Page):', result);
+
+      if (!result || !result.general_explanation || !result.specific_explanation) {
+        console.error('Invalid explanation data received:', result);
+        setExplanationError('Invalid explanation data received. Please try again.');
+        return;
+      }
+
+      setExplanation(result);
+    } catch (error) {
+      console.error('=== ERROR IN EXPLAIN BIOMARKER HANDLER (History Page) ===');
+      console.error('Error details:', error);
+      let errorMessage = 'An unexpected error occurred. Please try again later.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String(error.message);
+      }
+      setExplanationError(errorMessage);
+    } finally {
+      setExplanationLoading(false);
+    }
+  };
+
+  // Handle closing the explanation modal (copied from VisualizationPage)
+  const handleCloseExplanationModal = () => {
+    setExplanationModalOpen(false);
+  };
+
 
   return (
     // Remove LocalizationProvider if no longer needed
@@ -205,7 +286,27 @@ const BiomarkerHistoryPage: React.FC = () => {
             error={error} // Pass error state
             onRefresh={handleRetry} // Pass retry handler
             showSource={true} // Correct prop name: Indicate this is the history view
-            // Add onExplainWithAI if needed later
+            onExplainWithAI={handleExplainBiomarker} // Pass the handler
+          />
+        )}
+
+        {/* AI Explanation Modal */}
+        {currentBiomarker && (
+          <ExplanationModal
+            open={explanationModalOpen}
+            onClose={handleCloseExplanationModal}
+            biomarkerName={currentBiomarker.name}
+            biomarkerValue={currentBiomarker.value}
+            biomarkerUnit={currentBiomarker.unit}
+            referenceRange={
+              currentBiomarker.referenceRange ?? 
+              (typeof currentBiomarker.reference_range_low === 'number' && typeof currentBiomarker.reference_range_high === 'number'
+                ? `${currentBiomarker.reference_range_low}-${currentBiomarker.reference_range_high}`
+                : "Not available")
+            }
+            isLoading={explanationLoading}
+            error={explanationError}
+            explanation={explanation}
           />
         )}
       </Container>
