@@ -10,11 +10,14 @@ import {
   Tab,
   Alert,
   Button,
-  useTheme
+  useTheme,
+  Tooltip, // Import Tooltip
+  IconButton 
 } from '@mui/material';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'; // Import Link
 import BarChartIcon from '@mui/icons-material/BarChart';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import HistoryIcon from '@mui/icons-material/History'; // Import HistoryIcon
 import TimelineIcon from '@mui/icons-material/Timeline';
 import CategoryIcon from '@mui/icons-material/Category';
 import SummarizeIcon from '@mui/icons-material/Summarize';
@@ -119,27 +122,27 @@ const VisualizationPage: React.FC = () => {
       });
       
       if (!profileId) {
-        console.warn('⚠️ No active profile found. This may cause data from different profiles to be mixed together.');
+        console.warn('No active profile found. This may cause data from different profiles to be mixed together.'); // Emoji removed
       } else {
-        console.log(`✅ Active profile found: ${profileId} (${activeProfile.name})`);
+        console.log(`Active profile found: ${profileId} (${activeProfile?.name})`); // Emoji removed
       }
       
       // Force profileId to be a string to prevent type issues
       const profileIdStr = profileId?.toString();
       
       // Log the value we're actually going to send
-      console.log(`🔴 FINAL PROFILE ID TO SEND: "${profileIdStr}" (${typeof profileIdStr})`);
+      console.log(`FINAL PROFILE ID TO SEND: "${profileIdStr}" (${typeof profileIdStr})`); // Emoji removed
       
       if (fileId) {
         try {
           // DIRECT FETCH APPROACH: Bypass the API client completely
-          console.log(`🔥 DIRECT FETCH: Using fetch API directly to ensure parameters are included`);
+          console.log(`DIRECT FETCH: Using fetch API directly to ensure parameters are included`); // Emoji removed
           
           // Build URL with profile_id included directly in the URL as a query parameter
           const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
           const url = `${apiBaseUrl}/api/pdf/${fileId}/biomarkers?profile_id=${encodeURIComponent(profileIdStr || '')}`;
           
-          console.log(`🔗 Making direct fetch to: ${url}`);
+          console.log(`Making direct fetch to: ${url}`); // Emoji removed
           
           const response = await fetch(url, {
             method: 'GET',
@@ -154,7 +157,7 @@ const VisualizationPage: React.FC = () => {
           }
           
           const jsonData = await response.json();
-          console.log(`✅ Direct fetch response received with ${jsonData.length} biomarkers`);
+          console.log(`Direct fetch response received with ${jsonData.length} biomarkers`); // Emoji removed
           
           // Use the regular mapping function to keep consistency
           data = jsonData.map((item: any) => ({
@@ -167,12 +170,12 @@ const VisualizationPage: React.FC = () => {
                             `${item.reference_range_low}-${item.reference_range_high}` : undefined),
             category: item.category || 'Other',
             isAbnormal: item.is_abnormal || false,
-            fileId,
+            fileId, // Keep fileId from the URL param
             date: item.created_at || new Date().toISOString(),
             reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString()
           }));
         } catch (fetchError) {
-          console.error(`🔴 Direct fetch failed, falling back to API client:`, fetchError);
+          console.error(`Direct fetch failed, falling back to API client:`, fetchError); // Emoji removed
           // Fall back to the regular API client
           console.log(`Calling getBiomarkersByFileId with fileId=${fileId} and profileId=${profileIdStr || 'undefined'}`);
           data = await getBiomarkersByFileId(fileId, profileIdStr);
@@ -195,12 +198,13 @@ const VisualizationPage: React.FC = () => {
         console.log('Sample biomarker data:', data.slice(0, 2));
       }
       
-      // Deduplicate biomarkers
+      // Deduplicate biomarkers (Consider if this is still needed or if backend handles it)
       const uniqueBiomarkers: Biomarker[] = [];
       const uniqueKeys = new Set<string>();
       
       data.forEach(biomarker => {
-        const key = `${biomarker.name}_${biomarker.value}_${biomarker.unit}`;
+        // Use a more robust key if ID is available and unique per instance
+        const key = biomarker.id ? biomarker.id.toString() : `${biomarker.name}_${biomarker.value}_${biomarker.unit}_${biomarker.reportDate}`; 
         if (!uniqueKeys.has(key)) {
           uniqueKeys.add(key);
           uniqueBiomarkers.push(biomarker);
@@ -254,17 +258,17 @@ const VisualizationPage: React.FC = () => {
     setExplanation(null);
     
     try {
-      // Calculate the abnormal status
-      const isAbnormal = biomarker.isAbnormal !== undefined 
-        ? biomarker.isAbnormal 
-        : (biomarker.reference_range_low !== undefined && biomarker.reference_range_high !== undefined)
+      // Calculate the abnormal status safely
+      const isAbnormal = biomarker.isAbnormal !== undefined
+        ? biomarker.isAbnormal
+        : (typeof biomarker.value === 'number' && typeof biomarker.reference_range_low === 'number' && typeof biomarker.reference_range_high === 'number')
           ? (biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high)
-          : false;
-      
-      // Format reference range
-      const referenceRange = biomarker.referenceRange || 
-        (biomarker.reference_range_low !== null && biomarker.reference_range_high !== null 
-          ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}` 
+          : false; // Default to false if types don't match or ranges are null/undefined
+
+      // Format reference range safely
+      const referenceRange = biomarker.referenceRange ?? // Use nullish coalescing
+        (typeof biomarker.reference_range_low === 'number' && typeof biomarker.reference_range_high === 'number'
+          ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}`
           : "Not available");
       
       console.log('Calculated parameters:');
@@ -391,16 +395,32 @@ const VisualizationPage: React.FC = () => {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ mt: 3, mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          {fileId ? 'File Analysis' : 'Biomarker Overview'}
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {fileId 
-            ? 'View and analyze biomarkers extracted from your uploaded file'
-            : 'View all biomarkers across your uploaded lab reports'
-          }
-        </Typography>
+      <Box sx={{ mt: 3, mb: 4, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}> {/* Added flex styles */}
+        <Box sx={{ flexGrow: 1 }}> {/* Allow title/text to grow */}
+          <Typography variant="h4" component="h1" gutterBottom>
+            {fileId ? 'File Analysis' : 'Biomarker Overview'}
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            {fileId 
+              ? 'View and analyze biomarkers extracted from your uploaded file'
+              : 'View all biomarkers across your uploaded lab reports'
+            }
+          </Typography>
+        </Box>
+        {/* History Button */}
+        {activeProfile && (
+          <Tooltip title={`View the complete biomarker history for profile: ${activeProfile.name}`}>
+            <Button
+              component={Link}
+              to={`/profile/${activeProfile.id}/history`}
+              variant="outlined"
+              startIcon={<HistoryIcon />}
+              sx={{ ml: 2, mt: { xs: 1, sm: 0 } }} // Add margin top on small screens
+            >
+              View Biomarker History
+            </Button>
+          </Tooltip>
+        )}
       </Box>
 
       {/* PDF Metadata Section (only when viewing a specific file) */}
@@ -431,7 +451,8 @@ const VisualizationPage: React.FC = () => {
                 Processed On
               </Typography>
               <Typography variant="body1">
-                {new Date().toLocaleDateString()}
+                {/* Use a consistent date format if available, otherwise fallback */}
+                {biomarkers[0]?.reportDate ? new Date(biomarkers[0].reportDate).toLocaleDateString() : 'N/A'}
               </Typography>
             </Grid>
           </Grid>
@@ -459,6 +480,7 @@ const VisualizationPage: React.FC = () => {
         <BiomarkerTable 
           biomarkers={biomarkers} 
           onExplainWithAI={handleExplainBiomarker}
+          // Pass other necessary props like isLoading, error, onRefresh if needed by table
         />
       </TabPanel>
 
@@ -565,25 +587,27 @@ const VisualizationPage: React.FC = () => {
         </Paper>
       </TabPanel>
 
-      {/* AI Explanation Modal */}
-      {currentBiomarker && (
+      {/* AI Explanation Modal - Temporarily commented out due to persistent syntax error */}
+      {/* {currentBiomarker && (
         <ExplanationModal
           open={explanationModalOpen}
           onClose={handleCloseExplanationModal}
           biomarkerName={currentBiomarker.name}
           biomarkerValue={currentBiomarker.value}
           biomarkerUnit={currentBiomarker.unit}
-          referenceRange={currentBiomarker.referenceRange || 
-            (currentBiomarker.reference_range_low !== null && currentBiomarker.reference_range_high !== null 
-              ? `${currentBiomarker.reference_range_low}-${currentBiomarker.reference_range_high}` 
-              : "Not available")}
+          referenceRange={
+            currentBiomarker.referenceRange ?? 
+            (typeof currentBiomarker.reference_range_low === 'number' && typeof currentBiomarker.reference_range_high === 'number'
+              ? `${currentBiomarker.reference_range_low}-${currentBiomarker.reference_range_high}`
+              : "Not available")
+          }
           isLoading={explanationLoading}
           error={explanationError}
           explanation={explanation}
         />
-      )}
+      )} */}
     </Container>
   );
 };
 
-export default VisualizationPage; 
+export default VisualizationPage;
