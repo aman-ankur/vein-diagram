@@ -12,38 +12,45 @@ This project exists to transform these static, often confusing documents into dy
 
 ## Problems Solved
 
-### For Health-Conscious Individuals
-- **Data Fragmentation**: Consolidates scattered test results from different labs and time periods into a single, coherent system
-- **Manual Data Entry**: Eliminates tedious and error-prone manual entry of biomarker values
-- **Trend Blindness**: Reveals patterns and trends that would be invisible when looking at individual test results
-- **Context Deficit**: Provides research-backed explanations about what biomarker values actually mean
+### For Health-Conscious Individuals & Families
+- **Data Fragmentation**: Consolidates scattered test results from different labs and time periods into a single system, **organized by individual profiles** (e.g., for different family members).
+- **Manual Data Entry**: Eliminates tedious and error-prone manual entry of biomarker values.
+- **Trend Blindness**: Reveals patterns and trends **specific to each profile** that would be invisible when looking at individual test results.
+- **Context Deficit**: Provides research-backed explanations about what biomarker values actually mean.
+- **Personalized Focus**: Allows users to **mark favorite biomarkers** for quick access and monitoring per profile.
 
 ### For Biohackers
-- **Experiment Tracking**: Enables precise tracking of how interventions affect specific biomarkers
-- **Correlation Discovery**: Helps identify unexpected relationships between different health indicators
-- **Optimization Insights**: Facilitates data-driven health optimization through clear visualization of cause and effect
+- **Experiment Tracking**: Enables precise tracking of how interventions affect specific biomarkers **within their personal profile**.
+- **Correlation Discovery**: Helps identify unexpected relationships between different health indicators.
+- **Optimization Insights**: Facilitates data-driven health optimization through clear visualization of cause and effect.
+- **Targeted Monitoring**: Use **favorite biomarkers** to quickly check key indicators affected by experiments.
 
 ### For Patients with Chronic Conditions
-- **Condition Monitoring**: Simplifies the tracking of condition-specific biomarkers over time
-- **Treatment Effectiveness**: Shows clear evidence of whether treatments are working as expected
-- **Early Warning System**: Highlights concerning trends before they become serious health issues
+- **Condition Monitoring**: Simplifies the tracking of condition-specific biomarkers over time **within their profile**.
+- **Treatment Effectiveness**: Shows clear evidence of whether treatments are working as expected.
+- **Early Warning System**: Highlights concerning trends before they become serious health issues.
+- **Focused Tracking**: Mark critical condition-related biomarkers as **favorites** for easy access.
 
 ## How It Should Work
 
 ### User Flow
-1. **Upload**: User uploads PDF blood test results from supported lab providers
-2. **Extraction**: System automatically extracts biomarker data, dates, and reference ranges
-3. **Visualization**: Data is transformed into intuitive visualizations showing trends over time
-4. **Relationship Mapping**: Connections between related biomarkers are displayed
-5. **Contextual Insights**: AI-powered explanations provide meaning and context for the data
-6. **Continued Use**: As users upload more test results, the system builds a more comprehensive health picture
+1. **Profile Management**: User creates and manages distinct health profiles (e.g., self, family members).
+2. **Upload**: User selects a profile and uploads PDF blood test results.
+3. **Extraction**: System automatically extracts biomarker data, dates, and reference ranges, **associating them with the selected profile**.
+4. **Visualization**: Data is transformed into intuitive visualizations showing trends over time **for the active profile**.
+5. **Favorite Tracking**: User marks key biomarkers as favorites **per profile**.
+6. **Relationship Mapping**: Connections between related biomarkers are displayed.
+7. **Contextual Insights**: AI-powered explanations provide meaning and context for the data.
+8. **Continued Use**: As users upload more test results to profiles, the system builds comprehensive health pictures for each individual.
 
 ### Key Functionality
-- PDF parsing with high accuracy across different lab formats
-- Time-series visualization of biomarker trends
-- Relationship mapping between correlated biomarkers
-- AI-generated insights about biomarker meanings and relationships
-- User-friendly interface that makes complex health data accessible
+- PDF parsing with high accuracy across different lab formats.
+- **Profile management** for organizing data for multiple individuals.
+- Time-series visualization of biomarker trends **per profile**.
+- **Favorite biomarker tracking** for personalized monitoring.
+- Relationship mapping between correlated biomarkers.
+- AI-generated insights about biomarker meanings and relationships.
+- User-friendly interface that makes complex health data accessible and personalized.
 
 ## User Experience Goals
 
@@ -58,9 +65,10 @@ This project exists to transform these static, often confusing documents into dy
 - Relationship maps that show how different aspects of health connect
 
 ### Empowerment
-- Knowledge presented in a way that enables informed health decisions
-- Historical context that helps users see the effects of lifestyle changes
-- Research-backed explanations that educate without overwhelming
+- Knowledge presented in a way that enables informed health decisions **for each profile**.
+- Historical context that helps users see the effects of lifestyle changes **per individual**.
+- Research-backed explanations that educate without overwhelming.
+- **Personalization**: Ability to tailor the view and focus on what matters most to the user via profiles and favorites.
 
 ### Trust
 - Transparent data handling that respects user privacy

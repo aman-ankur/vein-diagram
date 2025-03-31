@@ -36,7 +36,8 @@ Vein Diagram's unique value proposition is its ability to:
 
 ## Success Metrics
 - Successful extraction of biomarker data from major lab providers (Quest, LabCorp)
-- Accurate visualization of biomarker trends over time
+- Accurate visualization of biomarker trends over time **per profile**
 - Clear presentation of biomarker relationships
 - Contextual explanations of biomarker meanings and correlations
-- Positive user feedback on visualization quality and insight value
+- **Correct association of uploaded PDFs and favorites with specific user profiles**
+- Positive user feedback on visualization quality, insight value, and profile management usability

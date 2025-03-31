@@ -2,17 +2,19 @@
 
 ## Current Status
 
-The project has made significant progress and is now in the **advanced development phase** with the following overall status:
+The project is in the **advanced development phase**, integrating core features and refining the user experience. Profile management and favorite biomarkers are now key additions.
 
-| Component | Status | Progress |
-|-----------|--------|----------|
-| Backend Core | In Progress | 85% |
-| PDF Processing | In Progress | 80% |
-| Frontend UI | In Progress | 65% |
-| Data Visualization | In Progress | 50% |
-| Claude API Integration | In Progress | 75% |
-| Testing | In Progress | 60% |
-| Documentation | In Progress | 55% |
+| Component             | Status      | Progress | Notes                                           |
+|-----------------------|-------------|----------|-------------------------------------------------|
+| Backend Core          | In Progress | 90%      | Profile management API complete.                |
+| PDF Processing        | In Progress | 80%      | Stable, handling multiple formats.              |
+| Profile Management    | Completed   | 100%     | Backend API and basic Frontend UI implemented.  |
+| Favorite Biomarkers   | Completed   | 100%     | Backend API and Frontend components implemented. |
+| Frontend UI           | In Progress | 75%      | Integrating profiles & favorites.               |
+| Data Visualization    | In Progress | 60%      | Time-series done, relationship mapping ongoing. |
+| Claude API Integration| In Progress | 75%      | Extraction stable, insights integration ongoing.|
+| Testing               | In Progress | 70%      | Added tests for profiles & favorites.           |
+| Documentation         | In Progress | 60%      | Memory bank updates ongoing.                    |
 
 ## What Works
 
@@ -20,16 +22,19 @@ The project has made significant progress and is now in the **advanced developme
 - ✅ Complete FastAPI application structure
 - ✅ PDF upload endpoint and file handling
 - ✅ Advanced text extraction from PDFs with OCR fallback
-- ✅ Comprehensive database models and schemas
+- ✅ Comprehensive database models and schemas (including Profiles)
 - ✅ Advanced biomarker identification with Claude API integration
 - ✅ Fallback pattern-matching parser for biomarker extraction
 - ✅ API routes for retrieving processed biomarker data
+- ✅ API routes for **managing user profiles** (create, read, update, delete)
+- ✅ API routes for **managing favorite biomarkers** per profile
 - ✅ Page-by-page PDF processing to handle large documents
 - ✅ Biomarker standardization and categorization
 - ✅ Reference range parsing and normalization
 - ✅ Detailed logging system for debugging and monitoring
 - ✅ Implemented caching mechanisms for performance improvement
 - ✅ Enhanced Claude API integration for biomarker insights
+- ✅ **Linking of uploaded PDFs to specific user profiles**
 
 ### Frontend
 - ✅ React application setup with TypeScript
@@ -41,49 +46,44 @@ The project has made significant progress and is now in the **advanced developme
 - ✅ Completed time-series visualization for biomarker trends
 - ✅ Implemented dashboard layout for managing uploaded reports
 - ✅ Added responsive design for tablet devices
+- ✅ **Profile Management page/components** (view, create, edit profiles)
+- ✅ **Favorite Biomarkers grid/display** components
+- ✅ **Functionality to add/remove favorite biomarkers**
 
 ### Infrastructure
 - ✅ Project directory structure
 - ✅ Development environment configuration
-- ✅ Comprehensive testing setup for both frontend and backend
+- ✅ Comprehensive testing setup for both frontend and backend (including profiles, favorites)
 - ✅ Sample PDF reports for testing
 - ✅ Logging infrastructure for debugging and monitoring
 
 ## What's Left to Build
 
 ### Backend
-- ✅ Enhance PDF text extraction accuracy
-- ✅ Improve biomarker identification algorithms
-- ✅ Add support for more lab report formats
-- ✅ Implement reference range normalization
-- ✅ Create biomarker relationship mapping
-- ✅ Enhance Claude API integration for biomarker insights
-- 🔄 Implement caching mechanisms for performance
-- ✅ Add error handling and recovery mechanisms
+- 🔄 Enhance Claude API integration for biomarker insights (ongoing)
+- 🔄 Refine biomarker relationship mapping logic
 - 🔄 Enhance API documentation
 
 ### Frontend
-- ✅ Complete biomarker trend visualization
 - 🔄 Implement biomarker relationship visualization
 - 🔄 Develop UI for displaying Claude-generated insights
-- ✅ Create user dashboard for managing uploaded reports
-- 🔄 Implement filtering and search functionality
+- 🔄 Implement filtering and search functionality (potentially filter by profile)
 - 🔄 Add responsive design for mobile devices
-- 🔄 Enhance error handling and user feedback
-- 🔄 Implement loading states and animations
-- 🔄 Create onboarding and help components
+- 🔄 Enhance error handling and user feedback across new features
+- 🔄 Implement loading states and animations for profile/favorite actions
+- 🔄 Create onboarding and help components covering new features
+- 🔄 Integrate profile selection/context into visualization and history pages
 
 ### Integration
-- 🔄 End-to-end testing of the complete user flow
-- 🔄 Performance optimization for large datasets
+- 🔄 End-to-end testing of the complete user flow including profiles/favorites
+- 🔄 Performance optimization for large datasets, considering profile context
 - 🔄 Cross-browser compatibility testing
-- ✅ API error handling and recovery
 
 ### Future Enhancements (Post-MVP)
-- 🔜 User authentication and accounts
-- 🔜 Saved visualizations and custom views
+- 🔜 User authentication and accounts (Profiles are a step towards this)
+- 🔜 Saved visualizations and custom views per profile
 - 🔜 Sharing capabilities for visualizations
-- 🔜 Export functionality for processed data
+- 🔜 Export functionality for processed data per profile
 - 🔜 Advanced filtering and comparison tools
 - 🔜 Notification system for significant changes
 - 🔜 Mobile application version
@@ -112,16 +112,23 @@ The project has made significant progress and is now in the **advanced developme
 - ✅ Implement caching for common explanations
 - 🔄 Add user feedback mechanism for improving insights
 
-### Milestone 4: Enhanced User Experience (In Progress)
+### Milestone 4: User Personalization (Newly Added - In Progress)
+- ✅ **Implement Profile Management Backend**
+- ✅ **Implement Favorite Biomarkers Backend**
+- ✅ **Implement Profile Management Frontend UI**
+- ✅ **Implement Favorite Biomarkers Frontend UI**
+- 🔄 Integrate Profile context into core app flow (History, Visualization)
+
+### Milestone 5: Enhanced User Experience (In Progress - Renumbered)
 - 🔄 Implement guided tour for first-time users
 - 🔄 Add contextual help and tooltips
 - ✅ Create comprehensive error handling for backend processes
 - ✅ Develop progress indicators for PDF processing
-- 🔄 Implement user preferences and settings
+- 🔄 Implement user preferences and settings (potentially linked to profiles)
 
-### Milestone 5: Testing and Refinement (In Progress)
-- 🔄 Conduct usability testing with target users
-- ✅ Expand test coverage for edge cases
+### Milestone 6: Testing and Refinement (In Progress - Renumbered)
+- 🔄 Conduct usability testing with target users (including new features)
+- ✅ Expand test coverage for edge cases (including profiles, favorites)
 - ✅ Optimize performance for larger datasets
 - 🔄 Refine UI based on user feedback
 - 🔄 Prepare for initial release
@@ -129,53 +136,37 @@ The project has made significant progress and is now in the **advanced developme
 ## Known Issues
 
 ### PDF Processing
-1. **Format Variability**: Current extraction logic handles multiple lab formats but still has edge cases
-   - **Severity**: Medium (improved from High)
-   - **Status**: Partially Resolved
-   - **Mitigation**: Implemented Claude API extraction with fallback pattern matching
-
-2. **OCR Limitations**: Text embedded in images now extracted with improved accuracy
-   - **Severity**: Low (improved from Medium)
+1. **Format Variability**: Handles major formats, but edge cases remain.
+   - **Severity**: Low (Improved)
    - **Status**: Mostly Resolved
-   - **Mitigation**: Enhanced OCR processing with additional preprocessing
+   - **Mitigation**: Claude API + fallback pattern matching. Continuous monitoring.
 
-3. **Reference Range Inconsistency**: Different labs use varying reference ranges
-   - **Severity**: Medium
-   - **Status**: Partially Resolved
-   - **Mitigation**: Implemented reference range parsing and normalization
+2. **Reference Range Inconsistency**: Normalization implemented, but variations exist.
+   - **Severity**: Low (Improved)
+   - **Status**: Mostly Resolved
+   - **Mitigation**: Normalization logic, potential for user override later.
 
 ### Frontend
-1. **Visualization Performance**: Rendering issues with larger datasets
-   - **Severity**: Low (improved from Medium)
+1. **Visualization Performance**: Improved with sampling, monitor large datasets.
+   - **Severity**: Low
    - **Status**: Mostly Resolved
-   - **Mitigation**: Implemented data sampling and progressive loading
+   - **Mitigation**: Data sampling, progressive loading, potential further optimization.
 
-2. **Browser Compatibility**: Some visualization features not working in all browsers
+2. **Mobile Responsiveness**: Tablet support good, phone optimization ongoing.
+   - **Severity**: Low
+   - **Status**: Partially Resolved
+   - **Mitigation**: Ongoing CSS refinement for smaller screens.
+
+3. **State Management Complexity**: Increased with profiles/favorites.
    - **Severity**: Low
    - **Status**: Monitoring
-   - **Mitigation**: Adding polyfills and fallbacks
-
-3. **Mobile Responsiveness**: Improved support for tablet devices
-   - **Severity**: Low (improved from Medium)
-   - **Status**: Partially Resolved
-   - **Mitigation**: Implemented responsive layouts for tablets, still optimizing for phones
+   - **Mitigation**: Review state management strategy (e.g., Context API, Zustand) if needed.
 
 ### Integration
-1. **API Response Times**: Slow response for complex PDF processing
-   - **Severity**: Medium
-   - **Status**: Partially Resolved
-   - **Mitigation**: Implemented background processing with page-by-page approach
-
-2. **Error Handling**: Improved error reporting in backend, frontend needs updates
+1. **API Response Times**: Background processing helps, but complex queries might be slow.
    - **Severity**: Low
    - **Status**: Partially Resolved
-   - **Mitigation**: Implemented comprehensive backend error handling and logging
-
-### New Issues
-1. **Data Synchronization**: Occasional sync issues between visualizations
-   - **Severity**: Medium
-   - **Status**: Investigating
-   - **Mitigation**: Implementing state management improvements
+   - **Mitigation**: Caching, query optimization, background tasks.
 
 ## Recent Achievements
 
@@ -190,16 +181,20 @@ The project has made significant progress and is now in the **advanced developme
 - Implemented relationship mapping between key biomarkers
 - Enhanced Claude API integration for improved biomarker insights
 - Implemented caching mechanisms for faster repeated queries
+- **Implemented full User Profile Management (Backend & Frontend)**
+- **Implemented Favorite Biomarker functionality (Backend & Frontend)**
+- **Linked uploaded PDFs to User Profiles**
 - Created user dashboard for managing uploaded reports
 - Improved mobile and tablet responsiveness
-- Expanded test coverage to 75% of codebase
+- Expanded test coverage to ~70% of codebase
 
 ## Next Immediate Tasks
 
-1. Complete UI components for displaying Claude-generated insights
-2. Finalize biomarker relationship visualization with interactive features
-3. Implement advanced filtering and search functionality
-4. Complete responsive design for mobile phones
-5. Conduct first round of user testing with target audience
-6. Prepare for beta release
-7. Enhance documentation for API endpoints and UI components
+1. Integrate Profile selection/context into Visualization and History pages.
+2. Complete UI components for displaying Claude-generated insights.
+3. Finalize biomarker relationship visualization with interactive features.
+4. Implement advanced filtering and search functionality (including profile filters).
+5. Complete responsive design for mobile phones.
+6. Conduct first round of user testing focusing on the complete flow with profiles/favorites.
+7. Prepare for beta release.
+8. Enhance documentation for API endpoints and UI components related to new features.
