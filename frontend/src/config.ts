@@ -81,4 +81,26 @@ export default {
   DASHBOARD,
   FEATURES,
   ERROR_MESSAGES
-}; 
+};
+
+// --- Visualization Page Constants ---
+
+// Default list of biomarkers to show if none are favorited in localStorage
+export const DEFAULT_FAVORITE_BIOMARKERS: string[] = [
+  'Vitamin D',
+  'Total Cholesterol',
+  'LDL Cholesterol',
+  'HDL Cholesterol',
+  'Triglycerides',
+  'Glucose',
+  'HbA1c', // Hemoglobin A1c
+  'TSH', // Thyroid-Stimulating Hormone
+  'Ferritin',
+  'hs-CRP' // High-Sensitivity C-Reactive Protein
+];
+
+// Maximum number of favorite biomarkers allowed
+export const MAX_FAVORITE_BIOMARKERS = 10;
+
+// localStorage key prefix for storing favorites (profile ID will be appended)
+export const FAVORITES_STORAGE_PREFIX = 'vein-diagram:favorites:';
