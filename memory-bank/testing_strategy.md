@@ -1,0 +1,55 @@
+# Vein Diagram: Testing Strategy
+
+This document outlines the testing approach for the Vein Diagram application, covering both frontend and backend components.
+
+## Philosophy
+
+The goal is to maintain a high level of confidence in the application's correctness, reliability, and performance through a multi-layered testing strategy. We aim for a balance between fast unit tests and more comprehensive integration/end-to-end tests.
+
+## Testing Levels & Tools
+
+### 1. Backend Testing (`backend/`)
+
+-   **Tool**: `pytest`
+-   **Runner**: `backend/run_tests.sh` script executes tests category by category.
+-   **Coverage**: `pytest-cov` generates HTML coverage reports (output to `htmlcov/`).
+-   **Environment**: Tests run with `PYTHONPATH=.` and a dummy `ANTHROPIC_API_KEY`.
+-   **Categories**:
+    -   **Unit Tests (`tests/services/`)**: Focus on testing individual functions and classes within the service layer (e.g., `biomarker_parser.py`, `pdf_service.py`) in isolation. Dependencies like database sessions or external APIs (Claude) are typically mocked.
+    -   **API Tests (`tests/api/`)**: Test the FastAPI application's API endpoints. Uses `pytest` fixtures (likely from `conftest.py`) and FastAPI's `TestClient` to send HTTP requests to the API and assert responses without running a live server. Database interactions might be mocked or use a test database.
+    -   **Integration Tests (`tests/integration/`)**: Test the interaction between different components of the backend, such as the flow from API endpoint through services to the database. May involve a test database setup. Tests focus on data flow and component collaboration (e.g., `test_pdf_biomarkers_flow.py`).
+    -   **End-to-End Tests (`tests/end_to_end/`)**: Simulate complete user scenarios from the backend perspective, potentially involving multiple API calls and verifying the overall outcome and data state. These might be slower and require more setup (e.g., test database seeding). *(Note: The presence of this directory suggests intent, but specific implementation details aren't fully known without examining the tests themselves).*
+
+### 2. Frontend Testing (`frontend/`)
+
+-   **Tools**: `Jest` (Test Runner), `React Testing Library` (Component Testing Utilities)
+-   **Runner**: `npm test` (Standard command defined in `package.json`).
+-   **Coverage**: Jest includes built-in coverage reporting capabilities (configuration likely in `jest.config.js` or `package.json`).
+-   **Types**:
+    -   **Unit Tests**: Testing individual utility functions (`utils/`) or simple, non-rendering logic.
+    -   **Component Tests (`*.test.tsx`)**: Focus on testing React components in isolation. Uses React Testing Library to render components, simulate user interactions (clicks, typing), and assert the rendered output or component state changes. API calls made via services (`services/`) are typically mocked using Jest's mocking features (`jest.mock`). Tests exist for both presentational components (`components/`) and page-level components (`pages/`).
+
+### 3. Manual Testing
+
+-   Performed periodically during development and before releases to catch issues not covered by automated tests, assess usability, and verify visual consistency across browsers.
+-   Focus areas include the PDF upload and processing flow, visualization interactions, profile management, and favorite biomarker functionality.
+
+## Key Areas & Focus
+
+-   **PDF Processing**: Critical area requiring thorough testing due to complexity and variability. Includes testing text extraction, OCR fallback, Claude metadata/biomarker extraction (mocked and potentially with controlled inputs), fallback parser logic, and data standardization. Sample PDFs (`backend/sample_reports/`) are used.
+-   **API Endpoints**: Ensuring API contracts are met, request validation works, and correct responses/status codes are returned.
+-   **Profile Management**: Testing CRUD operations, profile matching logic, and correct association of PDFs/biomarkers with profiles.
+-   **Data Integrity**: Verifying correct data storage, retrieval, and relationships in the database (primarily via integration tests).
+-   **Component Rendering & Interaction**: Ensuring UI components render correctly based on props/state and respond appropriately to user interactions.
+-   **State Management (Frontend)**: Verifying that global state (like `ProfileContext`) is updated and consumed correctly.
+
+## Running Tests
+
+-   **Backend**: Execute `bash backend/run_tests.sh` from the project root.
+-   **Frontend**: Execute `npm test` within the `frontend/` directory.
+
+## Future Considerations
+
+-   **E2E Testing Framework**: Consider implementing a browser automation framework (e.g., Cypress, Playwright) for true end-to-end testing that simulates user flows through the actual UI in a browser.
+-   **Performance Testing**: Implement specific performance tests for critical paths like PDF processing and large dataset visualization rendering.
+-   **CI/CD Integration**: Integrate automated tests into a Continuous Integration pipeline to run on every commit/pull request.
