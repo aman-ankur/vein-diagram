@@ -11,10 +11,15 @@ import {
   Alert,
   Button,
   useTheme,
-  Tooltip, // Import Tooltip
-  IconButton 
+  Tooltip,
+  IconButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  SelectChangeEvent // Import SelectChangeEvent
 } from '@mui/material';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'; // Import Link
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import HistoryIcon from '@mui/icons-material/History'; // Import HistoryIcon
@@ -24,11 +29,55 @@ import SummarizeIcon from '@mui/icons-material/Summarize';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
 import { getBiomarkersByFileId, getAllBiomarkers, getBiomarkerExplanation } from '../services/api';
-import { Biomarker } from '../types/pdf';
+import { getProfiles } from '../services/profileService'; // Import getProfiles
+import { Biomarker } from '../types/biomarker';
+import { Profile } from '../types/Profile'; // Import Profile type
 import BiomarkerTable from '../components/BiomarkerTable';
 import ExplanationModal from '../components/ExplanationModal';
 import type { BiomarkerExplanation } from '../types/api';
 import { useProfile } from '../contexts/ProfileContext';
+import FavoriteBiomarkersGrid from '../components/FavoriteBiomarkersGrid'; // Import the grid
+import {
+  processBiomarkersForFavorites,
+  ProcessedFavoriteData,
+} from '../utils/biomarkerUtils'; // Import processing function and type
+import {
+  getFavoritesForProfile,
+  addFavorite,
+  removeFavorite,
+  isFavorite, // Import isFavorite checker
+} from '../utils/favoritesUtils'; // Import localStorage utils
+import { parseISO, compareDesc } from 'date-fns'; // Import date-fns functions
+import AddFavoriteModal from '../components/AddFavoriteModal'; // Import the modal
+
+// --- Constants ---
+const MAX_DISPLAY_TILES = 8; // Changed to 8 for a 2x4 grid layout
+
+// Expanded base list for popularity scoring
+const BASE_IMPORTANT_BIOMARKERS: string[] = [
+  // Lipids
+  'Total Cholesterol', 'LDL Cholesterol', 'HDL Cholesterol', 'Triglycerides', 'Non-HDL Cholesterol', 'Apolipoprotein B', 'Lp(a)',
+  // Glucose Metabolism
+  'Glucose', 'HbA1c', 'Insulin', 'Fasting Insulin',
+  // Vitamins & Minerals
+  'Vitamin D', // Canonical name
+  'Vitamin B12', 'Folate', 'Ferritin', 'Iron', 'Magnesium', 'Zinc',
+  // Thyroid
+  'TSH', 'Free T3', 'Free T4', 'Reverse T3', 'Thyroglobulin Antibodies', 'Thyroid Peroxidase Antibodies',
+  // Inflammation
+  'hs-CRP', 'Homocysteine', 'Fibrinogen',
+  // Liver Function
+  'ALT', 'AST', 'GGT', 'Bilirubin, Total', 'Albumin', 'Alkaline Phosphatase',
+  // Kidney Function
+  'Creatinine', 'BUN', 'eGFR', 'Uric Acid',
+  // Complete Blood Count (CBC)
+  'Hemoglobin', 'Hematocrit', 'WBC Count', 'RBC Count', 'Platelet Count', 'MCV', 'MCH', 'MCHC', 'RDW',
+  // Hormones
+  'Testosterone', 'Free Testosterone', 'Estradiol', 'Progesterone', 'Cortisol', 'DHEA-S', 'SHBG',
+  // Other Common
+  'Sodium', 'Potassium', 'Chloride', 'CO2', 'Calcium', 'Protein, Total', 'Globulin'
+];
+
 
 // Define interface for TabPanel props
 interface TabPanelProps {
@@ -67,8 +116,8 @@ const VisualizationPage: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const fileId = queryParams.get('fileId');
   
-  // Destructure loading state from profile context as well
-  const { activeProfile, loading: profileLoading } = useProfile(); 
+  // Destructure loading state AND setter function from profile context
+  const { activeProfile, loading: profileLoading, setActiveProfileById } = useProfile(); 
   
   // Enhanced console logging for debugging
   useEffect(() => {
@@ -100,13 +149,163 @@ const VisualizationPage: React.FC = () => {
   const [explanationError, setExplanationError] = useState<string | null>(null);
   const [explanation, setExplanation] = useState<BiomarkerExplanation | null>(null);
 
-  // Fetch biomarkers on component mount or when activeProfile changes (and profile is loaded)
+  // State for favorite biomarkers
+  const [favoriteNames, setFavoriteNames] = useState<string[]>([]);
+  const [processedFavoritesData, setProcessedFavoritesData] = useState<ProcessedFavoriteData[]>([]);
+
+  // State for profile selection dropdown
+  const [availableProfiles, setAvailableProfiles] = useState<Profile[]>([]);
+  const [profileListLoading, setProfileListLoading] = useState<boolean>(false);
+  const [profileListError, setProfileListError] = useState<string | null>(null);
+
+  // State for Add Favorite Modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+
+
+  // --- Effects ---
+
+  // 1. Load initial favorite names from localStorage when profile changes
+  useEffect(() => {
+    if (activeProfile?.id) {
+      console.log(`Profile changed to ${activeProfile.id}, loading favorites from localStorage.`);
+      const initialFavorites = getFavoritesForProfile(activeProfile.id);
+      setFavoriteNames(initialFavorites);
+    } else {
+      // Clear favorites if profile is removed
+      setFavoriteNames([]);
+      setProcessedFavoritesData([]);
+    }
+  }, [activeProfile]);
+
+
+  // 2. Fetch all biomarkers when profile changes (and is loaded) or fileId changes
   useEffect(() => {
     // Only fetch if profile context is not loading
     if (!profileLoading) { 
       fetchBiomarkers();
     }
-  }, [fileId, activeProfile, profileLoading]); // Add profileLoading dependency
+  }, [fileId, activeProfile, profileLoading]);
+
+  // 3. Process biomarkers for the favorite grid (Hybrid Logic: Explicit Favorites + Top Scored Fillers)
+  useEffect(() => {
+    if (biomarkers.length > 0 && activeProfile?.id) {
+      console.log('Processing biomarkers for favorite grid (Hybrid Logic)...');
+
+      // Get explicitly favorited names (already in favoriteNames state)
+      const explicitFavoriteNames = favoriteNames;
+      console.log('Explicit favorites:', explicitFavoriteNames);
+
+      // Process data for explicit favorites
+      let processedExplicitFavorites: ProcessedFavoriteData[] = [];
+      if (explicitFavoriteNames.length > 0) {
+        processedExplicitFavorites = processBiomarkersForFavorites(biomarkers, explicitFavoriteNames);
+        console.log(`Processed ${processedExplicitFavorites.length} explicit favorites.`);
+      }
+
+      // Determine how many filler slots are needed
+      const slotsToFill = MAX_DISPLAY_TILES - processedExplicitFavorites.length;
+      let processedFillers: ProcessedFavoriteData[] = [];
+
+      if (slotsToFill > 0) {
+        console.log(`Need to fill ${slotsToFill} slots with top-scored biomarkers.`);
+
+        // --- Calculate scores for potential fillers ---
+        const biomarkersByName: { [key: string]: { date: Date; reportId: string | number }[] } = {};
+        let latestReportDate: Date | null = null;
+
+        biomarkers.forEach(bm => {
+          const reportDate = bm.reportDate ? parseISO(bm.reportDate) : null;
+          if (reportDate) {
+            if (!biomarkersByName[bm.name]) {
+              biomarkersByName[bm.name] = [];
+            }
+            biomarkersByName[bm.name].push({ date: reportDate, reportId: bm.fileId || reportDate.toISOString() });
+            if (!latestReportDate || compareDesc(latestReportDate, reportDate) < 0) {
+              latestReportDate = reportDate;
+            }
+          }
+        });
+
+        // Calculate scores ONLY for base biomarkers that are NOT already explicit favorites
+        const potentialFillerNames = BASE_IMPORTANT_BIOMARKERS.filter(
+          name => !explicitFavoriteNames.includes(name) && biomarkersByName[name]
+        );
+
+        const scoredFillers = potentialFillerNames.map(name => {
+          const history = biomarkersByName[name];
+          const uniqueReports = new Set(history.map(h => h.reportId));
+          const frequency = uniqueReports.size;
+          const measuredInLatest = latestReportDate ? history.some(h => h.date.getTime() === latestReportDate!.getTime()) : false;
+          const recencyBoost = measuredInLatest ? 3 : 0;
+          const score = recencyBoost + frequency;
+          return { name, score };
+        });
+
+        // Sort potential fillers by score descending
+        scoredFillers.sort((a, b) => b.score - a.score);
+
+        // Select top N fillers needed
+        const topFillerNames = scoredFillers.slice(0, slotsToFill).map(bm => bm.name);
+        console.log('Top scored fillers selected:', topFillerNames);
+
+        if (topFillerNames.length > 0) {
+          // Process data for the selected fillers
+          processedFillers = processBiomarkersForFavorites(biomarkers, topFillerNames);
+          // Sort fillers based on their score ranking
+          processedFillers.sort((a, b) => {
+            const scoreA = scoredFillers.find(s => s.name === a.name)?.score ?? 0;
+            const scoreB = scoredFillers.find(s => s.name === b.name)?.score ?? 0;
+            return scoreB - scoreA;
+          });
+          console.log(`Processed ${processedFillers.length} filler biomarkers.`);
+        }
+      } else {
+        console.log('No filler slots needed or available.');
+      }
+
+      // Combine explicit favorites and fillers
+      const finalGridData = [...processedExplicitFavorites, ...processedFillers];
+      console.log('Final combined grid data:', finalGridData.map(d => d.name));
+
+      setProcessedFavoritesData(finalGridData);
+
+    } else {
+      console.log('Clearing favorite grid data (no biomarkers or profile).');
+      setProcessedFavoritesData([]); // Clear if no biomarkers or no profile
+    }
+  // Rerun when biomarkers, the active profile, OR the list of explicit favorite names changes
+  }, [biomarkers, activeProfile, favoriteNames]);
+
+  // 4. Fetch available profiles if none is active
+  useEffect(() => {
+    const fetchAvailableProfiles = async () => {
+      // Only fetch if no profile is active and we aren't already loading them
+      if (!activeProfile && !profileLoading && !profileListLoading) {
+        console.log("No active profile, fetching available profiles for dropdown...");
+        setProfileListLoading(true);
+        setProfileListError(null);
+        try {
+          // Fetch a decent number of profiles, assuming not thousands for now
+          const response = await getProfiles(undefined, 1, 100);
+          setAvailableProfiles(response.profiles);
+          console.log(`Fetched ${response.profiles.length} available profiles.`);
+        } catch (err) {
+          console.error("Error fetching available profiles:", err);
+          setProfileListError("Could not load profile list.");
+          setAvailableProfiles([]); // Clear list on error
+        } finally {
+          setProfileListLoading(false);
+        }
+      }
+    };
+
+    fetchAvailableProfiles();
+    // Dependency array: run when activeProfile or its loading state changes
+    // REMOVED profileListLoading to prevent infinite loop
+  }, [activeProfile, profileLoading]);
+
+
+  // --- Handlers ---
 
   // Function to fetch biomarkers
   const fetchBiomarkers = async () => {
@@ -325,8 +524,63 @@ const VisualizationPage: React.FC = () => {
     setExplanationModalOpen(false);
   };
 
+  // Handler for toggling a favorite biomarker
+  const handleToggleFavorite = (biomarkerName: string) => {
+    if (!activeProfile?.id) return;
+
+    const currentIsFavorite = isFavorite(activeProfile.id, biomarkerName);
+    let updatedFavorites: string[];
+
+    if (currentIsFavorite) {
+      console.log(`Removing ${biomarkerName} from favorites for profile ${activeProfile.id}`);
+      updatedFavorites = removeFavorite(activeProfile.id, biomarkerName);
+    } else {
+      console.log(`Adding ${biomarkerName} to favorites for profile ${activeProfile.id}`);
+      updatedFavorites = addFavorite(activeProfile.id, biomarkerName);
+    }
+    // Update the local state to trigger re-render of grid/tiles
+    setFavoriteNames(updatedFavorites);
+  };
+
+  // Handler for profile selection change from dropdown
+  const handleProfileSelectChange = (event: SelectChangeEvent<string>) => { // Use SelectChangeEvent
+    const selectedProfileId = event.target.value as string;
+    console.log(`Profile selected from dropdown: ${selectedProfileId}`);
+    if (selectedProfileId) {
+      // Use the context function to set the active profile
+      // This will trigger other useEffects to load data for the new profile
+      setActiveProfileById(selectedProfileId);
+    }
+  };
+
+  // Handlers for Add Favorite Modal
+  const handleOpenAddModal = () => {
+    console.log("Opening Add Favorite Modal");
+    setIsAddModalOpen(true);
+  };
+
+  const handleCloseAddModal = () => {
+    setIsAddModalOpen(false);
+  };
+
+  // Handler to actually add the favorite from the modal
+  const handleAddFavoriteFromModal = (biomarkerName: string) => {
+    if (!activeProfile?.id) return;
+    console.log(`Adding ${biomarkerName} from modal for profile ${activeProfile.id}`);
+    const updatedFavorites = addFavorite(activeProfile.id, biomarkerName);
+    // Update the local state to trigger re-render of grid/tiles
+    // This will cause the popularity useEffect to rerun and potentially include the new favorite
+    setFavoriteNames(updatedFavorites);
+    // Note: The grid might not update immediately if the new favorite doesn't make the top 10 score.
+    // A more robust solution might involve directly manipulating processedFavoritesData state,
+    // but let's stick to the score-based approach for now.
+  };
+
+
+  // --- Render Logic ---
+
   // Render loading state for profile context OR biomarker data
-  if (profileLoading || biomarkerLoading) { 
+  if (profileLoading || biomarkerLoading) {
     return (
       <Container maxWidth="lg">
         <Box sx={{ 
@@ -375,27 +629,54 @@ const VisualizationPage: React.FC = () => {
     );
   }
 
-  // If no biomarkers found (and not loading/error)
-  // Handle the case where overview is shown but no profile is active
-  if (!fileId && !activeProfile) { 
+  // Handle the case where overview is shown but no profile is active (and not loading)
+  // Show dropdown instead of button
+  if (!profileLoading && !activeProfile && !fileId) {
      return (
        <Container maxWidth="lg">
-         <Paper sx={{ p: 3, mt: 3 }}>
-           <Alert severity="info">
-             Please select a profile from the Profiles page to view the biomarker overview.
-           </Alert>
-           <Box sx={{ mt: 3, textAlign: 'center' }}>
-             <Button 
-               variant="contained" 
-               onClick={() => navigate('/profiles')}
-             >
-               Go to Profiles
-             </Button>
+         <Paper sx={{ p: 3, mt: 3, textAlign: 'center' }}>
+           <Typography variant="h6" gutterBottom>
+             Select a Profile
+           </Typography>
+           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+             Choose a profile below to view their biomarker visualizations.
+           </Typography>
+           {profileListLoading ? (
+             <CircularProgress />
+           ) : profileListError ? (
+             <Alert severity="error">{profileListError}</Alert>
+           ) : availableProfiles.length > 0 ? (
+             <FormControl sx={{ m: 1, minWidth: 200 }}>
+               <InputLabel id="profile-select-label">Profile</InputLabel>
+               <Select
+                 labelId="profile-select-label"
+                 id="profile-select"
+                 value="" // No value selected initially
+                 label="Profile"
+                 onChange={handleProfileSelectChange}
+               >
+                 {availableProfiles.map((profile) => (
+                   <MenuItem key={profile.id} value={profile.id}>
+                     {profile.name}
+                   </MenuItem>
+                 ))}
+               </Select>
+             </FormControl>
+           ) : (
+             <Alert severity="warning">No profiles found. Please create one first.</Alert>
+           )}
+           <Box sx={{ mt: 3 }}>
+              <Button component={Link} to="/profiles">
+                Manage Profiles
+              </Button>
            </Box>
          </Paper>
        </Container>
      );
-  } else if (biomarkers.length === 0) {
+  }
+
+  // If profile is loaded but no biomarkers found (and not loading/error)
+  if (!biomarkerLoading && !error && biomarkers.length === 0 && activeProfile) {
     return (
       <Container maxWidth="lg">
         <Paper sx={{ p: 3, mt: 3 }}>
@@ -455,6 +736,30 @@ const VisualizationPage: React.FC = () => {
           </Button>
         </Tooltip>
       </Box>
+
+      {/* --- Favorite Biomarkers Section --- */}
+      {activeProfile && ( // Only show favorites if a profile is active
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 2 }}>
+            Favorite Biomarkers
+          </Typography>
+          {/* Render the grid unconditionally, let it handle empty data */}
+          <FavoriteBiomarkersGrid
+            profileId={activeProfile.id}
+            favoriteData={processedFavoritesData} // Pass current data (could be empty)
+            onToggleFavorite={handleToggleFavorite}
+            onAddClick={handleOpenAddModal}
+          />
+          {/* Optional: Add text below the grid if it's completely empty */}
+          {processedFavoritesData.length === 0 && (
+             <Typography color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+               No popular biomarkers found. Click '+' above to add manually.
+             </Typography>
+          )}
+        </Box>
+      )}
+      {/* --- End Favorite Biomarkers Section --- */}
+
 
       {/* PDF Metadata Section (only when viewing a specific file) */}
       {fileId && (
@@ -638,7 +943,20 @@ const VisualizationPage: React.FC = () => {
           error={explanationError}
           explanation={explanation}
         />
-      )} 
+      )}
+
+      {/* Add Favorite Modal */}
+      {activeProfile && (
+        <AddFavoriteModal
+          open={isAddModalOpen}
+          onClose={handleCloseAddModal}
+          availableBiomarkers={biomarkers} // Pass all fetched biomarkers
+          currentFavorites={processedFavoritesData.map(fav => fav.name)} // Pass names currently in grid
+          onAddFavorite={handleAddFavoriteFromModal}
+          isLoading={biomarkerLoading} // Pass loading state
+          error={error} // Pass error state
+        />
+      )}
     </Container>
   );
 };
