@@ -5,34 +5,41 @@
 ### Naming Conventions
 - **Frontend Components**: PascalCase (e.g., `BiomarkerVisualization.tsx`)
 - **Frontend Utilities/Hooks**: camelCase (e.g., `useApiData.ts`)
-- **Backend Modules**: snake_case (e.g., `biomarker_parser.py`)
-- **API Endpoints**: kebab-case (e.g., `/api/biomarkers/time-series`)
+- **Backend Modules/Files**: snake_case (e.g., `biomarker_parser.py`, `profile_model.py`)
+- **API Endpoints**: Generally snake_case paths with parameters (e.g., `/api/profiles/{profile_id}/favorites`)
+- **Frontend Services**: camelCase, often ending with 'Service' (e.g., `profileService.ts`)
+- **Frontend Utils**: camelCase, often ending with 'Utils' (e.g., `favoritesUtils.ts`)
 
 ### File Organization
-- Frontend components are organized by feature/purpose, not by type
-- Backend follows a service-oriented architecture with clear separation of concerns
-- Tests are co-located with the code they test in the backend
-- Frontend tests are named with `.test.tsx` suffix
+- Frontend components are organized by feature/purpose (e.g., `pages/ProfileManagement.tsx`, `components/FavoriteBiomarkersGrid.tsx`).
+- Backend follows a service-oriented architecture with clear separation (routes, services, models, schemas).
+- Backend tests (`tests/`) mirror the `app/` structure (e.g., `tests/api/test_profile_routes.py`).
+- Frontend tests are named with `.test.tsx` suffix and often co-located or in specific test folders.
+- Utility functions are grouped by purpose (`frontend/src/utils/`).
+- API services are grouped (`frontend/src/services/`).
 
 ### Code Style
 - TypeScript is used for all frontend code
 - Python type hints are used throughout the backend
-- React functional components with hooks are preferred over class components
-- FastAPI dependency injection is used for service composition
+- React functional components with hooks are preferred.
+- FastAPI dependency injection is used for service composition.
+- TypeScript types are defined in `frontend/src/types/`.
+- Backend uses Pydantic schemas (`backend/app/schemas/`) for API validation and serialization.
 
 ## Development Workflow
 
 ### Local Development
 - Backend server runs on port 8000 by default
 - Frontend development server runs on port 3000
-- Frontend proxies API requests to the backend during development
-- Python virtual environment is used for backend dependencies
+- Frontend proxies API requests (`/api`) to the backend during development (likely configured in `vite.config.ts`).
+- Python virtual environment (`backend/vein-d/`) is used for backend dependencies (`requirements.txt`).
 
 ### Testing Approach
-- Unit tests for individual components and services
-- Integration tests for API endpoints and data flow
-- Sample PDF reports are used for testing the extraction pipeline
-- Jest is used for frontend testing, pytest for backend
+- Unit tests for individual components (React Testing Library) and services.
+- Integration tests for API endpoints (`pytest` with test client) and data flow.
+- Specific tests exist for Profile and Favorite features (`test_profile_routes.py`, `ProfileManagement.test.tsx`).
+- Sample PDF reports (`backend/sample_reports/`) are used for testing the extraction pipeline.
+- Jest (`npm test`) is used for frontend testing, pytest (`pytest` or `run_tests.sh`) for backend.
 
 ## Critical Implementation Paths
 
@@ -42,16 +49,26 @@
 3. Text extraction using PyMuPDF/pdfplumber
 4. Biomarker identification using pattern matching
 5. Value and reference range extraction
-6. Storage in database
-7. Response to frontend with processing status
+6. Association with the correct user profile
+7. Storage in database (PDF metadata, extracted biomarkers linked to profile)
+8. Response to frontend with processing status
 
-### Visualization Flow
-1. User selects biomarkers or visualization type
-2. Frontend requests data from API
-3. Backend retrieves and formats data
-4. Frontend renders visualization using D3.js/Recharts
-5. User interacts with visualization (zoom, filter, etc.)
-6. Additional context loaded on demand (e.g., Claude insights)
+### Visualization Flow (with Profile & Favorites)
+1. User selects an active profile.
+2. User navigates to visualization/history page.
+3. Frontend requests data from API, specifying the `profile_id` (e.g., `/api/profiles/{profile_id}/biomarkers`, `/api/profiles/{profile_id}/favorites`).
+4. Backend retrieves and formats data filtered by the profile.
+5. Backend retrieves favorite biomarkers for the profile.
+6. Frontend renders visualization (D3.js) using profile-specific data, potentially highlighting favorites.
+7. User interacts with visualization (zoom, filter, add/remove favorites).
+8. Frontend requests Claude insights for specific biomarkers as needed.
+
+### Profile Management Flow
+1. User navigates to Profile Management page.
+2. Frontend requests list of profiles from `/api/profiles`.
+3. User interacts to create/edit/delete profiles via frontend forms.
+4. Frontend sends requests (POST/PUT/DELETE) to `/api/profiles` or `/api/profiles/{profile_id}`.
+5. Backend updates database via Profile service/model logic.
 
 ## Known Challenges
 
@@ -68,10 +85,10 @@
 - Some biomarkers have complex relationships that are difficult to visualize
 
 ### Performance Considerations
-- PDF processing can be CPU-intensive
-- Large datasets may impact visualization performance
-- Claude API calls need to be managed efficiently
-- Mobile devices may struggle with complex visualizations
+- PDF processing is CPU-intensive (mitigated by background tasks).
+- Large datasets per profile impact visualization performance (mitigated by sampling, optimization).
+- Frequent profile switching might require frontend state/caching optimization.
+- Claude API calls need efficient management (caching insights).
 
 ## User Preferences
 
@@ -82,10 +99,11 @@
 - Mobile experience should prioritize key insights over comprehensive data
 
 ### Feature Priorities
-- Accuracy of biomarker extraction is highest priority
-- Time-series visualization is most important visualization type
-- Relationship mapping is secondary but valuable feature
-- Claude insights should enhance understanding without overwhelming
+- Accuracy of biomarker extraction remains highest priority.
+- **Profile management and data isolation per profile** are critical.
+- **Favorite biomarker functionality** enhances personalization.
+- Time-series visualization (per profile) is essential.
+- Relationship mapping and Claude insights add significant value.
 
 ## Evolution of Project Decisions
 
@@ -93,7 +111,12 @@
 - Started with general PDF extraction, moving toward lab-specific adapters
 - Initially planned simple visualizations, now focusing on interactive and insightful displays
 - Originally considered basic biomarker information, now incorporating Claude API for deeper insights
-- Initially focused on desktop experience, now ensuring mobile responsiveness
+- Started with general PDF extraction, moving toward lab-specific adapters/robust LLM prompts.
+- Initially planned simple visualizations, now focusing on interactive and insightful displays (D3.js).
+- Originally considered basic biomarker information, now incorporating Claude API for deeper insights.
+- Initially focused on single-user context, **now supporting multiple profiles**.
+- Added **favorite biomarker tracking** for personalization.
+- Progressing towards better mobile responsiveness.
 
 ## Tool Usage Patterns
 
@@ -104,10 +127,11 @@
 - pip for backend package management
 
 ### Testing Tools
-- Jest and React Testing Library for frontend tests
-- pytest for backend tests
-- Postman/curl for API testing
-- Chrome DevTools for frontend debugging
+- Jest & React Testing Library (`npm test`) for frontend tests.
+- pytest (`pytest` command or `run_tests.sh`) for backend tests.
+- VSCode testing integrations might be used.
+- Chrome DevTools for frontend debugging.
+- Backend logging (`backend/logs/`) for debugging.
 
 ### Deployment Considerations
 - Frontend can be deployed to static hosting (Netlify, Vercel)
