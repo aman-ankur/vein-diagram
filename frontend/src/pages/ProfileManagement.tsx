@@ -25,14 +25,17 @@ import {
   Grid,
   InputAdornment,
   Snackbar,
-  Alert
+  Alert,
+  Tooltip // Import Tooltip
 } from '@mui/material';
 import { 
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   PersonAdd as PersonAddIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  History as HistoryIcon // Import History icon
 } from '@mui/icons-material';
+import { Link } from 'react-router-dom'; // Import Link
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -292,6 +295,17 @@ const ProfileManagement: React.FC = () => {
                         >
                           <DeleteIcon />
                         </IconButton>
+                        {/* Add View History Button */}
+                        <Tooltip title="View Biomarker History">
+                          <IconButton
+                            color="secondary"
+                            component={Link}
+                            to={`/profile/${profile.id}/history`}
+                            size="small"
+                          >
+                            <HistoryIcon />
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -376,4 +390,4 @@ const ProfileManagement: React.FC = () => {
   );
 };
 
-export default ProfileManagement; 
+export default ProfileManagement;

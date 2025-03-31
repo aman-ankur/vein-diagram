@@ -163,6 +163,11 @@ export interface Biomarker {
   fileId?: string;
 
   /**
+   * Original filename of the source PDF report
+   */
+  fileName?: string | null;
+
+  /**
    * Date when the report containing this biomarker was uploaded
    */
   reportDate?: string;
@@ -346,4 +351,4 @@ export interface VisualizationSettings {
    * Color scheme for charts
    */
   colorScheme: 'default' | 'colorblind' | 'monochrome' | 'pastel';
-} 
+}
