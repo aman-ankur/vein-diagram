@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Tabs, Tab, CircularProgress, Alert, Button } from '@mui/material';
+import { Box, Typography, Paper, Tabs, Tab, CircularProgress, Alert, Button, Grid, List, ListItem, ListItemText, Chip, Tooltip } from '@mui/material';
 import type { Biomarker } from '../types/biomarker';
 import Plotly from 'plotly.js-basic-dist';
 import createPlotlyComponent from 'react-plotly.js/factory';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import WarningIcon from '@mui/icons-material/Warning';
 
 // Create the Plot component
 const Plot = createPlotlyComponent(Plotly);
@@ -49,6 +50,7 @@ interface BiomarkerVisualizationProps {
   isLoading?: boolean;
   error?: string | null;
   onExplainWithAI?: (biomarker: Biomarker) => void;
+  showSource?: boolean;
 }
 
 interface TabPanelProps {
@@ -83,7 +85,8 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
   biomarkers,
   isLoading = false,
   error = null,
-  onExplainWithAI
+  onExplainWithAI,
+  showSource = false
 }) => {
   const [tabValue, setTabValue] = useState(0);
   const [selectedBiomarker, setSelectedBiomarker] = useState<Biomarker | null>(null);
@@ -214,6 +217,25 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
     );
   };
 
+  // Create visualization for selected biomarker trends
+  const renderTrendChart = (biomarker: Biomarker) => {
+    // This is a placeholder for actual trend visualization
+    // In a real implementation, we would fetch historical data for this biomarker
+    
+    return (
+      <Box sx={{ mt: 3, p: 3, border: '1px dashed #ccc', borderRadius: 1, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          Trend visualization for {biomarker.name} would appear here.
+          {showSource && (
+            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+              Source data would include all measurements from different lab reports.
+            </Typography>
+          )}
+        </Typography>
+      </Box>
+    );
+  };
+
   // If loading or error, show appropriate message
   if (isLoading) {
     return (
@@ -240,94 +262,79 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
   }
 
   return (
-    <Paper sx={{ width: '100%', mb: 4 }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs 
-          value={tabValue} 
-          onChange={handleTabChange} 
-          aria-label="biomarker visualization tabs"
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab label="Overview" id="visualization-tab-0" aria-controls="visualization-tabpanel-0" />
-          <Tab label="Biomarker Information" id="visualization-tab-1" aria-controls="visualization-tabpanel-1" />
-        </Tabs>
-      </Box>
-      
-      <TabPanel value={tabValue} index={0}>
-        <Typography variant="h6" gutterBottom>
-          Biomarker Values Overview
-        </Typography>
-        
-        <Box sx={{ height: 400, width: '100%' }}>
-          <Plot
-            data={[prepareBarChartData()]}
-            layout={{
-              autosize: true,
-              title: 'Top Biomarkers',
-              yaxis: {
-                title: 'Value',
-              },
-              xaxis: {
-                title: 'Biomarker',
-              },
-              margin: { l: 50, r: 50, b: 100, t: 50, pad: 4 },
-            }}
-            style={{ width: '100%', height: '100%' }}
-            useResizeHandler={true}
-          />
-        </Box>
-        
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          * Red bars indicate values outside the normal range
-        </Typography>
-      </TabPanel>
-      
-      <TabPanel value={tabValue} index={1}>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
-          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
+    <Box>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={3}>
+          {/* List of biomarkers */}
+          <Paper sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
               Select a Biomarker
             </Typography>
-            <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+            <List>
               {biomarkers.map((biomarker) => (
-                <Box 
+                <ListItem
                   key={biomarker.id}
+                  button
+                  selected={selectedBiomarker?.id === biomarker.id}
                   onClick={() => setSelectedBiomarker(biomarker)}
-                  sx={{
-                    p: 1,
-                    cursor: 'pointer',
-                    bgcolor: selectedBiomarker?.id === biomarker.id ? 'primary.light' : 'background.paper',
-                    borderRadius: 1,
-                    mb: 0.5,
-                    '&:hover': {
-                      bgcolor: 'primary.light',
-                    },
-                  }}
                 >
-                  <Typography 
-                    variant="body1"
-                    sx={{ 
-                      fontWeight: biomarker.isAbnormal ? 'bold' : 'normal',
-                      color: biomarker.isAbnormal ? 'error.main' : 'text.primary',
-                    }}
-                  >
-                    {biomarker.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {biomarker.value} {biomarker.unit}
-                  </Typography>
-                </Box>
+                  <ListItemText 
+                    primary={biomarker.name} 
+                    secondary={`${biomarker.value} ${biomarker.unit}`} 
+                  />
+                  {showSource && biomarker.fileId && (
+                    <Tooltip title="Source Report">
+                      <Chip 
+                        size="small" 
+                        label={new Date(biomarker.reportDate || biomarker.date || '').toLocaleDateString()} 
+                        sx={{ ml: 1 }} 
+                      />
+                    </Tooltip>
+                  )}
+                  {biomarker.isAbnormal && (
+                    <Tooltip title="Abnormal Value">
+                      <WarningIcon 
+                        color="warning" 
+                        fontSize="small" 
+                        sx={{ ml: 1 }} 
+                      />
+                    </Tooltip>
+                  )}
+                </ListItem>
               ))}
-            </Box>
-          </Box>
-          
-          <Box sx={{ flex: 1 }}>
-            {selectedBiomarker && (
+            </List>
+          </Paper>
+        </Grid>
+        
+        <Grid item xs={12} md={9}>
+          {/* Content area */}
+          <Paper sx={{ p: 3 }}>
+            {selectedBiomarker ? (
               <>
-                <Typography variant="h5" sx={{ mb: 2 }}>
-                  {selectedBiomarker.name}
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box>
+                    <Typography variant="h5" component="h2" gutterBottom>
+                      {selectedBiomarker.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                      {selectedBiomarker.category || 'Uncategorized'} • 
+                      Last tested: {new Date(selectedBiomarker.reportDate || selectedBiomarker.date || '').toLocaleDateString()}
+                      {showSource && selectedBiomarker.fileId && (
+                        <> • Source: {selectedBiomarker.fileName || `Report ${selectedBiomarker.fileId.substring(0, 6)}`}</>
+                      )}
+                    </Typography>
+                  </Box>
+                  {onExplainWithAI && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<PsychologyIcon />}
+                      onClick={() => onExplainWithAI(selectedBiomarker)}
+                    >
+                      Explain with AI
+                    </Button>
+                  )}
+                </Box>
                 
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                   Current Value: {selectedBiomarker.value} {selectedBiomarker.unit}
@@ -356,38 +363,6 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
                   <Typography variant="body1">
                     {getBiomarkerInfo(selectedBiomarker.name).impact}
                   </Typography>
-                  
-                  {onExplainWithAI && (
-                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                      <Button
-                        onClick={() => {
-                          console.log('=== AI EXPLANATION BUTTON CLICKED IN VISUALIZATION ===');
-                          console.log('Selected biomarker:', selectedBiomarker);
-                          console.log('onExplainWithAI handler type:', typeof onExplainWithAI);
-                          console.log('onExplainWithAI handler defined:', !!onExplainWithAI);
-                          
-                          try {
-                            onExplainWithAI(selectedBiomarker);
-                            console.log('onExplainWithAI handler called successfully');
-                          } catch (error) {
-                            console.error('Error calling onExplainWithAI handler:', error);
-                          }
-                        }}
-                        startIcon={<PsychologyIcon />}
-                        variant="contained"
-                        color="primary"
-                        sx={{
-                          backgroundColor: 'primary.main',
-                          color: '#fff',
-                          '&:hover': {
-                            backgroundColor: 'primary.dark',
-                          }
-                        }}
-                      >
-                        Get AI Explanation
-                      </Button>
-                    </Box>
-                  )}
                 </Paper>
                 
                 <Alert severity="info">
@@ -397,11 +372,15 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
                   </Typography>
                 </Alert>
               </>
+            ) : (
+              <Typography variant="body1" color="text.secondary" align="center">
+                Select a biomarker from the list to view details
+              </Typography>
             )}
-          </Box>
-        </Box>
-      </TabPanel>
-    </Paper>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 

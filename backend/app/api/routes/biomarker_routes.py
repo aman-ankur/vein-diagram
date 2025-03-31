@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 import json
 from datetime import datetime, timedelta
+import uuid
+from uuid import UUID
 
 from app.db.session import get_db
 from app.models.biomarker_model import Biomarker, BiomarkerDictionary
@@ -16,24 +18,47 @@ router = APIRouter()
 explanation_cache = ExplanationCache()
 
 @router.get("/pdf/{file_id}/biomarkers", response_model=List[BiomarkerResponse])
-def get_biomarkers_by_file_id(file_id: str, db: Session = Depends(get_db)):
+def get_biomarkers_by_file_id(
+    file_id: str, 
+    profile_id: Optional[str] = Query(None, description="Filter biomarkers by profile ID"),
+    db: Session = Depends(get_db)
+):
     """
     Get all biomarkers for a specific PDF file.
     
     Args:
         file_id: The ID of the PDF file
+        profile_id: Optional profile ID to filter by
         db: Database session
         
     Returns:
         List of biomarkers
     """
+    # Log the request parameters
+    print(f"GET /pdf/{file_id}/biomarkers with profile_id={profile_id}")
+    
     # Check if the PDF exists
     pdf = db.query(PDF).filter(PDF.file_id == file_id).first()
     if not pdf:
         raise HTTPException(status_code=404, detail=f"PDF with ID {file_id} not found")
     
-    # Get all biomarkers for the PDF
-    biomarkers = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id).all()
+    # Start with a base query
+    query = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id)
+    
+    # Apply profile filter if provided
+    if profile_id:
+        print(f"Filtering biomarkers by profile_id={profile_id}")
+        try:
+            # Convert string to UUID
+            profile_uuid = UUID(profile_id)
+            query = query.filter(Biomarker.profile_id == profile_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
+    
+    # Execute the query
+    biomarkers = query.all()
+    print(f"Found {len(biomarkers)} biomarkers for file_id={file_id}" + 
+          (f" and profile_id={profile_id}" if profile_id else ""))
     
     return biomarkers
 
@@ -58,22 +83,35 @@ def get_all_biomarkers(
     Returns:
         List of biomarkers
     """
+    # Log the request parameters
+    print(f"GET /biomarkers with category={category}, profile_id={profile_id}, limit={limit}, offset={offset}")
+    
     # Start with a base query
     query = db.query(Biomarker)
     
     # Apply category filter if provided
     if category:
+        print(f"Filtering biomarkers by category={category}")
         query = query.filter(Biomarker.category == category)
     
     # Apply profile filter if provided
     if profile_id:
-        query = query.filter(Biomarker.profile_id == profile_id)
+        print(f"Filtering biomarkers by profile_id={profile_id}")
+        try:
+            # Convert string to UUID
+            profile_uuid = UUID(profile_id)
+            query = query.filter(Biomarker.profile_id == profile_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
     
     # Apply pagination
     query = query.offset(offset).limit(limit)
     
     # Execute the query
     biomarkers = query.all()
+    print(f"Found {len(biomarkers)} biomarkers" + 
+          (f" for category={category}" if category else "") + 
+          (f" and profile_id={profile_id}" if profile_id else ""))
     
     # Return the results
     return biomarkers
@@ -124,7 +162,12 @@ def search_biomarkers(
     
     # Apply profile filter if provided
     if profile_id:
-        db_query = db_query.filter(Biomarker.profile_id == profile_id)
+        try:
+            # Convert string to UUID
+            profile_uuid = UUID(profile_id)
+            db_query = db_query.filter(Biomarker.profile_id == profile_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
     
     # Apply limit
     db_query = db_query.limit(limit)

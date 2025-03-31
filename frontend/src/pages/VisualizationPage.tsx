@@ -12,7 +12,7 @@ import {
   Button,
   useTheme
 } from '@mui/material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import TimelineIcon from '@mui/icons-material/Timeline';
@@ -25,6 +25,7 @@ import { Biomarker } from '../types/pdf';
 import BiomarkerTable from '../components/BiomarkerTable';
 import ExplanationModal from '../components/ExplanationModal';
 import type { BiomarkerExplanation } from '../types/api';
+import { useProfile } from '../contexts/ProfileContext';
 
 // Define interface for TabPanel props
 interface TabPanelProps {
@@ -55,9 +56,29 @@ const TabPanel = (props: TabPanelProps) => {
 };
 
 const VisualizationPage: React.FC = () => {
-  const { fileId } = useParams<{ fileId?: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
+  const location = useLocation();
+  
+  // Get fileId from query parameter instead of path parameter
+  const queryParams = new URLSearchParams(location.search);
+  const fileId = queryParams.get('fileId');
+  
+  const { activeProfile } = useProfile();
+  
+  // Enhanced console logging for debugging
+  useEffect(() => {
+    console.log("========== VISUALIZATION PAGE DEBUG ==========");
+    console.log("Component mounted with:");
+    console.log("fileId from query:", fileId);
+    console.log("full URL search:", location.search);
+    console.log("activeProfile:", activeProfile ? {
+      id: activeProfile.id,
+      name: activeProfile.name,
+      type: typeof activeProfile.id
+    } : "null");
+    console.log("==============================================");
+  }, [fileId, activeProfile, location.search]);
   
   // State for biomarkers, loading, and error
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
@@ -73,10 +94,10 @@ const VisualizationPage: React.FC = () => {
   const [explanationError, setExplanationError] = useState<string | null>(null);
   const [explanation, setExplanation] = useState<BiomarkerExplanation | null>(null);
 
-  // Fetch biomarkers on component mount
+  // Fetch biomarkers on component mount or when activeProfile changes
   useEffect(() => {
     fetchBiomarkers();
-  }, [fileId]);
+  }, [fileId, activeProfile]);
 
   // Function to fetch biomarkers
   const fetchBiomarkers = async () => {
@@ -85,13 +106,93 @@ const VisualizationPage: React.FC = () => {
     
     try {
       let data: Biomarker[];
+      const profileId = activeProfile?.id;
+      
+      console.log('Fetching biomarkers with profile context:', { 
+        fileId, 
+        profileId, 
+        activeProfile: activeProfile ? {
+          id: activeProfile.id,
+          name: activeProfile.name,
+          idType: typeof activeProfile.id
+        } : null 
+      });
+      
+      if (!profileId) {
+        console.warn('⚠️ No active profile found. This may cause data from different profiles to be mixed together.');
+      } else {
+        console.log(`✅ Active profile found: ${profileId} (${activeProfile.name})`);
+      }
+      
+      // Force profileId to be a string to prevent type issues
+      const profileIdStr = profileId?.toString();
+      
+      // Log the value we're actually going to send
+      console.log(`🔴 FINAL PROFILE ID TO SEND: "${profileIdStr}" (${typeof profileIdStr})`);
       
       if (fileId) {
-        // Fetch biomarkers for specific file
-        data = await getBiomarkersByFileId(fileId);
+        try {
+          // DIRECT FETCH APPROACH: Bypass the API client completely
+          console.log(`🔥 DIRECT FETCH: Using fetch API directly to ensure parameters are included`);
+          
+          // Build URL with profile_id included directly in the URL as a query parameter
+          const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+          const url = `${apiBaseUrl}/api/pdf/${fileId}/biomarkers?profile_id=${encodeURIComponent(profileIdStr || '')}`;
+          
+          console.log(`🔗 Making direct fetch to: ${url}`);
+          
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+            credentials: 'include' // Include cookies
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const jsonData = await response.json();
+          console.log(`✅ Direct fetch response received with ${jsonData.length} biomarkers`);
+          
+          // Use the regular mapping function to keep consistency
+          data = jsonData.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            value: item.value,
+            unit: item.unit || '',
+            referenceRange: item.reference_range_text || 
+                          (item.reference_range_low !== null && item.reference_range_high !== null ? 
+                            `${item.reference_range_low}-${item.reference_range_high}` : undefined),
+            category: item.category || 'Other',
+            isAbnormal: item.is_abnormal || false,
+            fileId,
+            date: item.created_at || new Date().toISOString(),
+            reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString()
+          }));
+        } catch (fetchError) {
+          console.error(`🔴 Direct fetch failed, falling back to API client:`, fetchError);
+          // Fall back to the regular API client
+          console.log(`Calling getBiomarkersByFileId with fileId=${fileId} and profileId=${profileIdStr || 'undefined'}`);
+          data = await getBiomarkersByFileId(fileId, profileIdStr);
+        }
+        
+        console.log(`Received ${data.length} biomarkers for file ${fileId}`);
       } else {
-        // Fetch all biomarkers
-        data = await getAllBiomarkers();
+        // Fetch all biomarkers with profile filter
+        console.log(`Calling getAllBiomarkers with profile_id=${profileIdStr || 'undefined'}`);
+        
+        data = await getAllBiomarkers({
+          profile_id: profileIdStr
+        });
+        
+        console.log(`Received ${data.length} biomarkers in total`);
+      }
+      
+      // Log the first couple of biomarkers to see what we're getting
+      if (data.length > 0) {
+        console.log('Sample biomarker data:', data.slice(0, 2));
       }
       
       // Deduplicate biomarkers
@@ -106,6 +207,7 @@ const VisualizationPage: React.FC = () => {
         }
       });
       
+      console.log(`After deduplication: ${uniqueBiomarkers.length} unique biomarkers`);
       setBiomarkers(uniqueBiomarkers);
     } catch (error) {
       console.error('Error fetching biomarkers:', error);

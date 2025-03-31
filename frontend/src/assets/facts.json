@@ -1,0 +1,602 @@
+[
+  {
+    "id": 1,
+    "text": "Your body contains enough iron to forge a metal nail about 3 inches long.",
+    "category": "minerals",
+    "icon": "iron"
+  },
+  {
+    "id": 2,
+    "text": "Vitamin D levels affect over 1,000 different genes in your body, impacting everything from immune function to mood.",
+    "category": "vitamins",
+    "icon": "sun"
+  },
+  {
+    "id": 3,
+    "text": "Your blood travels about 12,000 miles daily through your circulatory system—nearly half the Earth's circumference.",
+    "category": "circulation",
+    "icon": "blood"
+  },
+  {
+    "id": 4,
+    "text": "Cortisol, often called the \"stress hormone,\" naturally peaks in the morning to help you wake up.",
+    "category": "hormones",
+    "icon": "stress"
+  },
+  {
+    "id": 5,
+    "text": "A single drop of blood contains approximately 5 million red blood cells.",
+    "category": "blood",
+    "icon": "bloodDrop"
+  },
+  {
+    "id": 6,
+    "text": "High-sensitivity C-reactive protein (hs-CRP) can detect inflammation at levels 1/1000th the concentration of traditional tests.",
+    "category": "inflammation",
+    "icon": "test"
+  },
+  {
+    "id": 7,
+    "text": "Adults generate about 2-3 million new red blood cells every second.",
+    "category": "blood",
+    "icon": "cellGeneration"
+  },
+  {
+    "id": 8,
+    "text": "Your cholesterol levels can vary by up to 10% depending on whether you're standing or lying down during the blood draw.",
+    "category": "lipids",
+    "icon": "cholesterol"
+  },
+  {
+    "id": 9,
+    "text": "Hemoglobin A1c provides a three-month average of your blood glucose levels, while a standard glucose test only shows a moment in time.",
+    "category": "glucose",
+    "icon": "diabetes"
+  },
+  {
+    "id": 10,
+    "text": "The human body produces about 1-1.5 quarts of saliva daily, which contains important biomarkers for disease detection.",
+    "category": "digestion",
+    "icon": "saliva"
+  },
+  {
+    "id": 11,
+    "text": "Your resting heart rate is typically lower in the morning and can increase by 10-15 beats per minute after a meal.",
+    "category": "heart",
+    "icon": "heartRate"
+  },
+  {
+    "id": 12,
+    "text": "Ferritin levels can be up to 10 times higher in men than in women due to menstruation-related iron loss.",
+    "category": "minerals",
+    "icon": "iron"
+  },
+  {
+    "id": 13,
+    "text": "Your gut microbiome contains trillions of bacteria that produce biomarkers reflecting your overall health.",
+    "category": "digestion",
+    "icon": "bacteria"
+  },
+  {
+    "id": 14,
+    "text": "Blood pressure naturally dips by 10-20% during sleep in healthy individuals, a pattern called \"nocturnal dipping.\"",
+    "category": "heart",
+    "icon": "bloodPressure"
+  },
+  {
+    "id": 15,
+    "text": "Thyroid-stimulating hormone (TSH) levels fluctuate throughout the day, typically highest at night and lowest in the afternoon.",
+    "category": "hormones",
+    "icon": "thyroid"
+  },
+  {
+    "id": 16,
+    "text": "Dehydration of just 1-2% can decrease cognitive function by up to 10%.",
+    "category": "hydration",
+    "icon": "water"
+  },
+  {
+    "id": 17,
+    "text": "Over 50% of the calcium in your bloodstream is bound to proteins and doesn't show up in ionized calcium tests.",
+    "category": "minerals",
+    "icon": "calcium"
+  },
+  {
+    "id": 18,
+    "text": "Your body has enough DNA that, if stretched end to end, would reach from Earth to the Sun and back over 600 times.",
+    "category": "genetics",
+    "icon": "dna"
+  },
+  {
+    "id": 19,
+    "text": "Vitamin B12 levels can remain normal for years even with severe deficiency due to large liver storage reserves.",
+    "category": "vitamins",
+    "icon": "b12"
+  },
+  {
+    "id": 20,
+    "text": "A high-sensitivity troponin test can detect heart muscle damage at concentrations 1/1000th of what older tests could identify.",
+    "category": "heart",
+    "icon": "heartTest"
+  },
+  {
+    "id": 21,
+    "text": "The average adult has about 1.2-1.5 gallons (4.5-5.5 liters) of blood circulating in their body.",
+    "category": "blood",
+    "icon": "bloodVolume"
+  },
+  {
+    "id": 22,
+    "text": "Testosterone levels in men naturally decline by about 1% per year after age 30.",
+    "category": "hormones",
+    "icon": "testosterone"
+  },
+  {
+    "id": 23,
+    "text": "Your lungs contain approximately 300 million tiny air sacs (alveoli) with a total surface area roughly the size of a tennis court.",
+    "category": "respiratory",
+    "icon": "lungs"
+  },
+  {
+    "id": 24,
+    "text": "Homocysteine levels can increase by up to 10% after just one cup of coffee.",
+    "category": "metabolism",
+    "icon": "coffee"
+  },
+  {
+    "id": 25,
+    "text": "The electrical signals from your heart are about 60 times stronger than those from your brain.",
+    "category": "heart",
+    "icon": "electricity"
+  },
+  {
+    "id": 26,
+    "text": "Fasting for just 12 hours can increase human growth hormone (HGH) production by up to 1,300%.",
+    "category": "hormones",
+    "icon": "fasting"
+  },
+  {
+    "id": 27,
+    "text": "White blood cells make up less than 1% of your blood but are crucial for immune response.",
+    "category": "immunity",
+    "icon": "whiteBloodCell"
+  },
+  {
+    "id": 28,
+    "text": "Uric acid, which can indicate gout risk, naturally varies by up to 20% throughout the day.",
+    "category": "metabolism",
+    "icon": "crystal"
+  },
+  {
+    "id": 29,
+    "text": "Your body's pH is so tightly regulated that a change of just 0.5 units can be life-threatening.",
+    "category": "metabolism",
+    "icon": "ph"
+  },
+  {
+    "id": 30,
+    "text": "Magnesium is involved in over 300 enzymatic reactions in your body but is rarely measured in standard blood tests.",
+    "category": "minerals",
+    "icon": "magnesium"
+  },
+  {
+    "id": 31,
+    "text": "Your fingerprints contain biomarkers that can reveal your recent drug use, even after washing your hands.",
+    "category": "forensics",
+    "icon": "fingerprint"
+  },
+  {
+    "id": 32,
+    "text": "The enzyme telomerase, which repairs DNA telomeres, is 100 times more active in cancer cells than in normal cells.",
+    "category": "genetics",
+    "icon": "dnaRepair"
+  },
+  {
+    "id": 33,
+    "text": "A blood test can detect certain cancers up to 4 years before conventional diagnosis through cell-free DNA fragments.",
+    "category": "cancer",
+    "icon": "microscope"
+  },
+  {
+    "id": 34,
+    "text": "Your tears contain a natural antibiotic called lysozyme that can kill certain bacteria in seconds.",
+    "category": "immunity",
+    "icon": "tear"
+  },
+  {
+    "id": 35,
+    "text": "Drinking beet juice can temporarily lower blood pressure by up to 10 points due to naturally occurring nitrates.",
+    "category": "nutrition",
+    "icon": "beet"
+  },
+  {
+    "id": 36,
+    "text": "The half-life of caffeine in your blood doubles during pregnancy, explaining why pregnant women often become more sensitive to it.",
+    "category": "metabolism",
+    "icon": "coffee"
+  },
+  {
+    "id": 37,
+    "text": "Exposure to bright morning light can increase testosterone levels in men by up to 25%.",
+    "category": "hormones",
+    "icon": "sun"
+  },
+  {
+    "id": 38,
+    "text": "Your sweat contains over 800 different compounds that can reveal information about your health status.",
+    "category": "diagnostics",
+    "icon": "sweat"
+  },
+  {
+    "id": 39,
+    "text": "The hormone oxytocin increases by 47% during a 20-second hug, boosting feelings of trust and bonding.",
+    "category": "hormones",
+    "icon": "hug"
+  },
+  {
+    "id": 40,
+    "text": "Vitamin K2 helps move calcium from your bloodstream into your bones, potentially reducing heart disease risk by 50%.",
+    "category": "vitamins",
+    "icon": "bone"
+  },
+  {
+    "id": 41,
+    "text": "Your blood glucose levels can spike by 20-30% after just one night of poor sleep.",
+    "category": "glucose",
+    "icon": "sleep"
+  },
+  {
+    "id": 42,
+    "text": "The human body contains about 60,000 miles of blood vessels—enough to circle the Earth twice.",
+    "category": "circulation",
+    "icon": "vessels"
+  },
+  {
+    "id": 43,
+    "text": "Nitric oxide levels in your breath can predict asthma attacks up to 2 weeks before symptoms appear.",
+    "category": "respiratory",
+    "icon": "breath"
+  },
+  {
+    "id": 44,
+    "text": "Natural killer cells, a vital part of your immune system, can identify and destroy cancer cells within 5 minutes of contact.",
+    "category": "immunity",
+    "icon": "immune"
+  },
+  {
+    "id": 45,
+    "text": "Eating just one Brazil nut can provide 175% of your daily selenium needs, boosting thyroid function.",
+    "category": "nutrition",
+    "icon": "nut"
+  },
+  {
+    "id": 46,
+    "text": "Your body temperature naturally varies by about 1°F throughout the day, typically lowest at 4 AM and highest at 6 PM.",
+    "category": "vitals",
+    "icon": "temperature"
+  },
+  {
+    "id": 47,
+    "text": "The microbiome in your gut produces over 30 neurotransmitters, including 95% of your body's serotonin.",
+    "category": "neurology",
+    "icon": "gut"
+  },
+  {
+    "id": 48,
+    "text": "A 30-minute sauna session can increase growth hormone levels by up to 200% and stimulate the production of heat shock proteins.",
+    "category": "recovery",
+    "icon": "sauna"
+  },
+  {
+    "id": 49,
+    "text": "Your body contains 10 times more bacterial cells than human cells, most of which help maintain your health.",
+    "category": "microbiome",
+    "icon": "bacteria"
+  },
+  {
+    "id": 50,
+    "text": "Laughing for just 10-15 minutes can increase your good cholesterol (HDL) levels and reduce inflammation markers.",
+    "category": "wellbeing",
+    "icon": "laugh"
+  },
+  {
+    "id": 51,
+    "text": "Specific antibodies in your blood can remain elevated for 20+ years after certain infections, providing lifelong immunity.",
+    "category": "immunity",
+    "icon": "antibody"
+  },
+  {
+    "id": 52,
+    "text": "The amniotic fluid surrounding a fetus contains stem cells with regenerative properties 50 times more potent than adult stem cells.",
+    "category": "development",
+    "icon": "baby"
+  },
+  {
+    "id": 53,
+    "text": "Blood viscosity increases by up to 25% during dehydration, making your heart work harder to pump blood.",
+    "category": "circulation",
+    "icon": "heart"
+  },
+  {
+    "id": 54,
+    "text": "Your body produces about 20-30 billion neutrophils (white blood cells) every day to fight infections.",
+    "category": "immunity",
+    "icon": "shield"
+  },
+  {
+    "id": 55,
+    "text": "Exposure to cold temperatures activates brown fat, which can burn up to 300 calories per day without exercise.",
+    "category": "metabolism",
+    "icon": "coldThermogenesis"
+  },
+  {
+    "id": 56,
+    "text": "The scent receptors in your nose can detect over one trillion different odors, many linked to specific diseases.",
+    "category": "senses",
+    "icon": "nose"
+  },
+  {
+    "id": 57,
+    "text": "Your platelet count can increase by up to 30% at high altitudes to prevent bleeding in lower oxygen environments.",
+    "category": "blood",
+    "icon": "mountain"
+  },
+  {
+    "id": 58,
+    "text": "Just 2 minutes of intense exercise can temporarily increase brain-derived neurotrophic factor (BDNF) by 20%, boosting brain health.",
+    "category": "fitness",
+    "icon": "brain"
+  },
+  {
+    "id": 59,
+    "text": "Vitamin C levels in your skin are 20-40 times higher than in your blood, acting as your first line of defense against UV damage.",
+    "category": "skin",
+    "icon": "vitaminC"
+  },
+  {
+    "id": 60,
+    "text": "Your body prioritizes certain organs during calorie restriction—your brain still receives 60% of available glucose even during starvation.",
+    "category": "metabolism",
+    "icon": "brain"
+  },
+  {
+    "id": 61,
+    "text": "Melatonin is produced not only in your brain but also in your gut, where it regulates digestive enzyme activity.",
+    "category": "hormones",
+    "icon": "moon"
+  },
+  {
+    "id": 62,
+    "text": "Red blood cells can compress themselves to fit through capillaries that are 3 times smaller than their diameter.",
+    "category": "blood",
+    "icon": "flexibility"
+  },
+  {
+    "id": 63,
+    "text": "Your liver performs over 500 different functions and can regenerate up to 70% of its tissue after injury.",
+    "category": "organs",
+    "icon": "liver"
+  },
+  {
+    "id": 64,
+    "text": "The enzyme catalase in your blood can decompose 5 million hydrogen peroxide molecules per second, protecting cells from oxidative damage.",
+    "category": "antioxidants",
+    "icon": "shield"
+  },
+  {
+    "id": 65,
+    "text": "Bone marrow transplants can completely change the DNA profile of your blood, creating a phenomenon called chimerism.",
+    "category": "transplant",
+    "icon": "dna"
+  },
+  {
+    "id": 66,
+    "text": "A single kidney filters about 45 gallons (170 liters) of blood every day, removing waste while preserving nutrients.",
+    "category": "organs",
+    "icon": "kidney"
+  },
+  {
+    "id": 67,
+    "text": "Your blood carries about 1 gram of dissolved glucose at any given time—roughly the amount in 1/4 teaspoon of sugar.",
+    "category": "glucose",
+    "icon": "sugar"
+  },
+  {
+    "id": 68,
+    "text": "Heart rate variability can predict inflammation levels with 85% accuracy before traditional blood markers show changes.",
+    "category": "heart",
+    "icon": "rhythm"
+  },
+  {
+    "id": 69,
+    "text": "Estrogen increases brain connectivity and cognitive flexibility, which is why women often recover faster from strokes than men.",
+    "category": "hormones",
+    "icon": "brain"
+  },
+  {
+    "id": 70,
+    "text": "Breath testing can detect over 100 biomarkers, including acetone, which rises during ketosis and fasting.",
+    "category": "diagnostics",
+    "icon": "breath"
+  },
+  {
+    "id": 71,
+    "text": "Just 10 minutes of meditation can reduce inflammatory markers like interleukin-6 by up to 10% in people with chronic inflammation.",
+    "category": "stress",
+    "icon": "meditation"
+  },
+  {
+    "id": 72,
+    "text": "Your body can produce vitamin D from cholesterol in your skin when exposed to sunlight—it's technically a hormone, not a vitamin.",
+    "category": "vitamins",
+    "icon": "sun"
+  },
+  {
+    "id": 73,
+    "text": "Tongue prints are as unique as fingerprints and contain specific bacterial populations that may serve as biomarkers for disease.",
+    "category": "biometrics",
+    "icon": "tongue"
+  },
+  {
+    "id": 74,
+    "text": "Zinc deficiency affects over 2 billion people worldwide and impairs the function of more than 300 enzymes in your body.",
+    "category": "minerals",
+    "icon": "zinc"
+  },
+  {
+    "id": 75,
+    "text": "Eye movement patterns during sleep can predict your dream content with approximately 60% accuracy.",
+    "category": "neurology",
+    "icon": "dream"
+  },
+  {
+    "id": 76,
+    "text": "Your bones are constantly remodeling—about 10% of your skeleton is replaced each year through cellular turnover.",
+    "category": "skeletal",
+    "icon": "bone"
+  },
+  {
+    "id": 77,
+    "text": "The hormone ghrelin, which stimulates hunger, rises by up to 30% when you're sleep-deprived, increasing appetite.",
+    "category": "metabolism",
+    "icon": "hunger"
+  },
+  {
+    "id": 78,
+    "text": "Nitric oxide produced in your nasal passages increases by 15-fold during humming, enhancing sinus ventilation and immunity.",
+    "category": "respiratory",
+    "icon": "nose"
+  },
+  {
+    "id": 79,
+    "text": "Omega-3 fatty acids can increase membrane fluidity in red blood cells by up to 30%, improving oxygen delivery to tissues.",
+    "category": "nutrition",
+    "icon": "fish"
+  },
+  {
+    "id": 80,
+    "text": "Your immune system can remember and recognize viruses it encountered decades ago with remarkable precision.",
+    "category": "immunity",
+    "icon": "memory"
+  },
+  {
+    "id": 81,
+    "text": "The gut-brain axis transmits signals at speeds of up to 100 meters per second via the vagus nerve, affecting mood almost instantly.",
+    "category": "neurology",
+    "icon": "nerve"
+  },
+  {
+    "id": 82,
+    "text": "Mitochondrial DNA comes almost exclusively from your mother and can be used to trace maternal ancestry back thousands of generations.",
+    "category": "genetics",
+    "icon": "mitochondria"
+  },
+  {
+    "id": 83,
+    "text": "Fingernail growth rates can predict metabolic health—they grow about 0.5mm slower per month in people with thyroid disorders.",
+    "category": "diagnostics",
+    "icon": "nail"
+  },
+  {
+    "id": 84,
+    "text": "The protein leptin, which signals fullness, drops by up to 30% after just one night of sleep deprivation.",
+    "category": "hormones",
+    "icon": "sleep"
+  },
+  {
+    "id": 85,
+    "text": "Muscle tissue releases myokines during exercise that can trigger fat burning in distant tissues through molecular signaling.",
+    "category": "fitness",
+    "icon": "muscle"
+  },
+  {
+    "id": 86,
+    "text": "Your body produces antibodies so specific they can distinguish between proteins that differ by just a single amino acid.",
+    "category": "immunity",
+    "icon": "precise"
+  },
+  {
+    "id": 87,
+    "text": "Standing for just 3 hours a day burns an extra 30,000 calories per year—equivalent to running 10 marathons.",
+    "category": "metabolism",
+    "icon": "standing"
+  },
+  {
+    "id": 88,
+    "text": "The enzyme COMT, which breaks down stress hormones, has genetic variations that can make some people perform better under pressure.",
+    "category": "genetics",
+    "icon": "stress"
+  },
+  {
+    "id": 89,
+    "text": "Ear wax contains over 2,000 volatile organic compounds that provide insights into metabolic disorders and environmental exposures.",
+    "category": "diagnostics",
+    "icon": "ear"
+  },
+  {
+    "id": 90,
+    "text": "Just 15 minutes of laughter can increase antibody production in your saliva by up to 40%, boosting immunity.",
+    "category": "immunity",
+    "icon": "laugh"
+  },
+  {
+    "id": 91,
+    "text": "Skin cells turn over every 28-40 days, with variations that can indicate hormonal imbalances or nutritional deficiencies.",
+    "category": "dermatology",
+    "icon": "skin"
+  },
+  {
+    "id": 92,
+    "text": "The human heart creates enough pressure to squirt blood 30 feet across a room when pumping at full force.",
+    "category": "heart",
+    "icon": "pressure"
+  },
+  {
+    "id": 93,
+    "text": "Insulin sensitivity follows a circadian rhythm, peaking in the morning and declining throughout the day by up to 40%.",
+    "category": "metabolism",
+    "icon": "clock"
+  },
+  {
+    "id": 94,
+    "text": "Your cerebrospinal fluid completely replaces itself every 5-7 hours, removing metabolic waste from your brain during sleep.",
+    "category": "neurology",
+    "icon": "clean"
+  },
+  {
+    "id": 95,
+    "text": "Maternal blood contains fetal DNA as early as 7 weeks of pregnancy, enabling non-invasive genetic testing through a simple blood draw.",
+    "category": "pregnancy",
+    "icon": "baby"
+  },
+  {
+    "id": 96,
+    "text": "Chronic inflammation can increase biological age markers by up to 48%, accelerating cellular aging beyond chronological age.",
+    "category": "aging",
+    "icon": "clock"
+  },
+  {
+    "id": 97,
+    "text": "The appendix serves as a protective reservoir for beneficial gut bacteria, helping repopulate the digestive tract after illness.",
+    "category": "digestion",
+    "icon": "appendix"
+  },
+  {
+    "id": 98,
+    "text": "Grip strength is a better predictor of cardiovascular mortality than blood pressure, decreasing risk by 17% for each 5kg increase.",
+    "category": "vitals",
+    "icon": "grip"
+  },
+  {
+    "id": 99,
+    "text": "Hair analysis can detect drug use up to 90 days after exposure, compared to just 2-3 days in standard urine tests.",
+    "category": "diagnostics",
+    "icon": "hair"
+  },
+  {
+    "id": 100,
+    "text": "The enzyme superoxide dismutase (SOD) neutralizes free radicals at a rate of over 1 billion per second, making it one of the fastest enzymes in your body.",
+    "category": "antioxidants",
+    "icon": "shield"
+  }
+]

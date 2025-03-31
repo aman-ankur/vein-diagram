@@ -42,6 +42,11 @@ export interface UploadResponse {
    * MIME type of the file
    */
   mimeType: string;
+  
+  /**
+   * Profile ID if the file is associated with a profile
+   */
+  profileId?: string;
 }
 
 /**
@@ -156,6 +161,11 @@ export interface Biomarker {
    * Source file ID
    */
   fileId?: string;
+
+  /**
+   * Date when the report containing this biomarker was uploaded
+   */
+  reportDate?: string;
 }
 
 /**
