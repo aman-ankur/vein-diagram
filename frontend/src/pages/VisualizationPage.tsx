@@ -67,7 +67,8 @@ const VisualizationPage: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const fileId = queryParams.get('fileId');
   
-  const { activeProfile } = useProfile();
+  // Destructure loading state from profile context as well
+  const { activeProfile, loading: profileLoading } = useProfile(); 
   
   // Enhanced console logging for debugging
   useEffect(() => {
@@ -80,12 +81,14 @@ const VisualizationPage: React.FC = () => {
       name: activeProfile.name,
       type: typeof activeProfile.id
     } : "null");
+    console.log("profileLoading:", profileLoading); // Log profile loading state
     console.log("==============================================");
-  }, [fileId, activeProfile, location.search]);
+  }, [fileId, activeProfile, location.search, profileLoading]);
   
   // State for biomarkers, loading, and error
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  // Rename local loading state to avoid conflict
+  const [biomarkerLoading, setBiomarkerLoading] = useState<boolean>(true); 
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<number>(0);
   const [chartType, setChartType] = useState<'bar' | 'line' | 'scatter'>('line');
@@ -97,14 +100,17 @@ const VisualizationPage: React.FC = () => {
   const [explanationError, setExplanationError] = useState<string | null>(null);
   const [explanation, setExplanation] = useState<BiomarkerExplanation | null>(null);
 
-  // Fetch biomarkers on component mount or when activeProfile changes
+  // Fetch biomarkers on component mount or when activeProfile changes (and profile is loaded)
   useEffect(() => {
-    fetchBiomarkers();
-  }, [fileId, activeProfile]);
+    // Only fetch if profile context is not loading
+    if (!profileLoading) { 
+      fetchBiomarkers();
+    }
+  }, [fileId, activeProfile, profileLoading]); // Add profileLoading dependency
 
   // Function to fetch biomarkers
   const fetchBiomarkers = async () => {
-    setLoading(true);
+    setBiomarkerLoading(true); // Use renamed state setter
     setError(null);
     
     try {
@@ -121,28 +127,22 @@ const VisualizationPage: React.FC = () => {
         } : null 
       });
       
-      if (!profileId) {
-        console.warn('No active profile found. This may cause data from different profiles to be mixed together.'); // Emoji removed
-      } else {
-        console.log(`Active profile found: ${profileId} (${activeProfile?.name})`); // Emoji removed
-      }
-      
       // Force profileId to be a string to prevent type issues
       const profileIdStr = profileId?.toString();
       
       // Log the value we're actually going to send
-      console.log(`FINAL PROFILE ID TO SEND: "${profileIdStr}" (${typeof profileIdStr})`); // Emoji removed
+      console.log(`FINAL PROFILE ID TO SEND: "${profileIdStr}" (${typeof profileIdStr})`); 
       
       if (fileId) {
         try {
           // DIRECT FETCH APPROACH: Bypass the API client completely
-          console.log(`DIRECT FETCH: Using fetch API directly to ensure parameters are included`); // Emoji removed
+          console.log(`DIRECT FETCH: Using fetch API directly to ensure parameters are included`); 
           
           // Build URL with profile_id included directly in the URL as a query parameter
           const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
           const url = `${apiBaseUrl}/api/pdf/${fileId}/biomarkers?profile_id=${encodeURIComponent(profileIdStr || '')}`;
           
-          console.log(`Making direct fetch to: ${url}`); // Emoji removed
+          console.log(`Making direct fetch to: ${url}`); 
           
           const response = await fetch(url, {
             method: 'GET',
@@ -157,7 +157,7 @@ const VisualizationPage: React.FC = () => {
           }
           
           const jsonData = await response.json();
-          console.log(`Direct fetch response received with ${jsonData.length} biomarkers`); // Emoji removed
+          console.log(`Direct fetch response received with ${jsonData.length} biomarkers`); 
           
           // Use the regular mapping function to keep consistency
           data = jsonData.map((item: any) => ({
@@ -175,7 +175,7 @@ const VisualizationPage: React.FC = () => {
             reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString()
           }));
         } catch (fetchError) {
-          console.error(`Direct fetch failed, falling back to API client:`, fetchError); // Emoji removed
+          console.error(`Direct fetch failed, falling back to API client:`, fetchError); 
           // Fall back to the regular API client
           console.log(`Calling getBiomarkersByFileId with fileId=${fileId} and profileId=${profileIdStr || 'undefined'}`);
           data = await getBiomarkersByFileId(fileId, profileIdStr);
@@ -183,14 +183,17 @@ const VisualizationPage: React.FC = () => {
         
         console.log(`Received ${data.length} biomarkers for file ${fileId}`);
       } else {
-        // Fetch all biomarkers with profile filter
-        console.log(`Calling getAllBiomarkers with profile_id=${profileIdStr || 'undefined'}`);
-        
-        data = await getAllBiomarkers({
-          profile_id: profileIdStr
-        });
-        
-        console.log(`Received ${data.length} biomarkers in total`);
+        // Fetch all biomarkers only if a profile is active
+        if (profileIdStr) {
+          console.log(`Calling getAllBiomarkers with profile_id=${profileIdStr}`);
+          data = await getAllBiomarkers({
+            profile_id: profileIdStr
+          });
+          console.log(`Received ${data.length} biomarkers in total for profile ${profileIdStr}`);
+        } else {
+          console.log('No active profile, skipping fetch for all biomarkers.');
+          data = []; // Set to empty array if no profile
+        }
       }
       
       // Log the first couple of biomarkers to see what we're getting
@@ -217,7 +220,7 @@ const VisualizationPage: React.FC = () => {
       console.error('Error fetching biomarkers:', error);
       setError('Failed to load biomarker data. Please try again.');
     } finally {
-      setLoading(false);
+      setBiomarkerLoading(false); // Use renamed state setter
     }
   };
 
@@ -322,8 +325,8 @@ const VisualizationPage: React.FC = () => {
     setExplanationModalOpen(false);
   };
 
-  // Render loading state
-  if (loading) {
+  // Render loading state for profile context OR biomarker data
+  if (profileLoading || biomarkerLoading) { 
     return (
       <Container maxWidth="lg">
         <Box sx={{ 
@@ -336,7 +339,7 @@ const VisualizationPage: React.FC = () => {
         }}>
           <CircularProgress size={60} />
           <Typography variant="h6" sx={{ mt: 2 }}>
-            Loading biomarker data...
+            {profileLoading ? 'Loading profile...' : 'Loading biomarker data...'}
           </Typography>
         </Box>
       </Container>
@@ -372,13 +375,33 @@ const VisualizationPage: React.FC = () => {
     );
   }
 
-  // If no biomarkers found
-  if (biomarkers.length === 0) {
+  // If no biomarkers found (and not loading/error)
+  // Handle the case where overview is shown but no profile is active
+  if (!fileId && !activeProfile) { 
+     return (
+       <Container maxWidth="lg">
+         <Paper sx={{ p: 3, mt: 3 }}>
+           <Alert severity="info">
+             Please select a profile from the Profiles page to view the biomarker overview.
+           </Alert>
+           <Box sx={{ mt: 3, textAlign: 'center' }}>
+             <Button 
+               variant="contained" 
+               onClick={() => navigate('/profiles')}
+             >
+               Go to Profiles
+             </Button>
+           </Box>
+         </Paper>
+       </Container>
+     );
+  } else if (biomarkers.length === 0) {
     return (
       <Container maxWidth="lg">
         <Paper sx={{ p: 3, mt: 3 }}>
           <Alert severity="info">
-            No biomarker data available. Please upload a lab report to get started.
+            No biomarker data available for this {fileId ? 'file' : 'profile'}. 
+            {fileId ? '' : ' Please upload a lab report to get started.'}
           </Alert>
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Button 
@@ -393,34 +416,44 @@ const VisualizationPage: React.FC = () => {
     );
   }
 
+  // Add console log here to check activeProfile before rendering the button
+  console.log('Rendering History Button - activeProfile:', activeProfile);
+
   return (
     <Container maxWidth="lg">
-      <Box sx={{ mt: 3, mb: 4, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}> {/* Added flex styles */}
-        <Box sx={{ flexGrow: 1 }}> {/* Allow title/text to grow */}
-          <Typography variant="h4" component="h1" gutterBottom>
-            {fileId ? 'File Analysis' : 'Biomarker Overview'}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {fileId 
-              ? 'View and analyze biomarkers extracted from your uploaded file'
-              : 'View all biomarkers across your uploaded lab reports'
-            }
-          </Typography>
-        </Box>
-        {/* History Button */}
-        {activeProfile && (
-          <Tooltip title={`View the complete biomarker history for profile: ${activeProfile.name}`}>
-            <Button
-              component={Link}
-              to={`/profile/${activeProfile.id}/history`}
-              variant="outlined"
-              startIcon={<HistoryIcon />}
-              sx={{ ml: 2, mt: { xs: 1, sm: 0 } }} // Add margin top on small screens
-            >
-              View Biomarker History
-            </Button>
-          </Tooltip>
-        )}
+      {/* Header Box for Title and Description */}
+      <Box sx={{ mt: 3, mb: 2 }}> 
+        <Typography variant="h4" component="h1" gutterBottom>
+          {fileId ? 'File Analysis' : `Biomarker Overview for ${activeProfile?.name || 'Profile'}`} {/* Show profile name */}
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          {fileId 
+            ? `View and analyze biomarkers extracted from ${biomarkers[0]?.fileName || 'your uploaded file'}` // Show filename if available
+            : `View all biomarkers across lab reports for ${activeProfile?.name || 'the selected profile'}`
+          }
+        </Typography>
+      </Box>
+
+      {/* Box specifically for the History Button */}
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'flex-start' }}> 
+        <Tooltip 
+          title={
+            activeProfile 
+              ? `View the complete biomarker history for profile: ${activeProfile.name}` 
+              : "Select a profile to view biomarker history"
+          }
+        >
+          {/* Disable button if no active profile AND not viewing a specific file */}
+          <Button
+            component={Link}
+            to={activeProfile ? `/profile/${activeProfile.id}/history` : '/profiles'} // Conditional link
+            variant="outlined"
+            startIcon={<HistoryIcon />}
+            disabled={!activeProfile && !fileId} // Disable if overview mode and no profile
+          >
+            {activeProfile ? 'View Biomarker History' : 'Select Profile'} {/* Conditional text */}
+          </Button>
+        </Tooltip>
       </Box>
 
       {/* PDF Metadata Section (only when viewing a specific file) */}
@@ -587,8 +620,8 @@ const VisualizationPage: React.FC = () => {
         </Paper>
       </TabPanel>
 
-      {/* AI Explanation Modal - Temporarily commented out due to persistent syntax error */}
-      {/* {currentBiomarker && (
+      {/* AI Explanation Modal - Re-enabled */}
+       {currentBiomarker && (
         <ExplanationModal
           open={explanationModalOpen}
           onClose={handleCloseExplanationModal}
@@ -605,7 +638,7 @@ const VisualizationPage: React.FC = () => {
           error={explanationError}
           explanation={explanation}
         />
-      )} */}
+      )} 
     </Container>
   );
 };
