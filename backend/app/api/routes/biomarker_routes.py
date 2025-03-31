@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload # Import joinedload
 from sqlalchemy import func
 import json
 from datetime import datetime, timedelta
@@ -86,8 +86,8 @@ def get_all_biomarkers(
     # Log the request parameters
     print(f"GET /biomarkers with category={category}, profile_id={profile_id}, limit={limit}, offset={offset}")
     
-    # Start with a base query
-    query = db.query(Biomarker)
+    # Start with a base query and eager load PDF relationship
+    query = db.query(Biomarker).options(joinedload(Biomarker.pdf))
     
     # Apply category filter if provided
     if category:
@@ -394,4 +394,4 @@ async def add_to_biomarker_dictionary(
             db.commit()
     except Exception as e:
         print(f"Error adding to biomarker dictionary: {str(e)}")
-        db.rollback() 
+        db.rollback()

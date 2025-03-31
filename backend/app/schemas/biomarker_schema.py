@@ -1,5 +1,14 @@
 from typing import Optional, Union, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict # Import ConfigDict
+from datetime import datetime # Import datetime
+
+# Simple schema for related PDF info
+class PDFInfo(BaseModel):
+    file_id: str
+    filename: Optional[str] = None
+    report_date: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True) # Use model_config for Pydantic v2
 
 class BiomarkerResponse(BaseModel):
     """
@@ -19,9 +28,9 @@ class BiomarkerResponse(BaseModel):
     category: Optional[str] = Field(None, description="Category of the biomarker (e.g., Lipid, Metabolic)")
     is_abnormal: Optional[bool] = Field(False, description="Whether the value is outside the reference range")
     notes: Optional[str] = Field(None, description="Additional notes or observations")
+    pdf: Optional[PDFInfo] = Field(None, description="Information about the source PDF") # Add PDF info field
     
-    class Config:
-        from_attributes = True  # Updated from orm_mode for Pydantic v2 compatibility
+    model_config = ConfigDict(from_attributes=True) # Use model_config for Pydantic v2 compatibility
 
 class BiomarkerExplanationRequest(BaseModel):
     """
@@ -42,4 +51,4 @@ class BiomarkerExplanationResponse(BaseModel):
     general_explanation: str = Field(..., description="General explanation of what the biomarker measures")
     specific_explanation: str = Field(..., description="Personalized interpretation of the specific value")
     created_at: str = Field(..., description="Timestamp when the explanation was generated")
-    from_cache: bool = Field(False, description="Whether the explanation was retrieved from cache") 
+    from_cache: bool = Field(False, description="Whether the explanation was retrieved from cache")

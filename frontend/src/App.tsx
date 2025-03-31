@@ -15,6 +15,7 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  ListItemButton, // Import ListItemButton
   CircularProgress,
   Alert,
   Snackbar,
@@ -36,6 +37,7 @@ import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
 import VisualizationPage from './pages/VisualizationPage';
 import ProfileManagement from './pages/ProfileManagement';
+import BiomarkerHistoryPage from './pages/BiomarkerHistoryPage'; // Import the new page
 import APIStatusIndicator from './components/APIStatusIndicator';
 import { checkApiAvailability } from './services/api';
 
@@ -178,8 +180,8 @@ function App() {
     <Box sx={{ width: 250 }} role="presentation" onClick={handleDrawerToggle}>
       <List>
         {drawerItems.map((item) => (
-          <ListItem 
-            button 
+          // Use ListItemButton instead of ListItem with button prop
+          <ListItemButton 
             key={item.text} 
             component={Link} 
             to={item.path} 
@@ -191,7 +193,7 @@ function App() {
           >
             <ListItemIcon>{item.icon}</ListItemIcon>
             <ListItemText primary={item.text} />
-          </ListItem>
+          </ListItemButton> 
         ))}
       </List>
     </Box>
@@ -248,7 +250,11 @@ function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/upload" element={<UploadPage />} />
                   <Route path="/visualization" element={<VisualizationPage />} />
+                  {/* Add route for profile-specific visualization */}
+                  <Route path="/visualization/:fileId" element={<VisualizationPage />} /> 
                   <Route path="/profiles" element={<ProfileManagement />} />
+                  {/* Add route for biomarker history */}
+                  <Route path="/profile/:profileId/history" element={<BiomarkerHistoryPage />} /> 
                   <Route path="*" element={
                     <Box sx={{ textAlign: 'center', mt: 4 }}>
                       <Typography variant="h4">Page Not Found</Typography>
@@ -302,4 +308,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;
