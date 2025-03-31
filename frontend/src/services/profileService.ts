@@ -20,12 +20,19 @@ export const getProfiles = async (
   limit: number = 10
 ): Promise<ProfileListResponse> => {
   const skip = (page - 1) * limit;
-  const params = { skip, limit, search };
+  // Use axios params config for cleaner query string generation
+  const config = {
+    params: {
+      skip: skip,
+      limit: limit,
+      // Only include search param if it's provided and not empty
+      ...(search && { search: search }) 
+    }
+  };
   
   try {
-    const response = await axios.get(
-      `${API_URL}/?skip=${(page-1)*limit}&limit=${limit}&search=${search}`
-    );
+    // Pass the config object to axios.get
+    const response = await axios.get(API_URL, config); 
     return response.data;
   } catch (error) {
     console.error('Error fetching profiles:', error);
@@ -142,4 +149,4 @@ export const createProfileFromPdf = async (pdfId: string, metadata: ProfileMetad
     console.error(`Error creating profile from PDF ${pdfId}:`, error);
     throw error;
   }
-}; 
+};
