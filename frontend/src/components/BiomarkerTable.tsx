@@ -53,6 +53,7 @@ interface BiomarkerTableProps {
   onRefresh?: () => void;
   onViewHistory?: (biomarker: Biomarker) => void;
   onExplainWithAI?: (biomarker: Biomarker) => void;
+  showSource?: boolean; // Show source PDF information
 }
 
 // Interface for the column definition
@@ -73,6 +74,10 @@ const columns: Column[] = [
   { id: 'referenceRange', label: 'Reference Range', minWidth: 120, align: 'center' },
   { id: 'status', label: 'Status', minWidth: 100, align: 'center' },
   { id: 'category', label: 'Category', minWidth: 120, align: 'center', sortable: true },
+  { id: 'reportDate', label: 'Report Date', minWidth: 120, align: 'center', 
+    format: (value: string) => value ? new Date(value).toLocaleDateString() : 'N/A',
+    sortable: true 
+  },
   { id: 'actions', label: 'Actions', minWidth: 150, align: 'center' },
 ];
 
@@ -166,9 +171,32 @@ const BiomarkerRow: React.FC<{
   biomarker: Biomarker;
   onViewHistory?: (biomarker: Biomarker) => void;
   onExplainWithAI?: (biomarker: Biomarker) => void;
-}> = ({ biomarker, onViewHistory, onExplainWithAI }) => {
+  showSource?: boolean;
+}> = ({ biomarker, onViewHistory, onExplainWithAI, showSource = false }) => {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
+  
+  // Format date string helper
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString();
+  };
+  
+  // Get source display name
+  const getSourceDisplayName = () => {
+    if (!biomarker.fileId) return 'Unknown';
+    
+    if (biomarker.fileName) {
+      // If we have a filename, use that (truncated if needed)
+      return biomarker.fileName.length > 15 
+        ? `${biomarker.fileName.substring(0, 12)}...` 
+        : biomarker.fileName;
+    }
+    
+    // Otherwise use a truncated file ID
+    return `Report ${biomarker.fileId.substring(0, 6)}`;
+  };
   
   // Debug console logs
   useEffect(() => {
@@ -191,7 +219,13 @@ const BiomarkerRow: React.FC<{
             backgroundColor: theme.palette.mode === 'dark' 
               ? 'rgba(255, 255, 255, 0.08)' 
               : 'rgba(0, 0, 0, 0.04)'
-          }
+          },
+          // In history view, highlight rows from current file differently
+          ...(showSource && biomarker.fileId && {
+            backgroundColor: theme.palette.mode === 'dark' 
+              ? 'rgba(0, 100, 255, 0.05)' 
+              : 'rgba(0, 100, 255, 0.03)'
+          })
         }}
       >
         <TableCell>
@@ -227,6 +261,45 @@ const BiomarkerRow: React.FC<{
           />
         </TableCell>
         <TableCell align="center">
+          <Chip 
+            label={formatDate(biomarker.reportDate || biomarker.date)}
+            size="small"
+            color={showSource ? "secondary" : "default"}
+            variant={showSource ? "filled" : "outlined"}
+            sx={{ 
+              fontWeight: showSource ? 'medium' : 'normal',
+            }}
+          />
+        </TableCell>
+        {showSource && (
+          <TableCell align="center">
+            {biomarker.fileId ? (
+              <Tooltip title={`View source report: ${biomarker.fileName || biomarker.fileId}`}>
+                <Chip
+                  size="small"
+                  label={getSourceDisplayName()}
+                  color="primary"
+                  variant="outlined"
+                  onClick={() => {
+                    if (biomarker.fileId) {
+                      window.open(`/pdf/${biomarker.fileId}`, '_blank');
+                    }
+                  }}
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: theme.palette.primary.light,
+                      color: theme.palette.common.white
+                    }
+                  }}
+                />
+              </Tooltip>
+            ) : (
+              'Unknown'
+            )}
+          </TableCell>
+        )}
+        <TableCell align="center">
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'nowrap' }}>
             {onViewHistory && (
               <Tooltip title="View History">
@@ -243,46 +316,26 @@ const BiomarkerRow: React.FC<{
                 </IconButton>
               </Tooltip>
             )}
-            <Button
-              onClick={(e) => {
-                e.preventDefault(); // Prevent default behavior
-                console.log('Explain button clicked for biomarker:', biomarker);
-                console.log('onExplainWithAI is:', onExplainWithAI);
-                console.log('onExplainWithAI type:', typeof onExplainWithAI);
-                
-                if (onExplainWithAI) {
-                  console.log('Calling onExplainWithAI handler...');
-                  try {
-                    onExplainWithAI(biomarker);
-                    console.log('onExplainWithAI handler called successfully');
-                  } catch (error) {
-                    console.error('Error calling onExplainWithAI handler:', error);
-                  }
-                } else {
-                  console.warn('onExplainWithAI handler is not defined');
-                }
-              }}
-              startIcon={<PsychologyIcon />}
-              variant="contained"
-              size="small"
-              sx={{
-                backgroundColor: theme.palette.primary.main,
-                color: '#fff',
-                whiteSpace: 'nowrap',
-                minWidth: 'auto',
-                px: 1,
-                '&:hover': {
-                  backgroundColor: theme.palette.primary.dark,
-                }
-              }}
-            >
-              Explain
-            </Button>
+            {onExplainWithAI && (
+              <Tooltip title="Explain with AI">
+                <IconButton 
+                  onClick={() => onExplainWithAI(biomarker)}
+                  size="small"
+                  sx={{ 
+                    color: theme.palette.mode === 'dark' 
+                      ? theme.palette.secondary.light
+                      : theme.palette.secondary.main
+                  }}
+                >
+                  <PsychologyIcon />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
+        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={showSource ? 10 : 9}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 2 }}>
               <Typography variant="h6" gutterBottom component="div">
@@ -295,49 +348,18 @@ const BiomarkerRow: React.FC<{
                   <strong>Reference Range:</strong> {biomarker.referenceRange || 'Not available'}<br />
                   <strong>Category:</strong> {biomarker.category || 'Uncategorized'}<br />
                   {biomarker.date && (
-                    <><strong>Measurement Date:</strong> {new Date(biomarker.date).toLocaleDateString()}<br /></>
+                    <><strong>Measurement Date:</strong> {formatDate(biomarker.date)}<br /></>
+                  )}
+                  {biomarker.reportDate && (
+                    <><strong>Report Date:</strong> {formatDate(biomarker.reportDate)}<br /></>
+                  )}
+                  {showSource && biomarker.fileId && (
+                    <><strong>Source File:</strong> {biomarker.fileName || biomarker.fileId}<br /></>
+                  )}
+                  {biomarker.profileId && (
+                    <><strong>Profile ID:</strong> {biomarker.profileId}<br /></>
                   )}
                 </Typography>
-                
-                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                  {onViewHistory && (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<TimelineIcon />}
-                      onClick={() => onViewHistory(biomarker)}
-                    >
-                      View History
-                    </Button>
-                  )}
-                  
-                  <Button
-                    variant="contained"
-                    size="medium"
-                    color="primary"
-                    startIcon={<PsychologyIcon />}
-                    onClick={(e) => {
-                      e.preventDefault(); // Prevent default behavior
-                      console.log('Expanded Explain button clicked for biomarker:', biomarker);
-                      console.log('onExplainWithAI is:', onExplainWithAI);
-                      console.log('onExplainWithAI type:', typeof onExplainWithAI);
-                      
-                      if (onExplainWithAI) {
-                        console.log('Calling onExplainWithAI handler from expanded view...');
-                        try {
-                          onExplainWithAI(biomarker);
-                          console.log('onExplainWithAI handler called successfully from expanded view');
-                        } catch (error) {
-                          console.error('Error calling onExplainWithAI handler from expanded view:', error);
-                        }
-                      } else {
-                        console.warn('onExplainWithAI handler is not defined');
-                      }
-                    }}
-                  >
-                    Explain with AI
-                  </Button>
-                </Box>
               </Box>
             </Box>
           </Collapse>
@@ -355,7 +377,8 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   error = null,
   onRefresh,
   onViewHistory,
-  onExplainWithAI
+  onExplainWithAI,
+  showSource = false
 }) => {
   const [filteredBiomarkers, setFilteredBiomarkers] = useState<Biomarker[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -363,6 +386,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const theme = useTheme();
   
   // Debug console logs
   console.log('BiomarkerTable: Props received', { 
@@ -371,7 +395,8 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
     error,
     hasOnRefresh: !!onRefresh,
     hasOnViewHistory: !!onViewHistory,
-    hasOnExplainWithAI: !!onExplainWithAI
+    hasOnExplainWithAI: !!onExplainWithAI,
+    showSource
   });
   
   // Set up effect to log when component mounts and unmounts
@@ -440,6 +465,37 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
+  
+  // Table column definitions
+  const getColumns = (): Column[] => {
+    const baseColumns: Column[] = [
+      { id: 'name', label: 'Biomarker', minWidth: 150, sortable: true },
+      { id: 'value', label: 'Value', minWidth: 80, align: 'right', sortable: true },
+      { id: 'unit', label: 'Unit', minWidth: 60, align: 'center', sortable: true },
+      { id: 'referenceRange', label: 'Reference Range', minWidth: 120, align: 'center', sortable: false },
+      { id: 'status', label: 'Status', minWidth: 100, align: 'center', sortable: true },
+      { id: 'category', label: 'Category', minWidth: 120, align: 'center', sortable: true },
+    ];
+    
+    // In history view, make date column more prominent and add source
+    if (showSource) {
+      baseColumns.push(
+        { id: 'reportDate', label: 'Test Date', minWidth: 120, align: 'center', sortable: true },
+        { id: 'fileId', label: 'Source Report', minWidth: 140, align: 'center', sortable: false }
+      );
+    } else {
+      baseColumns.push(
+        { id: 'reportDate', label: 'Date', minWidth: 100, align: 'center', sortable: true }
+      );
+    }
+    
+    // Add actions column
+    baseColumns.push({ id: 'actions', label: 'Actions', minWidth: 100, align: 'center', sortable: false });
+    
+    return baseColumns;
+  };
+
+  const columns = getColumns();
   
   // Empty state when no biomarkers
   if (biomarkers.length === 0 && !isLoading && !error) {
@@ -528,6 +584,16 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
         </Box>
       </Box>
       
+      {/* Help text for history view */}
+      {showSource && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Showing biomarkers from all lab reports associated with this profile. 
+            <strong> Click on the source chip to view the original report.</strong>
+          </Typography>
+        </Box>
+      )}
+      
       {/* Table */}
       <TableContainer sx={{ maxHeight: 600 }}>
         <Table stickyHeader aria-label="biomarker table">
@@ -612,6 +678,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
                     biomarker={biomarker} 
                     onViewHistory={onViewHistory}
                     onExplainWithAI={onExplainWithAI}
+                    showSource={showSource}
                   />
                 ))
             )}

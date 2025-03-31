@@ -162,7 +162,7 @@ def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[
     processed_text = _preprocess_text_for_claude(text)
     logger.debug(f"[TEXT_PREPROCESSING] Preprocessed text from {len(text)} to {len(processed_text)} characters")
     
-    # Prepare the prompt for Claude
+    # Prepare the prompt for Claude - using string concatenation to avoid % formatting issues
     prompt = """
 Extract ONLY legitimate clinical biomarkers from this medical lab report. Focus exclusively on measurements that have numeric values and units.
 
@@ -183,9 +183,9 @@ For each biomarker, provide:
 CRITICAL: DO NOT extract page numbers, headers, footers, patient info, dates, IDs, URLs, or explanatory text.
 
 Return valid JSON matching exactly this structure:
-{{
+{
   "biomarkers": [
-    {{
+    {
       "name": "Glucose",
       "original_name": "Glucose, Fasting",
       "value": 95,
@@ -198,16 +198,15 @@ Return valid JSON matching exactly this structure:
       "category": "Metabolic",
       "is_abnormal": false,
       "confidence": 0.98
-    }},
-    ...
+    }
   ],
-  "metadata": {{
-    "lab_name": "LabCorp",
-    "report_date": "2022-04-15",
-    "provider": "Dr. Smith",
-    "patient_name": "REDACTED"
-  }}
-}}
+  "metadata": {
+    "lab_name": "Unknown",
+    "report_date": "Unknown"
+  }
+}
+
+Your response MUST be COMPLETE, VALID JSON with no truncation.
 
 Lab report text:
 """ + processed_text
@@ -227,14 +226,14 @@ Lab report text:
         client = anthropic.Anthropic(api_key=api_key)
         
         # Use the timeout wrapper for the API call
-        @with_timeout(timeout_seconds=600, default_return=None)  # 60 second timeout
+        @with_timeout(timeout_seconds=600, default_return=None)  # 10 minute timeout
         def call_claude_api():
             # Make the API call with max tokens and timeout
             response = client.messages.create(
                 model="claude-3-sonnet-20240229",
-                max_tokens=3000,
+                max_tokens=4000,  # Increased from 2000/4000 to handle larger responses
                 temperature=0.0,
-                system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Avoid patient info, headers, footers, and page numbers.",
+                system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Your output MUST be COMPLETE, VALID JSON.",
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
@@ -258,6 +257,15 @@ Lab report text:
         # Get the response content
         response_content = response.content[0].text
         
+        # Save the raw response for debugging
+        debug_raw_response_path = os.path.join(log_dir, f"claude_response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        try:
+            with open(debug_raw_response_path, "w") as f:
+                f.write(response_content)
+            logger.debug(f"[RAW_RESPONSE_SAVED] Raw Claude response saved to {debug_raw_response_path}")
+        except Exception as e:
+            logger.error(f"[RAW_RESPONSE_SAVE_ERROR] Could not save raw response: {str(e)}")
+        
         # Try to parse the JSON response
         try:
             # Extract the JSON part from the response using regex
@@ -268,8 +276,26 @@ Lab report text:
                 json_str = json_match.group(1)
                 logger.debug(f"[JSON_EXTRACTION] Extracted JSON string from Claude response: {len(json_str)} characters")
                 
+                # Save the raw JSON for debugging
+                debug_raw_json_path = os.path.join(log_dir, f"raw_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                try:
+                    with open(debug_raw_json_path, "w") as f:
+                        f.write(json_str)
+                    logger.debug(f"[RAW_JSON_SAVED] Raw JSON saved to {debug_raw_json_path}")
+                except Exception as e:
+                    logger.error(f"[RAW_JSON_SAVE_ERROR] Could not save raw JSON: {str(e)}")
+                
+                # Check if JSON is truncated and fix it
+                fixed_json_str = _fix_truncated_json(json_str)
+                
                 # Parse the JSON
-                parsed_response = json.loads(json_str)
+                try:
+                    parsed_response = json.loads(fixed_json_str)
+                except json.JSONDecodeError as decode_error:
+                    # Try to repair the JSON
+                    logger.warning(f"[JSON_DECODE_ERROR] Could not parse fixed JSON: {str(decode_error)}")
+                    repaired_json = _repair_json(fixed_json_str)
+                    parsed_response = json.loads(repaired_json)
                 
                 biomarkers = parsed_response.get("biomarkers", [])
                 metadata = parsed_response.get("metadata", {})
@@ -336,9 +362,9 @@ Lab report text:
         except json.JSONDecodeError as json_error:
             debug_json_path = os.path.join(log_dir, f"invalid_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
             with open(debug_json_path, "w") as f:
-                f.write(json_str)
+                f.write(json_str if 'json_str' in locals() else response_content)
             logger.error(f"[JSON_PARSING_ERROR] Could not parse Claude API response as JSON: {str(json_error)}")
-            logger.debug(f"[CLAUDE_RESPONSE] Raw response: {response_content[:50]}...")
+            logger.debug(f"[CLAUDE_RESPONSE] Raw response: {response_content[:100]}...")
             
             # Fall back to text-based parser
             logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to JSON parsing error")
@@ -353,6 +379,73 @@ Lab report text:
         fallback_results = parse_biomarkers_from_text(text)
         logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
         return fallback_results, {}
+
+def _fix_truncated_json(json_str: str) -> str:
+    """
+    Fix truncated JSON strings by detecting incomplete structures and closing them.
+    
+    Args:
+        json_str: Potentially truncated JSON string
+        
+    Returns:
+        Fixed JSON string with proper structure
+    """
+    logger.debug(f"[JSON_TRUNCATION_CHECK] Checking if JSON is truncated, length: {len(json_str)}")
+    
+    # Count opening and closing brackets
+    open_braces = json_str.count('{')
+    close_braces = json_str.count('}')
+    open_brackets = json_str.count('[')
+    close_brackets = json_str.count(']')
+    
+    # If truncated, fix it
+    if open_braces > close_braces or open_brackets > close_brackets:
+        logger.warning(f"[JSON_TRUNCATED] Detected truncated JSON: {open_braces} open braces vs {close_braces} close braces, {open_brackets} open brackets vs {close_brackets} close brackets")
+        
+        # Extract complete biomarkers from truncated JSON
+        biomarker_pattern = r'{\s*"name"\s*:.*?"confidence"\s*:\s*[\d\.]+\s*}'
+        biomarkers = re.findall(biomarker_pattern, json_str, re.DOTALL)
+        
+        # If no complete biomarkers found with the strict pattern, try a more lenient one
+        if not biomarkers:
+            logger.warning("[JSON_RECOVERY_ATTEMPT] No complete biomarkers found with strict pattern, trying lenient pattern")
+            biomarker_pattern = r'{\s*"name"\s*:.*?}'
+            biomarkers = re.findall(biomarker_pattern, json_str, re.DOTALL)
+            
+            # Filter to only include biomarkers that are valid JSON
+            valid_biomarkers = []
+            for bm in biomarkers:
+                try:
+                    json.loads(bm)
+                    valid_biomarkers.append(bm)
+                except json.JSONDecodeError:
+                    continue
+            
+            biomarkers = valid_biomarkers
+        
+        # If we have complete biomarkers, rebuild the JSON
+        if biomarkers:
+            logger.info(f"[JSON_RECOVERY] Found {len(biomarkers)} complete biomarkers in truncated response")
+            
+            # Rebuild a complete JSON structure
+            fixed_json = '{"biomarkers": ['
+            for i, bm in enumerate(biomarkers):
+                if i > 0:
+                    fixed_json += ','
+                fixed_json += bm
+            fixed_json += '], "metadata": {}}'
+            
+            # Verify the fixed JSON is valid
+            try:
+                json.loads(fixed_json)
+                logger.info(f"[JSON_FIXED] Successfully reconstructed JSON with {len(biomarkers)} biomarkers")
+                return fixed_json
+            except json.JSONDecodeError as e:
+                logger.error(f"[JSON_FIX_FAILED] Fixed JSON is still invalid: {str(e)}")
+        else:
+            logger.warning("[JSON_RECOVERY_FAILED] Could not find complete biomarkers in truncated JSON")
+    
+    return json_str
 
 def validate_biomarker_with_claude(biomarker: Dict[str, Any]) -> float:
     """
@@ -1032,21 +1125,21 @@ def _repair_json(json_str: str) -> str:
     # Fix missing commas between properties
     json_str = re.sub(r'(true|false|null|"[^"]*"|\d+|\}|\])\s*("[\w\s]+"\s*:)', r'\1, \2', json_str)
     
-    # Add closing brackets if needed (more advanced - count opening and closing brackets)
+    # Add closing brackets if needed (improved stack-based approach)
     def balance_brackets(text):
-        opening_curly = text.count('{')
-        closing_curly = text.count('}')
-        opening_square = text.count('[')
-        closing_square = text.count(']')
-        
-        # If imbalanced, try to fix
-        if opening_curly > closing_curly:
-            text += '}' * (opening_curly - closing_curly)
-            logger.warning(f"[BRACKET_REPAIR] Added {opening_curly - closing_curly} missing closing curly braces")
-        if opening_square > closing_square:
-            text += ']' * (opening_square - closing_square)
-            logger.warning(f"[BRACKET_REPAIR] Added {opening_square - closing_square} missing closing square brackets")
-        
+        stack = []
+        for char in text:
+            if char == '{':
+                stack.append('}')
+            elif char == '[':
+                stack.append(']')
+            elif char in '}]' and stack and stack[-1] == char:
+                stack.pop()
+        # Add missing closing brackets in the correct order
+        while stack:
+            closing_bracket = stack.pop()
+            text += closing_bracket
+            logger.warning(f"[BRACKET_REPAIR] Added missing {closing_bracket} to balance structure")
         return text
     
     json_str = balance_brackets(json_str)
@@ -1126,19 +1219,29 @@ def _repair_json(json_str: str) -> str:
             try:
                 # Find all the biomarkers that parse correctly
                 biomarker_pattern = r'{\s*"name"\s*:\s*"[^"]+".+?}(?=\s*,|\s*\])'
-                biomarkers = re.findall(biomarker_pattern, json_str, re.DOTALL)
+                potential_biomarkers = re.findall(biomarker_pattern, json_str, re.DOTALL)
+                valid_biomarkers = []
                 
-                if biomarkers:
-                    # Reconstruct the JSON with only valid biomarkers
-                    minimal_json = '{"biomarkers": [' + ','.join(biomarkers) + '], "metadata": {}}'
-                    
+                # Validate each biomarker object individually
+                for bm in potential_biomarkers:
                     try:
-                        # Validate the minimal JSON
-                        json.loads(minimal_json)
-                        logger.info("[JSON_MINIMAL_RECONSTRUCTION] Successfully created minimal valid JSON structure")
-                        return minimal_json
+                        json.loads(bm)
+                        valid_biomarkers.append(bm)
                     except json.JSONDecodeError:
-                        logger.warning("[JSON_MINIMAL_RECONSTRUCTION_FAILED] Minimal reconstruction still invalid")
+                        logger.debug(f"[BIOMARKER_INVALID] Skipping invalid biomarker: {bm[:50]}...")
+                
+                if valid_biomarkers:
+                    # Reconstruct the JSON with only valid biomarkers
+                    minimal_json = '{"biomarkers": [' + ','.join(valid_biomarkers) + '], "metadata": {}}'
+                    logger.info(f"[JSON_RECONSTRUCTION] Reconstructed JSON with {len(valid_biomarkers)} valid biomarkers out of {len(potential_biomarkers)} potential")
+                    
+                    # Validate the reconstructed JSON
+                    json.loads(minimal_json)
+                    logger.info("[JSON_MINIMAL_RECONSTRUCTION] Successfully created minimal valid JSON structure")
+                    return minimal_json
+                else:
+                    logger.warning("[JSON_RECONSTRUCTION] No valid biomarkers found")
+            
             except Exception as rec_error:
                 logger.error(f"[JSON_RECONSTRUCTION_ERROR] Error during minimal reconstruction: {str(rec_error)}")
             
@@ -1161,7 +1264,7 @@ def _repair_json(json_str: str) -> str:
     except Exception as save_error:
         logger.error(f"[SAVE_ERROR] Could not save repaired JSON: {str(save_error)}")
     
-    return json_str 
+    return json_str
 
 def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
