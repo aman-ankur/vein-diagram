@@ -17,6 +17,7 @@ This project exists to transform these static, often confusing documents into dy
 - **Manual Data Entry**: Eliminates tedious and error-prone manual entry of biomarker values.
 - **Trend Blindness**: Reveals patterns and trends **specific to each profile** that would be invisible when looking at individual test results.
 - **Context Deficit**: Provides research-backed explanations about what biomarker values actually mean.
+- **Information Overload**: Offers a summarized **Health Score** to provide an at-a-glance understanding of overall wellness based on key biomarkers.
 - **Personalized Focus**: Allows users to **mark favorite biomarkers** for quick access and monitoring per profile.
 
 ### For Biohackers
@@ -40,8 +41,9 @@ This project exists to transform these static, often confusing documents into dy
 4. **Visualization**: Data is transformed into intuitive visualizations showing trends over time **for the active profile**.
 5. **Favorite Tracking**: User marks key biomarkers as favorites **per profile**.
 6. **Relationship Mapping**: Connections between related biomarkers are displayed.
-7. **Contextual Insights**: AI-powered explanations provide meaning and context for the data.
-8. **Continued Use**: As users upload more test results to profiles, the system builds comprehensive health pictures for each individual.
+7. **Health Score**: System calculates and displays an overall health score based on the profile's latest biomarker data against optimal ranges.
+8. **Contextual Insights**: AI-powered explanations provide meaning and context for the data.
+9. **Continued Use**: As users upload more test results to profiles, the system builds comprehensive health pictures for each individual, including score trends.
 
 ### Key Functionality
 - PDF parsing with high accuracy across different lab formats.
@@ -49,6 +51,7 @@ This project exists to transform these static, often confusing documents into dy
 - Time-series visualization of biomarker trends **per profile**.
 - **Favorite biomarker tracking** for personalized monitoring.
 - Relationship mapping between correlated biomarkers.
+- **Health Score calculation** providing a quick summary of wellness.
 - AI-generated insights about biomarker meanings and relationships.
 - User-friendly interface that makes complex health data accessible and personalized.
 
@@ -63,6 +66,7 @@ This project exists to transform these static, often confusing documents into dy
 - Visualizations that reveal patterns not obvious from raw numbers
 - Contextual information that helps users understand what their results mean
 - Relationship maps that show how different aspects of health connect
+- **Health Score** that provides a simple, understandable summary metric
 
 ### Empowerment
 - Knowledge presented in a way that enables informed health decisions **for each profile**.

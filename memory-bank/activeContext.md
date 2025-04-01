@@ -10,6 +10,7 @@ The project is advancing with a focus on integrating user personalization featur
 4.  **Claude API Insights**: Continuing development of AI-generated explanations for biomarkers.
 5.  **Visualization Enhancements**: Completing relationship mapping and improving interactivity.
 6.  **UI/UX Refinement**: Improving overall usability, especially around new personalization features.
+7.  **Health Score Feature**: Initial implementation of backend logic and frontend components for calculating and displaying a health score based on biomarker data.
 
 ## Recent Changes
 
@@ -36,6 +37,12 @@ Significant recent developments include:
 4.  **Backend & Testing Improvements**:
     *   Refactored relevant backend services to accommodate profile context.
     *   Expanded test coverage to include profile and favorite interactions.
+
+4.  **Health Score Initial Implementation**:
+    *   Added backend API endpoint (`/api/health-score/{profile_id}`) and calculation logic (likely in `health_score_service.py` - *needs verification*).
+    *   Created backend schema (`health_score_schema.py`).
+    *   Developed frontend components (`HealthScoreOverview.tsx`, `ScoreDisplay.tsx`, `ScoreExplanation.tsx`, `InfluencingFactors.tsx`, `TrendIndicator.tsx`).
+    *   Added frontend service (`healthScoreService.ts`) and types (`healthScore.ts`).
 
 ## Next Steps
 
@@ -69,6 +76,13 @@ The immediate priorities are:
     *   Conduct end-to-end testing of user flows involving profile switching, PDF uploads per profile, and favorite management.
     *   Perform usability testing focusing on the new personalization features.
     *   Validate accuracy of data display when switching between profiles.
+7.  **Integrate Health Score**:
+    *   Fetch and display the health score in relevant UI sections (e.g., Dashboard, Visualization Page).
+    *   Ensure score calculation considers the active profile.
+    *   Refine the calculation logic and influencing factors display based on feedback.
+8.  **Add Health Score Tests**:
+    *   Write backend tests for the calculation logic and API endpoint.
+    *   Write frontend tests for the new Health Score components.
 
 ## Active Decisions and Considerations
 
@@ -91,6 +105,12 @@ The immediate priorities are:
     *   **Consideration**: Still evaluating the best fit for relationship mapping complexity vs. ease of integration.
     *   **Status**: Proceeding with D3 for complex views, may use others for simpler ones.
 
+4.  **Health Score Calculation Logic**:
+    *   **Current Approach**: Likely a weighted average or rule-based system using `optimal_ranges.json`.
+    *   **Consideration**: Refining the weighting, factors included, and explanation generation. How to handle missing data? How to show trends?
+    *   **Trade-offs**: Simplicity vs. clinical accuracy/nuance.
+    *   **Status**: Initial implementation done, needs refinement and testing.
+
 ### UX Considerations
 
 1.  **Profile Switching Clarity**:
@@ -107,6 +127,11 @@ The immediate priorities are:
     *   **Challenge**: Introducing users to profile management and favorites without overwhelming them.
     *   **Approach**: Contextual hints or a brief guided tour upon first encountering the features.
     *   **Status**: Planning phase.
+
+4.  **Health Score Presentation**:
+    *   **Challenge**: Displaying the score and its components clearly without being overly simplistic or complex.
+    *   **Approach**: Dedicated components for score, explanation, factors, and trends.
+    *   **Status**: Components created, integration and refinement needed.
 
 ### Current Blockers
 
@@ -125,4 +150,10 @@ The immediate priorities are:
 3.  **Claude API Rate Limits/Costs**: (Ongoing)
     *   **Issue**: Potential bottleneck, especially if insights generation becomes heavy.
     *   **Mitigation**: Caching, prompt optimization, monitoring usage.
+    *   **Status**: Monitoring.
+
+4.  **Health Score Calculation Performance**:
+    *   **Issue**: Calculation might become slow if many biomarkers or complex logic is involved.
+    *   **Impact**: Could slow down page loads where the score is displayed.
+    *   **Mitigation**: Optimize calculation logic, consider caching scores, potentially calculate asynchronously.
     *   **Status**: Monitoring.

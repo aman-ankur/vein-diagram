@@ -21,13 +21,14 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 -   **`main.tsx`**: Entry point of the application, renders the root `App` component.
 -   **`App.tsx`**: Root component, likely sets up routing and global layout/context providers.
 -   **`components/`**: Contains reusable UI components used across different pages.
-    -   Examples: `Header.tsx`, `Footer.tsx`, `Layout.tsx`, `PDFUploader.tsx`, `BiomarkerTable.tsx`, `BiomarkerVisualization.tsx`, `FavoriteBiomarkersGrid.tsx`, `ProfileSelector.tsx`, `LoadingIndicator.tsx`, `ErrorHandler.tsx`.
+    -   Examples: `Header.tsx`, `Footer.tsx`, `Layout.tsx`, `PDFUploader.tsx`, `BiomarkerTable.tsx`, `BiomarkerVisualization.tsx`, `FavoriteBiomarkersGrid.tsx`, `ProfileSelector.tsx`, `LoadingIndicator.tsx`, `ErrorHandler.tsx`, **`HealthScoreOverview.tsx`**, **`ScoreDisplay.tsx`**, **`ScoreExplanation.tsx`**, **`InfluencingFactors.tsx`**, **`TrendIndicator.tsx`**.
 -   **`pages/`**: Contains top-level components representing distinct application views/routes.
-    -   Examples: `HomePage.tsx`, `UploadPage.tsx`, `VisualizationPage.tsx`, `BiomarkerHistoryPage.tsx`, `ProfileManagement.tsx`.
+    -   Examples: `HomePage.tsx`, `UploadPage.tsx`, `VisualizationPage.tsx`, `BiomarkerHistoryPage.tsx`, `ProfileManagement.tsx`. *(Note: Health Score might be displayed within these pages, e.g., VisualizationPage)*.
 -   **`services/`**: Handles communication with the backend API.
     -   `api.ts`: Base Axios instance configuration (sets base URL, potentially headers).
     *   `pdfService.ts`: Functions for uploading PDFs, checking status.
     *   `profileService.ts`: Functions for CRUD operations on profiles, matching, association.
+    *   **`healthScoreService.ts`**: Functions for fetching the calculated health score.
     *   *(Note: Biomarker fetching/explanation service might be missing or integrated elsewhere)*.
 -   **`contexts/`**: Provides global state management using React Context API.
     -   `ProfileContext.tsx`: Manages the currently active user profile and provides it to consuming components.
@@ -35,7 +36,7 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 -   **`utils/`**: Contains utility functions used across the application.
     -   `biomarkerUtils.ts`: Helper functions related to biomarker data manipulation or display.
     *   `favoritesUtils.ts`: Helper functions for managing favorite biomarkers logic.
--   **`types/`**: TypeScript type definitions and interfaces (e.g., for API responses, data models like `Profile`, `Biomarker`, `PDF`).
+-   **`types/`**: TypeScript type definitions and interfaces (e.g., for API responses, data models like `Profile`, `Biomarker`, `PDF`, **`HealthScore`**).
 -   **`assets/`**: Static assets like images, fonts, or JSON data (`facts.json`).
 -   **`styles/`**: Global styles or base Tailwind configuration.
 -   **`config.ts`**: Application configuration, likely includes the backend API base URL.

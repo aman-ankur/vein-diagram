@@ -44,12 +44,12 @@
 vein-diagram/
 ├── frontend/           # React frontend application
 │   ├── src/
-│   │   ├── components/ # UI Components (incl. Profile/Favorite related: FavoriteBiomarkersGrid, BiomarkerTile, AddFavoriteModal)
+│   │   ├── components/ # UI Components (incl. Profile/Favorite/HealthScore related: FavoriteBiomarkersGrid, HealthScoreOverview, ScoreDisplay, etc.)
 │   │   ├── pages/      # Page Components (ProfileManagement, VisualizationPage, BiomarkerHistoryPage)
-│   │   ├── services/   # API Services (profileService.ts, biomarkerService.ts)
+│   │   ├── services/   # API Services (profileService.ts, healthScoreService.ts, etc.)
 │   │   ├── utils/      # Utility functions (favoritesUtils.ts, biomarkerUtils.ts)
 │   │   ├── contexts/   # React Contexts (e.g., for Profile state)
-│   │   └── types/      # TypeScript types (Profile, Favorite, Biomarker, etc.)
+│   │   └── types/      # TypeScript types (Profile, Favorite, Biomarker, HealthScore, etc.)
 │   ├── public/
 │   ├── package.json
 │   └── vite.config.ts
@@ -57,13 +57,14 @@ vein-diagram/
 ├── backend/            # FastAPI backend application
 │   ├── app/
 │   │   ├── api/
-│   │   │   └── routes/ # API Routes (biomarker_routes.py, profile_routes.py, pdf_routes.py)
+│   │   │   └── routes/ # API Routes (biomarker_routes.py, profile_routes.py, pdf_routes.py, health_score_routes.py)
 │   │   ├── models/     # DB Models (biomarker_model.py, profile_model.py, pdf_model.py)
-│   │   ├── schemas/    # Pydantic Schemas (biomarker_schema.py, profile_schema.py, pdf_schema.py)
-│   │   └── services/   # Business Logic (pdf_service.py, llm_service.py, biomarker_parser.py, profile_matcher.py)
-│   ├── tests/          # Test suite (incl. tests for profiles/favorites)
-│   │   ├── api/        # API route tests (test_profile_routes.py, test_biomarker_routes.py)
-│   │   └── services/   # Service layer tests
+│   │   ├── schemas/    # Pydantic Schemas (biomarker_schema.py, profile_schema.py, pdf_schema.py, health_score_schema.py)
+│   │   ├── services/   # Business Logic (pdf_service.py, llm_service.py, biomarker_parser.py, profile_matcher.py, health_score_service.py - implicit)
+│   │   └── config/     # Configuration files (optimal_ranges.json)
+│   ├── tests/          # Test suite (incl. tests for profiles/favorites/health_score)
+│   │   ├── api/        # API route tests (test_profile_routes.py, test_biomarker_routes.py, test_health_score_routes.py - potential)
+│   │   └── services/   # Service layer tests (test_health_score_service.py - potential)
 │   └── requirements.txt # Python dependencies
 │
 ├── memory-bank/        # Project documentation & context
@@ -160,7 +161,7 @@ python-multipart==0.0.x
 - RESTful API endpoints defined in FastAPI (`/api/...`).
 - JSON data format for request/response payloads.
 - Type-safe contracts using TypeScript interfaces (frontend) and Pydantic models (backend).
-- Key endpoints for Profiles (`/api/profiles/...`), Favorites (`/api/profiles/{profile_id}/favorites/...`), Biomarkers (`/api/profiles/{profile_id}/biomarkers/...`), PDFs (`/api/pdfs/...`).
+- Key endpoints for Profiles (`/api/profiles/...`), Favorites (`/api/profiles/{profile_id}/favorites/...`), Biomarkers (`/api/profiles/{profile_id}/biomarkers/...`), PDFs (`/api/pdfs/...`), Health Score (`/api/health-score/{profile_id}`).
 
 ### External API Integration
 - **Claude API**: Via `llm_service.py` using `httpx` to send prompts and receive text for extraction and insights. Requires API key management.
