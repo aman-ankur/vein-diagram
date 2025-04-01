@@ -18,7 +18,7 @@
 - Frontend tests are named with `.test.tsx` suffix and often co-located or in specific test folders.
 - Utility functions are grouped by purpose (`frontend/src/utils/`).
 - API services are grouped (`frontend/src/services/`).
-- Configuration files (like `optimal_ranges.json`) are stored in `backend/app/config/`.
+- Configuration files (like `optimal_ranges.json`, `biomarker_aliases.json`) are stored in `backend/app/config/` or `backend/app/utils/`.
 
 ### Code Style
 - TypeScript is used for all frontend code
@@ -31,8 +31,8 @@
 ## Development Workflow
 
 ### Local Development
-- Backend server runs on port 8000 by default
-- Frontend development server runs on port 3000
+- Backend server runs on port 8000 by default (`uvicorn app.main:app --reload`).
+- Frontend development server runs on port 3000 (`npm run dev`).
 - Frontend proxies API requests (`/api`) to the backend during development (likely configured in `vite.config.ts`).
 - Python virtual environment (`backend/vein-d/`) is used for backend dependencies (`requirements.txt`).
 
@@ -41,19 +41,25 @@
 - Integration tests for API endpoints (`pytest` with test client) and data flow.
 - Specific tests exist for Profile and Favorite features (`test_profile_routes.py`, `ProfileManagement.test.tsx`).
 - Sample PDF reports (`backend/sample_reports/`) are used for testing the extraction pipeline.
-- Jest (`npm test`) is used for frontend testing, pytest (`pytest` or `run_tests.sh`) for backend. Tests for Health Score feature need to be added.
+- Jest (`npm test`) is used for frontend testing.
+- Pytest (`PYTHONPATH=backend pytest backend/tests/...`) is used for backend testing. Requires setting `PYTHONPATH` to resolve `app` module imports. Tests for Health Score feature need to be added.
 
 ## Critical Implementation Paths
 
-### PDF Processing Pipeline
-1. PDF upload via frontend
-2. Storage in temporary location
-3. Text extraction using PyMuPDF/pdfplumber
-4. Biomarker identification using pattern matching
-5. Value and reference range extraction
-6. Association with the correct user profile
-7. Storage in database (PDF metadata, extracted biomarkers linked to profile)
-8. Response to frontend with processing status
+### PDF Processing Pipeline (Refactored)
+1. PDF upload via frontend (associating with a `profile_id`).
+2. Storage in temporary location (`uploads/`).
+3. Full text extraction from all pages (`pdf_service.extract_text_from_pdf`), returning `Dict[int, str]`. OCR fallback used if needed.
+4. Metadata extraction (`metadata_parser.extract_metadata_with_claude`) using text from *initial pages* only.
+5. Page filtering (`pdf_service.filter_relevant_pages`) based on relevance scoring (aliases, units, tables) using `biomarker_aliases.json`.
+6. Sequential biomarker extraction (`pdf_service.process_pages_sequentially`) for *filtered pages*:
+    - Calls `biomarker_parser.extract_biomarkers_with_claude` for each relevant page.
+    - Handles timeouts/errors per page, potentially falling back to regex parser (`parse_biomarkers_from_text`) for that page.
+    - Aggregates results.
+7. Biomarker de-duplication (based on name, keeping first occurrence).
+8. Biomarker standardization (`_process_biomarker`).
+9. Storage in database (`PDF` metadata, `Biomarker` records linked to PDF and Profile).
+10. Update PDF status (`processed` or `error`).
 
 ### Visualization Flow (with Profile & Favorites)
 1. User selects an active profile.
@@ -91,6 +97,7 @@
 - Some PDFs contain images that require OCR
 - Table structures vary significantly between providers
 - Reference ranges may be presented inconsistently
+- Page filtering based on relevance scoring is heuristic and may miss/include pages incorrectly.
 
 ### Biomarker Standardization
 - Same biomarker may have different names across labs
@@ -102,7 +109,7 @@
 - PDF processing is CPU-intensive (mitigated by background tasks).
 - Large datasets per profile impact visualization performance (mitigated by sampling, optimization).
 - Frequent profile switching might require frontend state/caching optimization.
-- Claude API calls need efficient management (caching insights).
+- Claude API calls need efficient management (caching insights, sequential processing helps avoid large timeouts but adds per-page latency).
 - Health Score calculation could be slow for profiles with extensive history (mitigated by optimization, caching).
 - Defining "optimal" ranges and score weighting requires careful consideration and may need user customization later.
 
@@ -125,9 +132,6 @@
 ## Evolution of Project Decisions
 
 ### Initial Approach vs. Current Direction
-- Started with general PDF extraction, moving toward lab-specific adapters
-- Initially planned simple visualizations, now focusing on interactive and insightful displays
-- Originally considered basic biomarker information, now incorporating Claude API for deeper insights
 - Started with general PDF extraction, moving toward lab-specific adapters/robust LLM prompts.
 - Initially planned simple visualizations, now focusing on interactive and insightful displays (D3.js).
 - Originally considered basic biomarker information, now incorporating Claude API for deeper insights.
@@ -135,6 +139,7 @@
 - Added **favorite biomarker tracking** for personalization.
 - Added **Health Score feature** for overall wellness tracking.
 - Progressing towards better mobile responsiveness.
+- **Refactored PDF processing** to use page filtering and sequential Claude calls to improve efficiency and avoid timeouts.
 
 ## Tool Usage Patterns
 
@@ -146,7 +151,7 @@
 
 ### Testing Tools
 - Jest & React Testing Library (`npm test`) for frontend tests.
-- pytest (`pytest` command or `run_tests.sh`) for backend tests (needs Health Score tests).
+- pytest (`PYTHONPATH=backend pytest backend/tests/...`) for backend tests (needs Health Score tests). Requires `PYTHONPATH` set.
 - VSCode testing integrations might be used.
 - Chrome DevTools for frontend debugging.
 - Backend logging (`backend/logs/`) for debugging.
