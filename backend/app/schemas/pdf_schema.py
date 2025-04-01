@@ -48,9 +48,9 @@ class BiomarkerUpdate(BaseModel):
     validated_by: Optional[str] = None
     validated_date: Optional[datetime] = None
 
-class BiomarkerResponse(BiomarkerBase):
+class PDFBiomarkerResponse(BiomarkerBase):
     """
-    Response model for biomarker data.
+    Response model for biomarker data in the context of PDFs.
     """
     id: int
     pdf_id: int
@@ -130,7 +130,7 @@ class ParsedPDFResponse(BaseModel):
     patient_age: Optional[int] = None
     patient_gender: Optional[str] = None
     report_date: Optional[datetime] = None
-    biomarkers: List[BiomarkerResponse]
+    biomarkers: List[PDFBiomarkerResponse]
     parsing_confidence: Optional[float] = None
     
     class Config:
