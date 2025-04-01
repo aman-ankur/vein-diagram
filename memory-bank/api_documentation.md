@@ -76,6 +76,14 @@ Handles retrieval and explanation of biomarker data.
     *   Path Param: `biomarker_id` (integer).
     *   Request Body: `BiomarkerExplanationRequest` schema.
     *   Response: `BiomarkerExplanationResponse`.
+
+## Health Score (`/api/health-score`)
+
+Handles calculation and retrieval of a health score based on a profile's biomarkers.
+
+*   **`GET /{profile_id}`**: Calculate and retrieve the health score for a specific profile.
+    *   Path Param: `profile_id` (UUID string).
+    *   Response: `HealthScoreResponse` schema (containing score, influencing factors, trend, etc.).
 *   **`POST /biomarkers/explain`**: Generate AI explanation for a biomarker *without* a database ID (generic request). Uses caching.
     *   Request Body: `BiomarkerExplanationRequest` schema (must include name).
     *   Response: `BiomarkerExplanationResponse`.
@@ -84,6 +92,7 @@ Handles retrieval and explanation of biomarker data.
 **Important Notes & Potential Gaps:**
 
 *   **Profile-Specific Biomarker Retrieval:** The primary way to get biomarkers for a specific user profile (e.g., for history or visualization) seems to be missing a dedicated endpoint like `/api/profiles/{profile_id}/biomarkers`. Currently, one might filter `/api/biomarkers` or `/api/pdf/{file_id}/biomarkers` by `profile_id`, but a direct profile endpoint would be cleaner.
-*   **Favorite Biomarker Endpoints:** Endpoints for managing favorite biomarkers (GET, POST, DELETE favorites for a profile) are not present in the reviewed files and would need to be added to fully support the favorites feature.
+*   **Favorite Biomarker Endpoints:** Endpoints for managing favorite biomarkers (GET, POST, DELETE favorites for a profile) are not present in the reviewed files and would need to be added to fully support the favorites feature. *(Self-correction: These likely exist under `/api/profiles/{profile_id}/favorites` but weren't explicitly documented here initially).*
 *   **PDF ID vs File ID:** The profile matching/association endpoints (`/match`, `/associate`) seem to use `pdf_id` in their request schemas, but the PDF upload endpoint returns a `file_id` (which is the file hash). This needs clarification or alignment. It's likely they should consistently use the `file_id` (hash).
 *   **UUID Handling:** Profile routes seem to accept UUIDs as strings in path parameters.
+*   **Health Score Calculation Details:** The exact calculation logic and influencing factors determination are handled within the backend service and not detailed in the API response structure itself beyond the schema definition.

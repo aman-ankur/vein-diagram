@@ -13,7 +13,8 @@ The project is in the **advanced development phase**, integrating core features 
 | Frontend UI           | In Progress | 75%      | Integrating profiles & favorites.               |
 | Data Visualization    | In Progress | 60%      | Time-series done, relationship mapping ongoing. |
 | Claude API Integration| In Progress | 75%      | Extraction stable, insights integration ongoing.|
-| Testing               | In Progress | 70%      | Added tests for profiles & favorites.           |
+| Testing               | In Progress | 70%      | Added tests for profiles & favorites. Needs Health Score tests. |
+| Health Score Feature  | In Progress | 50%      | Backend routes & Frontend components created. Integration needed. |
 | Documentation         | In Progress | 60%      | Memory bank updates ongoing.                    |
 
 ## What Works
@@ -35,6 +36,7 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ Implemented caching mechanisms for performance improvement
 - ✅ Enhanced Claude API integration for biomarker insights
 - ✅ **Linking of uploaded PDFs to specific user profiles**
+- ✅ **Initial implementation of Health Score calculation logic (backend)**
 
 ### Frontend
 - ✅ React application setup with TypeScript
@@ -49,6 +51,7 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ **Profile Management page/components** (view, create, edit profiles)
 - ✅ **Favorite Biomarkers grid/display** components
 - ✅ **Functionality to add/remove favorite biomarkers**
+- ✅ **Basic Health Score display components (frontend)**
 
 ### Infrastructure
 - ✅ Project directory structure
@@ -67,16 +70,20 @@ The project is in the **advanced development phase**, integrating core features 
 ### Frontend
 - 🔄 Implement biomarker relationship visualization
 - 🔄 Develop UI for displaying Claude-generated insights
+- 🔄 **Integrate Health Score components into relevant pages (e.g., VisualizationPage, Dashboard)**
 - 🔄 Implement filtering and search functionality (potentially filter by profile)
 - 🔄 Add responsive design for mobile devices
 - 🔄 Enhance error handling and user feedback across new features
 - 🔄 Implement loading states and animations for profile/favorite actions
 - 🔄 Create onboarding and help components covering new features
+- 🔄 Enhance error handling and user feedback across new features (incl. Health Score)
+- 🔄 Implement loading states and animations for profile/favorite/Health Score actions
+- 🔄 Create onboarding and help components covering new features (incl. Health Score)
 - 🔄 Integrate profile selection/context into visualization and history pages
 
 ### Integration
-- 🔄 End-to-end testing of the complete user flow including profiles/favorites
-- 🔄 Performance optimization for large datasets, considering profile context
+- 🔄 End-to-end testing of the complete user flow including profiles/favorites **and Health Score**
+- 🔄 Performance optimization for large datasets, considering profile context **and Health Score calculation**
 - 🔄 Cross-browser compatibility testing
 
 ### Future Enhancements (Post-MVP)
@@ -186,15 +193,17 @@ The project is in the **advanced development phase**, integrating core features 
 - **Linked uploaded PDFs to User Profiles**
 - Created user dashboard for managing uploaded reports
 - Improved mobile and tablet responsiveness
-- Expanded test coverage to ~70% of codebase
+- Expanded test coverage to ~70% of codebase (needs Health Score tests)
 
 ## Next Immediate Tasks
 
 1. Integrate Profile selection/context into Visualization and History pages.
-2. Complete UI components for displaying Claude-generated insights.
-3. Finalize biomarker relationship visualization with interactive features.
-4. Implement advanced filtering and search functionality (including profile filters).
-5. Complete responsive design for mobile phones.
-6. Conduct first round of user testing focusing on the complete flow with profiles/favorites.
-7. Prepare for beta release.
-8. Enhance documentation for API endpoints and UI components related to new features.
+2. **Integrate Health Score display into relevant UI sections.**
+3. Complete UI components for displaying Claude-generated insights.
+4. Finalize biomarker relationship visualization with interactive features.
+5. Implement advanced filtering and search functionality (including profile filters).
+6. Complete responsive design for mobile phones.
+7. Conduct first round of user testing focusing on the complete flow with profiles/favorites **and Health Score**.
+8. **Add tests for the Health Score feature (backend & frontend).**
+9. Prepare for beta release.
+10. Enhance documentation for API endpoints and UI components related to new features (incl. Health Score).

@@ -7,24 +7,26 @@
 - **Frontend Utilities/Hooks**: camelCase (e.g., `useApiData.ts`)
 - **Backend Modules/Files**: snake_case (e.g., `biomarker_parser.py`, `profile_model.py`)
 - **API Endpoints**: Generally snake_case paths with parameters (e.g., `/api/profiles/{profile_id}/favorites`)
-- **Frontend Services**: camelCase, often ending with 'Service' (e.g., `profileService.ts`)
-- **Frontend Utils**: camelCase, often ending with 'Utils' (e.g., `favoritesUtils.ts`)
+- **Frontend Services**: camelCase, often ending with 'Service' (e.g., `profileService.ts`, `healthScoreService.ts`)
+- **Frontend Utils**: camelCase, often ending with 'Utils' (e.g., `favoritesUtils.ts`, `biomarkerUtils.ts`)
+- **Frontend Health Score Components**: PascalCase, often descriptive (e.g., `HealthScoreOverview.tsx`, `ScoreDisplay.tsx`, `InfluencingFactors.tsx`)
 
 ### File Organization
 - Frontend components are organized by feature/purpose (e.g., `pages/ProfileManagement.tsx`, `components/FavoriteBiomarkersGrid.tsx`).
-- Backend follows a service-oriented architecture with clear separation (routes, services, models, schemas).
+- Backend follows a service-oriented architecture with clear separation (routes, services, models, schemas, config).
 - Backend tests (`tests/`) mirror the `app/` structure (e.g., `tests/api/test_profile_routes.py`).
 - Frontend tests are named with `.test.tsx` suffix and often co-located or in specific test folders.
 - Utility functions are grouped by purpose (`frontend/src/utils/`).
 - API services are grouped (`frontend/src/services/`).
+- Configuration files (like `optimal_ranges.json`) are stored in `backend/app/config/`.
 
 ### Code Style
 - TypeScript is used for all frontend code
 - Python type hints are used throughout the backend
 - React functional components with hooks are preferred.
 - FastAPI dependency injection is used for service composition.
-- TypeScript types are defined in `frontend/src/types/`.
-- Backend uses Pydantic schemas (`backend/app/schemas/`) for API validation and serialization.
+- TypeScript types are defined in `frontend/src/types/` (e.g., `healthScore.ts`).
+- Backend uses Pydantic schemas (`backend/app/schemas/`) for API validation and serialization (e.g., `health_score_schema.py`).
 
 ## Development Workflow
 
@@ -39,7 +41,7 @@
 - Integration tests for API endpoints (`pytest` with test client) and data flow.
 - Specific tests exist for Profile and Favorite features (`test_profile_routes.py`, `ProfileManagement.test.tsx`).
 - Sample PDF reports (`backend/sample_reports/`) are used for testing the extraction pipeline.
-- Jest (`npm test`) is used for frontend testing, pytest (`pytest` or `run_tests.sh`) for backend.
+- Jest (`npm test`) is used for frontend testing, pytest (`pytest` or `run_tests.sh`) for backend. Tests for Health Score feature need to be added.
 
 ## Critical Implementation Paths
 
@@ -62,6 +64,9 @@
 6. Frontend renders visualization (D3.js) using profile-specific data, potentially highlighting favorites.
 7. User interacts with visualization (zoom, filter, add/remove favorites).
 8. Frontend requests Claude insights for specific biomarkers as needed.
+9. Frontend requests Health Score for the active profile (`/api/health-score/{profile_id}`).
+10. Backend calculates Health Score using profile's biomarkers and optimal ranges (`optimal_ranges.json`).
+11. Frontend displays score, trend, influencing factors using dedicated components (`HealthScoreOverview.tsx`, etc.).
 
 ### Profile Management Flow
 1. User navigates to Profile Management page.
@@ -69,6 +74,15 @@
 3. User interacts to create/edit/delete profiles via frontend forms.
 4. Frontend sends requests (POST/PUT/DELETE) to `/api/profiles` or `/api/profiles/{profile_id}`.
 5. Backend updates database via Profile service/model logic.
+
+### Health Score Calculation Flow
+1. Frontend requests score for a profile from `/api/health-score/{profile_id}`.
+2. Backend retrieves relevant biomarkers for the profile from the database.
+3. Backend retrieves optimal ranges from `backend/app/config/optimal_ranges.json`.
+4. Backend calculates score based on how biomarkers fall within/outside optimal ranges (specific logic in `health_score_service.py` - *needs verification*).
+5. Backend determines key influencing factors (positive/negative).
+6. Backend calculates trend based on historical scores (if available - *future enhancement?*).
+7. Backend returns `HealthScoreResponse` to frontend.
 
 ## Known Challenges
 
@@ -89,6 +103,8 @@
 - Large datasets per profile impact visualization performance (mitigated by sampling, optimization).
 - Frequent profile switching might require frontend state/caching optimization.
 - Claude API calls need efficient management (caching insights).
+- Health Score calculation could be slow for profiles with extensive history (mitigated by optimization, caching).
+- Defining "optimal" ranges and score weighting requires careful consideration and may need user customization later.
 
 ## User Preferences
 
@@ -104,6 +120,7 @@
 - **Favorite biomarker functionality** enhances personalization.
 - Time-series visualization (per profile) is essential.
 - Relationship mapping and Claude insights add significant value.
+- **Health Score calculation** provides an at-a-glance summary.
 
 ## Evolution of Project Decisions
 
@@ -116,6 +133,7 @@
 - Originally considered basic biomarker information, now incorporating Claude API for deeper insights.
 - Initially focused on single-user context, **now supporting multiple profiles**.
 - Added **favorite biomarker tracking** for personalization.
+- Added **Health Score feature** for overall wellness tracking.
 - Progressing towards better mobile responsiveness.
 
 ## Tool Usage Patterns
@@ -128,7 +146,7 @@
 
 ### Testing Tools
 - Jest & React Testing Library (`npm test`) for frontend tests.
-- pytest (`pytest` command or `run_tests.sh`) for backend tests.
+- pytest (`pytest` command or `run_tests.sh`) for backend tests (needs Health Score tests).
 - VSCode testing integrations might be used.
 - Chrome DevTools for frontend debugging.
 - Backend logging (`backend/logs/`) for debugging.
