@@ -33,10 +33,15 @@ Significant recent developments include:
     *   Continued refinement of Claude API prompts for extraction accuracy.
     *   Improved error handling and fallback mechanisms in the PDF processing pipeline.
     *   Maintained focus on OCR capabilities and reference range normalization.
+    *   **Refactored PDF processing pipeline**:
+        *   Implemented page relevance scoring and filtering to identify pages likely containing biomarkers.
+        *   Modified Claude API interaction for biomarker extraction to process relevant pages sequentially, reducing timeouts and improving efficiency.
+        *   Separated metadata extraction to run only on initial pages.
 
 4.  **Backend & Testing Improvements**:
     *   Refactored relevant backend services to accommodate profile context.
     *   Expanded test coverage to include profile and favorite interactions.
+    *   Updated unit tests for `pdf_service.py` and `biomarker_parser.py` to reflect processing changes.
 
 4.  **Health Score Initial Implementation**:
     *   Added backend API endpoint (`/api/health-score/{profile_id}`) and calculation logic (likely in `health_score_service.py` - *needs verification*).
@@ -150,7 +155,7 @@ The immediate priorities are:
 3.  **Claude API Rate Limits/Costs**: (Ongoing)
     *   **Issue**: Potential bottleneck, especially if insights generation becomes heavy.
     *   **Mitigation**: Caching, prompt optimization, monitoring usage.
-    *   **Status**: Monitoring.
+    *   **Status**: Mitigated by sequential processing, but individual page calls still have timeouts. Monitoring.
 
 4.  **Health Score Calculation Performance**:
     *   **Issue**: Calculation might become slow if many biomarkers or complex logic is involved.
