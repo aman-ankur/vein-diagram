@@ -43,7 +43,7 @@ def get_biomarkers_by_file_id(
         raise HTTPException(status_code=404, detail=f"PDF with ID {file_id} not found")
     
     # Start with a base query
-    query = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id)
+    query = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id).options(joinedload(Biomarker.pdf))
     
     # Apply profile filter if provided
     if profile_id:
@@ -60,7 +60,44 @@ def get_biomarkers_by_file_id(
     print(f"Found {len(biomarkers)} biomarkers for file_id={file_id}" + 
           (f" and profile_id={profile_id}" if profile_id else ""))
     
-    return biomarkers
+    # Process the biomarker objects to properly handle PDF relationship
+    result = []
+    for biomarker in biomarkers:
+        # Create a dictionary for the biomarker
+        biomarker_dict = {
+            "id": biomarker.id,
+            "pdf_id": biomarker.pdf_id,
+            "name": biomarker.name,
+            "original_name": biomarker.original_name,
+            "original_value": biomarker.original_value,
+            "original_unit": biomarker.original_unit,
+            "value": biomarker.value,
+            "unit": biomarker.unit,
+            "reference_range_low": biomarker.reference_range_low,
+            "reference_range_high": biomarker.reference_range_high,
+            "reference_range_text": biomarker.reference_range_text,
+            "category": biomarker.category,
+            "is_abnormal": biomarker.is_abnormal,
+            "notes": biomarker.notes,
+            "extracted_date": biomarker.extracted_date,
+            "validated": biomarker.validated,
+            "validated_by": biomarker.validated_by,
+            "validated_date": biomarker.validated_date,
+            "pdf": None
+        }
+        
+        # If pdf relationship is loaded, add it to the result
+        if biomarker.pdf:
+            biomarker_dict["pdf"] = {
+                "file_id": biomarker.pdf.file_id,
+                "filename": biomarker.pdf.filename,
+                "report_date": biomarker.pdf.report_date
+            }
+        
+        result.append(biomarker_dict)
+    
+    # Return the processed results
+    return result
 
 @router.get("/biomarkers", response_model=List[BiomarkerResponse])
 def get_all_biomarkers(
@@ -113,8 +150,44 @@ def get_all_biomarkers(
           (f" for category={category}" if category else "") + 
           (f" and profile_id={profile_id}" if profile_id else ""))
     
-    # Return the results
-    return biomarkers
+    # Process the biomarker objects to properly handle PDF relationship
+    result = []
+    for biomarker in biomarkers:
+        # Create a dictionary for the biomarker
+        biomarker_dict = {
+            "id": biomarker.id,
+            "pdf_id": biomarker.pdf_id,
+            "name": biomarker.name,
+            "original_name": biomarker.original_name,
+            "original_value": biomarker.original_value,
+            "original_unit": biomarker.original_unit,
+            "value": biomarker.value,
+            "unit": biomarker.unit,
+            "reference_range_low": biomarker.reference_range_low,
+            "reference_range_high": biomarker.reference_range_high,
+            "reference_range_text": biomarker.reference_range_text,
+            "category": biomarker.category,
+            "is_abnormal": biomarker.is_abnormal,
+            "notes": biomarker.notes,
+            "extracted_date": biomarker.extracted_date,
+            "validated": biomarker.validated,
+            "validated_by": biomarker.validated_by,
+            "validated_date": biomarker.validated_date,
+            "pdf": None
+        }
+        
+        # If pdf relationship is loaded, add it to the result
+        if biomarker.pdf:
+            biomarker_dict["pdf"] = {
+                "file_id": biomarker.pdf.file_id,
+                "filename": biomarker.pdf.filename,
+                "report_date": biomarker.pdf.report_date
+            }
+        
+        result.append(biomarker_dict)
+    
+    # Return the processed results
+    return result
 
 @router.get("/biomarkers/categories", response_model=List[str])
 def get_biomarker_categories(db: Session = Depends(get_db)):
@@ -158,7 +231,7 @@ def search_biomarkers(
     search_query = f"%{query.lower()}%"
     
     # Create the base query
-    db_query = db.query(Biomarker).filter(Biomarker.name.ilike(search_query))
+    db_query = db.query(Biomarker).filter(Biomarker.name.ilike(search_query)).options(joinedload(Biomarker.pdf))
     
     # Apply profile filter if provided
     if profile_id:
@@ -175,7 +248,44 @@ def search_biomarkers(
     # Execute the query
     biomarkers = db_query.all()
     
-    return biomarkers
+    # Process the biomarker objects to properly handle PDF relationship
+    result = []
+    for biomarker in biomarkers:
+        # Create a dictionary for the biomarker
+        biomarker_dict = {
+            "id": biomarker.id,
+            "pdf_id": biomarker.pdf_id,
+            "name": biomarker.name,
+            "original_name": biomarker.original_name,
+            "original_value": biomarker.original_value,
+            "original_unit": biomarker.original_unit,
+            "value": biomarker.value,
+            "unit": biomarker.unit,
+            "reference_range_low": biomarker.reference_range_low,
+            "reference_range_high": biomarker.reference_range_high,
+            "reference_range_text": biomarker.reference_range_text,
+            "category": biomarker.category,
+            "is_abnormal": biomarker.is_abnormal,
+            "notes": biomarker.notes,
+            "extracted_date": biomarker.extracted_date,
+            "validated": biomarker.validated,
+            "validated_by": biomarker.validated_by,
+            "validated_date": biomarker.validated_date,
+            "pdf": None
+        }
+        
+        # If pdf relationship is loaded, add it to the result
+        if biomarker.pdf:
+            biomarker_dict["pdf"] = {
+                "file_id": biomarker.pdf.file_id,
+                "filename": biomarker.pdf.filename,
+                "report_date": biomarker.pdf.report_date
+            }
+        
+        result.append(biomarker_dict)
+    
+    # Return the processed results
+    return result
 
 @router.get("/biomarkers/{biomarker_id}", response_model=BiomarkerResponse)
 def get_biomarker_by_id(biomarker_id: int, db: Session = Depends(get_db)):
@@ -189,11 +299,43 @@ def get_biomarker_by_id(biomarker_id: int, db: Session = Depends(get_db)):
     Returns:
         Biomarker details
     """
-    biomarker = db.query(Biomarker).filter(Biomarker.id == biomarker_id).first()
+    biomarker = db.query(Biomarker).filter(Biomarker.id == biomarker_id).options(joinedload(Biomarker.pdf)).first()
     if not biomarker:
         raise HTTPException(status_code=404, detail=f"Biomarker with ID {biomarker_id} not found")
     
-    return biomarker
+    # Create a dictionary for the biomarker
+    biomarker_dict = {
+        "id": biomarker.id,
+        "pdf_id": biomarker.pdf_id,
+        "name": biomarker.name,
+        "original_name": biomarker.original_name,
+        "original_value": biomarker.original_value,
+        "original_unit": biomarker.original_unit,
+        "value": biomarker.value,
+        "unit": biomarker.unit,
+        "reference_range_low": biomarker.reference_range_low,
+        "reference_range_high": biomarker.reference_range_high,
+        "reference_range_text": biomarker.reference_range_text,
+        "category": biomarker.category,
+        "is_abnormal": biomarker.is_abnormal,
+        "notes": biomarker.notes,
+        "extracted_date": biomarker.extracted_date,
+        "validated": biomarker.validated,
+        "validated_by": biomarker.validated_by,
+        "validated_date": biomarker.validated_date,
+        "pdf": None
+    }
+    
+    # If pdf relationship is loaded, add it to the result
+    if biomarker.pdf:
+        biomarker_dict["pdf"] = {
+            "file_id": biomarker.pdf.file_id,
+            "filename": biomarker.pdf.filename,
+            "report_date": biomarker.pdf.report_date
+        }
+    
+    # Return the processed result
+    return biomarker_dict
 
 @router.post("/biomarkers/{biomarker_id}/explain", response_model=BiomarkerExplanationResponse)
 async def explain_biomarker_with_ai(
