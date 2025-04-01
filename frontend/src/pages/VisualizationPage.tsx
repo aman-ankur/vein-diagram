@@ -288,17 +288,17 @@ const VisualizationPage: React.FC = () => {
   // Rerun when biomarkers, the active profile, OR the list of explicit favorite names changes
   }, [biomarkers, activeProfile, favoriteNames]);
 
-  // 4. Fetch available profiles if none is active
+  // 4. Fetch available profiles if the list is empty
   useEffect(() => {
     const fetchAvailableProfiles = async () => {
-      // Only fetch if no profile is active and we aren't already loading them
-      if (!activeProfile && !profileLoading && !profileListLoading) {
-        console.log("No active profile, fetching available profiles for dropdown...");
+      // Fetch if the list is empty and we aren't already loading them
+      if (availableProfiles.length === 0 && !profileListLoading) {
+        console.log("Available profiles list is empty, fetching...");
         setProfileListLoading(true);
         setProfileListError(null);
         try {
           // Fetch a decent number of profiles, assuming not thousands for now
-          const response = await getProfiles(undefined, 1, 100);
+          const response = await getProfiles(undefined, 1, 100); // Fetch up to 100 profiles
           setAvailableProfiles(response.profiles);
           console.log(`Fetched ${response.profiles.length} available profiles.`);
         } catch (err) {
@@ -308,13 +308,15 @@ const VisualizationPage: React.FC = () => {
         } finally {
           setProfileListLoading(false);
         }
+      } else {
+         console.log("Available profiles already loaded or currently loading.");
       }
     };
 
     fetchAvailableProfiles();
-    // Dependency array: run when activeProfile or its loading state changes
-    // REMOVED profileListLoading to prevent infinite loop
-  }, [activeProfile, profileLoading]);
+    // Rerun if the profile list loading state changes (e.g., after an error and retry)
+    // or if availableProfiles becomes empty for some reason.
+  }, [profileListLoading, availableProfiles.length]); // Depend on length to refetch if cleared
 
 
   // --- Handlers ---
@@ -730,11 +732,45 @@ const VisualizationPage: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* Box specifically for the History Button */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'flex-start' }}> 
-        <Tooltip 
+      {/* Box for Profile Selector and History Button */}
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+        {/* Profile Selector Dropdown */}
+        {activeProfile && availableProfiles.length > 1 && (
+          <FormControl sx={{ minWidth: 200 }} size="small">
+            <InputLabel id="profile-select-label">Viewing Profile</InputLabel>
+            <Select
+              labelId="profile-select-label"
+              id="profile-select"
+              value={activeProfile.id || ''} // Ensure value is controlled
+              label="Viewing Profile"
+              onChange={handleProfileSelectChange}
+              disabled={profileListLoading} // Disable while loading profiles
+            >
+              {profileListLoading ? (
+                <MenuItem disabled>
+                  <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
+                </MenuItem>
+              ) : profileListError ? (
+                 <MenuItem disabled sx={{ color: 'error.main' }}>Error loading profiles</MenuItem>
+              ) : (
+                availableProfiles.map((profile) => (
+                  <MenuItem key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
+        )}
+        {/* Spacer or conditional rendering if only one profile */}
+        {activeProfile && availableProfiles.length <= 1 && !profileListLoading && (
+           <Box sx={{ minWidth: 200 }} /> // Placeholder to maintain layout
+        )}
+
+        {/* History Button */}
+        <Tooltip
           title={
-            activeProfile 
+            activeProfile
               ? `View the complete biomarker history for profile: ${activeProfile.name}` 
               : "Select a profile to view biomarker history"
           }
