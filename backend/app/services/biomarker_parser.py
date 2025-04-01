@@ -13,6 +13,7 @@ import time
 from typing import Dict, List, Any, Optional, Tuple
 import httpx
 from datetime import datetime
+import traceback
 
 from app.services.biomarker_dictionary import (
     get_standardized_biomarker_name,
@@ -340,6 +341,7 @@ Lab report text:
                         processed_biomarkers.append(processed_biomarker)
                     except Exception as e:
                         logger.error(f"[BIOMARKER_PROCESSING_ERROR] Error processing biomarker {i}: {str(e)}")
+                        logger.error(f"[BIOMARKER_PROCESSING_STACK_TRACE] {traceback.format_exc()}")
                         logger.error(f"[BIOMARKER_DATA] Problem biomarker data: {json.dumps(biomarker)}")
                 
                 processing_duration = (datetime.now() - processing_start_time).total_seconds()
@@ -603,14 +605,20 @@ def _process_biomarker(biomarker: Dict[str, Any]) -> Dict[str, Any]:
         
         # Abnormal flag
         flag = biomarker.get("is_abnormal", False)
+        logger.debug(f"[FLAG_TYPE] '{name}' abnormal flag type: {type(flag).__name__}, value: {flag}")
         
         # Determine if the value is abnormal
         is_abnormal = False
         
         # Use flag if available
-        if flag and flag.strip().upper() in ["H", "L", "A", "HIGH", "LOW", "ABNORMAL"]:
+        if isinstance(flag, bool):
+            # If flag is explicitly set as a boolean
+            is_abnormal = flag
+            if flag:
+                logger.debug(f"[ABNORMAL_FLAG] '{name}' marked abnormal based on boolean flag")
+        elif flag and isinstance(flag, str) and flag.strip().upper() in ["H", "L", "A", "HIGH", "LOW", "ABNORMAL", "TRUE"]:
             is_abnormal = True
-            logger.debug(f"[ABNORMAL_FLAG] '{name}' marked abnormal based on flag: {flag}")
+            logger.debug(f"[ABNORMAL_FLAG] '{name}' marked abnormal based on string flag: {flag}")
         elif reference_range_low is not None or reference_range_high is not None:
             # Compare value to reference range
             if reference_range_low is not None and value < reference_range_low:
@@ -645,16 +653,29 @@ def _process_biomarker(biomarker: Dict[str, Any]) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"[BIOMARKER_PROCESSING_ERROR] Error processing biomarker: {str(e)}")
+        logger.error(f"[BIOMARKER_PROCESSING_STACK_TRACE] {traceback.format_exc()}")
         logger.error(f"[PROBLEMATIC_BIOMARKER] {json.dumps(biomarker)}")
+        
+        # Try to get the original value if possible
+        try:
+            value = float(biomarker.get("value", 0.0))
+        except (ValueError, TypeError):
+            try:
+                value_str = str(biomarker.get("original_value", "0"))
+                value = float(re.sub(r'[^\d.\-]', '', value_str)) if value_str else 0.0
+            except (ValueError, TypeError):
+                value = 0.0
+                logger.warning(f"[VALUE_RECOVERY_FAILED] Could not recover value for {biomarker.get('name', 'unknown biomarker')}")
+        
         # Return a minimal valid biomarker to avoid breaking the flow
         return {
             "name": biomarker.get("name", "Unknown Biomarker"),
             "original_name": biomarker.get("original_name", biomarker.get("name", "Unknown Biomarker")),
-            "value": 0.0,
-            "original_value": str(biomarker.get("value", "")),
+            "value": value,  # Use the recovered value
+            "original_value": str(biomarker.get("original_value", biomarker.get("value", ""))),
             "unit": standardize_unit(biomarker.get("unit", biomarker.get("original_unit", "-"))),
             "original_unit": biomarker.get("original_unit", biomarker.get("unit", "-")),
-            "category": "Other",
+            "category": biomarker.get("category", "Other"),
             "is_abnormal": False,
             "reference_range_text": biomarker.get("reference_range", ""),
             "confidence": 0.1  # Very low confidence for error cases
