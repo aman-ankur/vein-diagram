@@ -115,6 +115,7 @@ const VisualizationPage: React.FC = () => {
   // Get fileId from query parameter instead of path parameter
   const queryParams = new URLSearchParams(location.search);
   const fileId = queryParams.get('fileId');
+  const profileIdFromUrl = queryParams.get('profileId');
   
   // Destructure loading state AND setter function from profile context
   const { activeProfile, loading: profileLoading, setActiveProfileById } = useProfile(); 
@@ -124,6 +125,7 @@ const VisualizationPage: React.FC = () => {
     console.log("========== VISUALIZATION PAGE DEBUG ==========");
     console.log("Component mounted with:");
     console.log("fileId from query:", fileId);
+    console.log("profileId from query:", profileIdFromUrl);
     console.log("full URL search:", location.search);
     console.log("activeProfile:", activeProfile ? {
       id: activeProfile.id,
@@ -132,7 +134,17 @@ const VisualizationPage: React.FC = () => {
     } : "null");
     console.log("profileLoading:", profileLoading); // Log profile loading state
     console.log("==============================================");
-  }, [fileId, activeProfile, location.search, profileLoading]);
+
+    // If a profileId is provided in the URL and it's different from the active profile,
+    // update the active profile
+    if (profileIdFromUrl && (!activeProfile || profileIdFromUrl !== activeProfile.id)) {
+      console.log(`Setting active profile to ${profileIdFromUrl} from URL parameter`);
+      setActiveProfileById(profileIdFromUrl).catch(error => {
+        console.error("Failed to set profile from URL:", error);
+        setError("Failed to load the specified profile. Using default profile instead.");
+      });
+    }
+  }, [fileId, profileIdFromUrl, activeProfile, location.search, profileLoading, setActiveProfileById]);
   
   // State for biomarkers, loading, and error
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
@@ -314,11 +326,14 @@ const VisualizationPage: React.FC = () => {
     
     try {
       let data: Biomarker[];
-      const profileId = activeProfile?.id;
+      // Prioritize URL profileId over activeProfile.id for consistency
+      const profileId = profileIdFromUrl || activeProfile?.id;
       
-      console.log('Fetching biomarkers with profile context:', { 
+      console.log('Fetching biomarkers with:', { 
         fileId, 
-        profileId, 
+        profileIdFromUrl,
+        activeProfileId: activeProfile?.id,
+        profileIdToUse: profileId,
         activeProfile: activeProfile ? {
           id: activeProfile.id,
           name: activeProfile.name,
