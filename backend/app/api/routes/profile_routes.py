@@ -475,9 +475,39 @@ async def match_profile_from_pdf(
                     if extracted_metadata.get("lab_name") and not pdf.lab_name:
                         pdf.lab_name = extracted_metadata.get("lab_name")
                     if extracted_metadata.get("report_date") and not pdf.report_date:
-                        pdf.report_date = extracted_metadata.get("report_date")
+                        # Convert string date to datetime object
+                        report_date_str = extracted_metadata.get("report_date")
+                        try:
+                            # Try multiple date formats
+                            for date_format in ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]:
+                                try:
+                                    pdf.report_date = datetime.strptime(report_date_str, date_format)
+                                    logger.info(f"Converted report date '{report_date_str}' to datetime using format {date_format}")
+                                    break
+                                except ValueError:
+                                    continue
+                            # If none of the formats worked, log it
+                            if isinstance(pdf.report_date, str):
+                                logger.warning(f"Could not convert report date '{report_date_str}' to datetime")
+                        except Exception as e:
+                            logger.warning(f"Error converting report date: {str(e)}")
                     if extracted_metadata.get("patient_dob"):
-                        metadata["patient_dob"] = extracted_metadata.get("patient_dob")
+                        # Convert patient_dob to datetime if it's a string
+                        dob_str = extracted_metadata.get("patient_dob")
+                        if isinstance(dob_str, str):
+                            try:
+                                # Try multiple date formats
+                                for date_format in ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]:
+                                    try:
+                                        metadata["patient_dob"] = datetime.strptime(dob_str, date_format)
+                                        logger.info(f"Converted patient DOB '{dob_str}' to datetime using format {date_format}")
+                                        break
+                                    except ValueError:
+                                        continue
+                            except Exception as e:
+                                logger.warning(f"Error converting patient DOB: {str(e)}")
+                        else:
+                            metadata["patient_dob"] = dob_str
                     
                     # Save changes
                     db.commit()
@@ -487,7 +517,7 @@ async def match_profile_from_pdf(
                         "patient_name": pdf.patient_name,
                         "patient_gender": pdf.patient_gender,
                         "patient_id": pdf.patient_id,
-                        "patient_dob": extracted_metadata.get("patient_dob"),
+                        "patient_dob": metadata.get("patient_dob"),
                         "lab_name": pdf.lab_name,
                         "report_date": pdf.report_date
                     }
