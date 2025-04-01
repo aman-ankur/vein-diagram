@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Button, 
-  Container, 
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  Container,
   CircularProgress,
   Alert,
   AlertTitle,
@@ -61,7 +61,7 @@ const UploadPage: React.FC = () => {
   const [isPolling, setIsPolling] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [uploadHistory, setUploadHistory] = useState<UploadResponse[]>([]);
-  
+
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
@@ -98,21 +98,21 @@ const UploadPage: React.FC = () => {
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const selectedFile = acceptedFiles[0];
-      
+
       // Validate file type
       if (!SUPPORTED_FILE_TYPES.includes(selectedFile.type)) {
         setError(`Unsupported file type. Please upload a PDF file.`);
         setSnackbarOpen(true);
         return;
       }
-      
+
       // Validate file size
       if (selectedFile.size > MAX_FILE_SIZE) {
         setError(`File is too large. Maximum size is ${MAX_FILE_SIZE / 1000000}MB.`);
         setSnackbarOpen(true);
         return;
       }
-      
+
       setFile(selectedFile);
       setActiveStep(1);
       setError(null);
@@ -131,17 +131,17 @@ const UploadPage: React.FC = () => {
   // File upload handling
   const handleUpload = async () => {
     if (!file) return;
-    
+
     try {
       setUploading(true);
       setError(null);
       setUploadProgress(0);
-      
+
       console.log('Uploading file:', file.name);
-      
+
       // Immediately move to processing step to show facts
       setActiveStep(2);
-      
+
       // Simulate progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
@@ -152,21 +152,21 @@ const UploadPage: React.FC = () => {
           return prev + 10;
         });
       }, 500);
-      
+
       try {
         const response = await uploadPDF(file);
         console.log('Upload response:', response);
-        
+
         // Set upload progress to 100% on success
         setUploadProgress(100);
-        
+
         // Validate response contains fileId
         if (!response || !response.fileId) {
           throw new Error('Invalid response from server: Missing fileId in upload response');
         }
-        
+
         setUploadResponse(response);
-        
+
         // Save to localStorage history
         try {
           // Ensure uploadHistory is an array before spreading it
@@ -178,15 +178,15 @@ const UploadPage: React.FC = () => {
           console.error('Error updating upload history:', historyError);
           // Continue with upload process even if history update fails
         }
-        
+
         // Start polling for status
         startStatusPolling(response.fileId);
       } catch (uploadError: any) {
         console.error('Upload API error:', uploadError);
-        
+
         // Check for specific error types
         let errorMessage = 'Failed to upload file. Please try again.';
-        
+
         if (uploadError.status === 413) {
           errorMessage = 'File is too large. Maximum size is 30MB.';
         } else if (uploadError.status === 415) {
@@ -200,7 +200,7 @@ const UploadPage: React.FC = () => {
         } else if (uploadError.message) {
           errorMessage = uploadError.message;
         }
-        
+
         setError(errorMessage);
         setSnackbarOpen(true);
       } finally {
@@ -224,15 +224,15 @@ const UploadPage: React.FC = () => {
       setSnackbarOpen(true);
       return;
     }
-    
+
     console.log('Starting status polling for fileId:', fileId);
     setIsPolling(true);
     setRetryCount(0);
-    
+
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
     }
-    
+
     // Track how many consecutive errors occur
     let consecutiveErrors = 0;
     // Track how long we've been polling
@@ -241,7 +241,7 @@ const UploadPage: React.FC = () => {
     const MAX_POLLING_TIME = 600000;
     // Minimum display time for facts carousel - 10 seconds (10,000 ms)
     const MIN_DISPLAY_TIME = 10000;
-    
+
     // Set a fallback timeout to ensure minimum display time
     // This will run if polling fails or completes too quickly
     fallbackTimeoutRef.current = setTimeout(() => {
@@ -257,7 +257,7 @@ const UploadPage: React.FC = () => {
         }, MIN_DISPLAY_TIME - elapsedTime);
       }
     }, MIN_DISPLAY_TIME);
-    
+
     const checkStatus = async () => {
       // Check if we've exceeded the maximum polling time
       if (Date.now() - startTime > MAX_POLLING_TIME) {
@@ -269,22 +269,22 @@ const UploadPage: React.FC = () => {
         setSnackbarOpen(true);
         return;
       }
-      
+
       try {
         const status = await getPDFStatus(fileId);
         console.log('Status update:', status);
         setProcessingStatus(status);
-        
+
         // Reset consecutive errors counter on successful response
         consecutiveErrors = 0;
-        
+
         // If completed or processed or failed, check min display time
         if (status.status === 'completed' || status.status === 'processed') {
           console.log('Processing complete! Status:', status.status);
-          
+
           // Calculate how long we've been showing the facts carousel
           const elapsedTime = Date.now() - startTime;
-          
+
           if (elapsedTime >= MIN_DISPLAY_TIME) {
             // If we've shown the facts for long enough, proceed
             clearInterval(pollingRef.current!);
@@ -294,7 +294,7 @@ const UploadPage: React.FC = () => {
           } else {
             // Otherwise, wait until we've shown the facts for the minimum time
             console.log(`Processing complete, but waiting ${(MIN_DISPLAY_TIME - elapsedTime) / 1000} more seconds to show facts`);
-            
+
             // Set a timeout to move to the next step after min display time
             setTimeout(() => {
               clearInterval(pollingRef.current!);
@@ -302,16 +302,16 @@ const UploadPage: React.FC = () => {
               setIsPolling(false);
               setActiveStep(3);
             }, MIN_DISPLAY_TIME - elapsedTime);
-            
+
             // Clear the interval since we don't need to poll anymore
             clearInterval(pollingRef.current!);
           }
         } else if (status.status === 'failed' || status.status === 'error') {
           console.log('Processing failed! Status:', status.status);
-          
+
           // For errors, still respect the minimum display time
           const elapsedTime = Date.now() - startTime;
-          
+
           if (elapsedTime >= MIN_DISPLAY_TIME) {
             clearInterval(pollingRef.current!);
             if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
@@ -326,7 +326,7 @@ const UploadPage: React.FC = () => {
               setError(`Processing failed: ${status.error || 'Unknown error'}`);
               setSnackbarOpen(true);
             }, MIN_DISPLAY_TIME - elapsedTime);
-            
+
             clearInterval(pollingRef.current!);
           }
         } else {
@@ -335,13 +335,13 @@ const UploadPage: React.FC = () => {
       } catch (error: any) {
         console.error('Status check error:', error);
         setRetryCount(prev => prev + 1);
-        
+
         // Increment consecutive errors counter
         consecutiveErrors++;
-        
+
         // Show a more user-friendly error based on error type
         let errorMessage = 'Error checking processing status.';
-        
+
         if (error.status === 404) {
           errorMessage = 'PDF file not found on server. It may have been deleted or expired.';
         } else if (error.status === 500) {
@@ -351,7 +351,7 @@ const UploadPage: React.FC = () => {
         } else if (error.message) {
           errorMessage = error.message;
         }
-        
+
         // Only stop polling after 10 consecutive errors or 20 total retries
         if (consecutiveErrors >= 10 || retryCount >= 20) {
           clearInterval(pollingRef.current!);
@@ -365,26 +365,26 @@ const UploadPage: React.FC = () => {
         }
       }
     };
-    
+
     // Check immediately
     checkStatus();
-    
+
     // Then set up interval for subsequent checks
     pollingRef.current = setInterval(checkStatus, STATUS_CHECK_INTERVAL);
   };
 
   const handleViewResults = () => {
     if (uploadResponse) {
-      // Navigate to visualization only if a profile is already associated
-      // Note: PDFUploader handles profile matching for newly uploaded PDFs
+      // Navigate to visualization including the profileId if available
       if (uploadResponse.profileId) {
-        navigate(`/visualization?fileId=${uploadResponse.fileId}`);
+        navigate(`/visualization?fileId=${uploadResponse.fileId}&profileId=${uploadResponse.profileId}`);
       } else {
+        // If no profileId is associated yet, trigger the matching flow
         // Set activeStep back to 0 with the current fileId to trigger profile matching in PDFUploader
         setActiveStep(0);
         setFile(null);
         setIsPolling(false);
-        
+
         // We don't need to clear the uploadResponse, as it contains the fileId
         // which is needed for profile matching
       }
@@ -415,25 +415,25 @@ const UploadPage: React.FC = () => {
       case 0:
         return (
           <Box sx={{ mt: 2 }}>
-            <PDFUploader 
+            <PDFUploader
               onUploadSuccess={(fileIdString) => {
                 // If we already have an uploadResponse, we're in the profile matching flow
                 // Otherwise, it's a new upload
-                
+
                 // Parse fileId and profileId from the callback string
                 let fileId = fileIdString;
                 let profileId: string | undefined = undefined;
-                
+
                 if (fileIdString.includes('?profileId=')) {
                   const parts = fileIdString.split('?profileId=');
                   fileId = parts[0];
                   profileId = parts[1];
                 }
-                
+
                 if (uploadResponse) {
                   // We've been redirected back from processing to do profile matching
-                  // Just navigate to visualization after profile selection
-                  navigate(`/visualization?fileId=${fileId}`);
+                  // Navigate to visualization including the selected/created profileId
+                  navigate(`/visualization?fileId=${fileId}${profileId ? `&profileId=${profileId}` : ''}`);
                 } else {
                   // This is a new upload - create mock response and start processing
                   const mockResponse: UploadResponse = {
@@ -452,7 +452,7 @@ const UploadPage: React.FC = () => {
               }}
               initialFileId={uploadResponse?.fileId}
             />
-            
+
             {uploadHistory.length > 0 && (
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h6" gutterBottom>
@@ -468,9 +468,9 @@ const UploadPage: React.FC = () => {
                             ID: {item.fileId ? item.fileId.substring(0, 8) : 'N/A'}... • Uploaded: {item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown'}
                           </Typography>
                         </Box>
-                        <Button 
-                          size="small" 
-                          variant="outlined" 
+                        <Button
+                          size="small"
+                          variant="outlined"
                           onClick={() => navigate(`/visualization?fileId=${item.fileId}`)}
                         >
                           View
@@ -491,10 +491,10 @@ const UploadPage: React.FC = () => {
               <Button onClick={handleReset} disabled={uploading}>
                 Cancel
               </Button>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleUpload} 
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleUpload}
                 disabled={uploading || !file}
                 startIcon={uploading ? <CircularProgress size={20} /> : undefined}
               >
@@ -522,16 +522,16 @@ const UploadPage: React.FC = () => {
             <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
               Status: {processingStatus?.status || 'pending'}
             </Typography>
-            
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
               <Button onClick={handleReset} disabled={isPolling}>
                 Cancel
               </Button>
             </Box>
-            
-            <LoadingOverlay 
-              isActive={activeStep === 2} 
-              status={processingStatus} 
+
+            <LoadingOverlay
+              isActive={activeStep === 2}
+              status={processingStatus}
               onClose={handleReset}
             />
           </Box>
@@ -547,9 +547,9 @@ const UploadPage: React.FC = () => {
               <Button onClick={handleReset}>
                 Upload Another
               </Button>
-              <Button 
-                variant="contained" 
-                color="primary" 
+              <Button
+                variant="contained"
+                color="primary"
                 onClick={handleViewResults}
                 startIcon={<CheckCircleIcon />}
               >
@@ -570,10 +570,10 @@ const UploadPage: React.FC = () => {
           Upload PDF
         </Typography>
         <Typography variant="subtitle1" color="textSecondary" paragraph>
-          Upload your PDF lab report to extract biomarkers and visualize your health data. 
+          Upload your PDF lab report to extract biomarkers and visualize your health data.
           For optimal processing, only the first 3 pages will be analyzed.
         </Typography>
-        
+
         <Box sx={{ mt: 4 }}>
           <Stepper activeStep={activeStep} orientation="vertical">
             {steps.map((step, index) => (
@@ -596,7 +596,7 @@ const UploadPage: React.FC = () => {
           </Stepper>
         </Box>
       </Box>
-      
+
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
@@ -614,4 +614,4 @@ const UploadPage: React.FC = () => {
   );
 };
 
-export default UploadPage; 
+export default UploadPage;

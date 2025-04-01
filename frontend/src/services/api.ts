@@ -1,65 +1,39 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { API_BASE_URL } from '../config';
-import { Biomarker } from '../types/pdf';
+// Import the frontend types
+import { Biomarker, UploadResponse, ProcessingStatus } from '../types/pdf'; 
 import { BiomarkerExplanation, ApiError, FileMetadata, UserProfile } from '../types/api';
 
-// Define types for API responses
-export interface PDFResponse {
-  file_id: string;
+// Define types for RAW API responses from backend
+interface RawPDFResponse {
+  file_id: string; // snake_case from backend
   filename: string;
-  status: string;
+  status: string; // More generic status from backend
   message?: string;
+  // Potentially other fields the backend might send on upload
+  size?: number;
+  mime_type?: string;
+  profile_id?: string;
 }
 
-export interface PDFStatusResponse {
+// Raw status response from backend
+interface RawPDFProcessingStatus {
   file_id: string;
   filename: string;
-  status: string;
-  upload_date: string;
-  processed_date?: string;
-  error_message?: string;
-}
-
-export interface PDFListResponse {
-  total: number;
-  pdfs: PDFStatusResponse[];
-}
-
-export interface PDFContentResponse {
-  file_id: string;
-  filename: string;
-  status: string;
-  extracted_text?: string;
-}
-
-export interface BiomarkerData {
-  name: string;
-  value: number;
-  unit: string;
-  reference_range?: string;
-  category?: string;
-}
-
-export interface ParsedPDFResponse {
-  file_id: string;
-  filename: string;
-  date?: string;
-  biomarkers: BiomarkerData[];
-}
-
-// Extend the ProcessingStatus interface to include profile information
-export interface PDFProcessingStatus {
-  file_id: string;
-  filename: string;
-  status: 'uploaded' | 'processing' | 'processed' | 'error';
+  status: string; // Backend might use different status strings
   message?: string;
-  upload_date?: string;
-  processed_date?: string;
+  upload_date?: string; // snake_case
+  processed_date?: string; // snake_case
+  error_message?: string; // snake_case
   lab_name?: string;
   report_date?: string;
-  profileId?: string;  // Add profileId to the interface
-  profile_name?: string;  // Add profile name to the interface
+  profile_id?: string;
+  profile_name?: string;
+  // Potentially other fields like progress, biomarker_count
+  progress?: number;
+  biomarker_count?: number;
 }
+
 
 // Create axios instance with enhanced configuration
 const api = axios.create({
@@ -231,8 +205,8 @@ const withRetry = async <T>(
   throw lastError;
 };
 
-// Upload a PDF file with retry
-export const uploadPDF = async (file: File): Promise<PDFResponse> => {
+// Upload a PDF file with retry - NOW RETURNS UploadResponse (from types/pdf.ts)
+export const uploadPDF = async (file: File): Promise<UploadResponse> => {
   return withRetry(async () => {
     const formData = new FormData();
     formData.append('file', file);
@@ -248,15 +222,23 @@ export const uploadPDF = async (file: File): Promise<PDFResponse> => {
         },
       });
       
-      console.log('Raw backend response:', response.data);
-      
-      // Return the exact format expected by PDFResponse interface
-      return {
-        file_id: response.data.file_id,
-        filename: response.data.filename,
-        status: response.data.status,
-        message: response.data.message
+      console.log('Raw backend response for upload:', response.data);
+      const rawData = response.data as RawPDFResponse; // Type assertion
+
+      // Map backend response (RawPDFResponse) to frontend type (UploadResponse)
+      const mappedResponse: UploadResponse = {
+        fileId: rawData.file_id, // Map snake_case to camelCase
+        filename: rawData.filename,
+        // Map backend status to frontend status enum
+        status: rawData.status === 'success' ? 'success' : 'error', 
+        error: rawData.status !== 'success' ? (rawData.message || 'Upload failed') : undefined,
+        timestamp: new Date().toISOString(), // Use current time as backend doesn't provide it
+        fileSize: rawData.size || file.size, // Use backend size if available, else file size
+        mimeType: rawData.mime_type || file.type, // Use backend type if available, else file type
+        profileId: rawData.profile_id // Map profileId if backend provides it
       };
+      console.log('Mapped frontend upload response:', mappedResponse);
+      return mappedResponse;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response) {
@@ -277,29 +259,58 @@ export const uploadPDF = async (file: File): Promise<PDFResponse> => {
   }, 2);
 };
 
-// Get PDF processing status with retry
-export const getPDFStatus = async (fileId: string): Promise<PDFProcessingStatus> => {
+// Get PDF processing status with retry - NOW RETURNS ProcessingStatus (from types/pdf.ts)
+export const getPDFStatus = async (fileId: string): Promise<ProcessingStatus> => {
   return withRetry(async () => {
     try {
       console.log(`Making API request to /api/pdf/status/${fileId}`);
       const response = await api.get(`/api/pdf/status/${fileId}`);
-      
+      const rawData = response.data as RawPDFProcessingStatus; // Type assertion
+
       // Log the full response for debugging
-      console.log('PDF status response:', JSON.stringify(response.data, null, 2));
-      
-      // Map backend response to frontend interface
-      return {
-        file_id: response.data.file_id,
-        filename: response.data.filename,
-        status: response.data.status,
-        message: response.data.message,
-        upload_date: response.data.upload_date,
-        processed_date: response.data.processed_date,
-        lab_name: response.data.lab_name,
-        report_date: response.data.report_date,
-        profileId: response.data.profile_id,  // Map profileId from backend
-        profile_name: response.data.profile_name  // Map profile name from backend
+      console.log('Raw PDF status response:', JSON.stringify(rawData, null, 2));
+
+      // Map backend status string to frontend status enum
+      let frontendStatus: ProcessingStatus['status'];
+      switch (rawData.status) {
+        case 'uploaded':
+        case 'pending':
+          frontendStatus = 'pending';
+          break;
+        case 'processing':
+          frontendStatus = 'processing';
+          break;
+        case 'processed':
+          frontendStatus = 'processed'; // Use 'processed' as per types/pdf.ts
+          break;
+        case 'completed': // Map backend 'completed' to frontend 'completed'
+           frontendStatus = 'completed';
+           break;
+        case 'failed':
+          frontendStatus = 'failed'; // Use 'failed' as per types/pdf.ts
+          break;
+        case 'error':
+           frontendStatus = 'error'; // Use 'error' as per types/pdf.ts
+           break;
+        default:
+          console.warn(`Unknown backend status: ${rawData.status}, defaulting to 'pending'`);
+          frontendStatus = 'pending';
+      }
+
+      // Map backend response (RawPDFProcessingStatus) to frontend type (ProcessingStatus)
+      const mappedStatus: ProcessingStatus = {
+        fileId: rawData.file_id, // Map snake_case to camelCase
+        filename: rawData.filename,
+        status: frontendStatus,
+        uploadTimestamp: rawData.upload_date || new Date().toISOString(), // Map and provide default
+        completedTimestamp: rawData.processed_date, // Map snake_case
+        error: frontendStatus === 'failed' || frontendStatus === 'error' ? (rawData.error_message || rawData.message || 'Processing failed') : undefined, // Map error message
+        progress: rawData.progress, // Map progress if available
+        biomarkerCount: rawData.biomarker_count // Map count if available
+        // Note: profileId and profile_name are not part of ProcessingStatus in types/pdf.ts
       };
+      console.log('Mapped frontend status response:', mappedStatus);
+      return mappedStatus;
     } catch (error) {
       console.error(`Failed to get PDF status for file ${fileId}:`, error);
       if (axios.isAxiosError(error) && error.response) {
@@ -600,136 +611,6 @@ export const getBiomarkerExplanation = async (
   }
 };
 
-// PDF upload service
-export const pdfService = {
-  /**
-   * Upload a PDF file to the server
-   * @param file The PDF file to upload
-   * @returns Promise with the response data
-   */
-  uploadPdf: async (file: File): Promise<ApiResponse<PDFResponse>> => {
-    return withRetry(async () => {
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const response = await api.post<PDFResponse>('/api/pdf/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        
-        return {
-          data: response.data,
-          status: response.status,
-        };
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
-          throw {
-            message: error.response.data?.detail || 'Error uploading PDF',
-            status: error.response.status,
-          };
-        }
-        throw {
-          message: 'Network error during upload',
-          status: 0,
-          isNetworkError: true
-        };
-      }
-    });
-  },
-  
-  /**
-   * Get the status of a PDF file
-   * @param fileId The ID of the file to check
-   * @returns Promise with the response data
-   */
-  getPdfStatus: async (fileId: string): Promise<ApiResponse<PDFStatusResponse>> => {
-    return withRetry(async () => {
-      try {
-        const response = await api.get<PDFStatusResponse>(`/api/pdf/status/${fileId}`);
-        
-        return {
-          data: response.data,
-          status: response.status,
-        };
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
-          throw {
-            message: error.response.data?.detail || 'Error getting PDF status',
-            status: error.response.status,
-          };
-        }
-        throw {
-          message: 'Network error checking PDF status',
-          status: 0,
-          isNetworkError: true
-        };
-      }
-    });
-  },
-
-  /**
-   * List all PDF files
-   * @param skip Number of records to skip (for pagination)
-   * @param limit Number of records to return (for pagination)
-   * @returns Promise with the response data
-   */
-  listPdfs: async (skip = 0, limit = 10): Promise<ApiResponse<PDFListResponse>> => {
-    return withRetry(async () => {
-      try {
-        const response = await api.get<PDFListResponse>(`/api/pdf/list?skip=${skip}&limit=${limit}`);
-        
-        return {
-          data: response.data,
-          status: response.status,
-        };
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
-          throw {
-            message: error.response.data?.detail || 'Error listing PDFs',
-            status: error.response.status,
-          };
-        }
-        throw {
-          message: 'Network error listing PDFs',
-          status: 0,
-          isNetworkError: true
-        };
-      }
-    });
-  },
-
-  /**
-   * Delete a PDF file
-   * @param fileId The ID of the file to delete
-   * @returns Promise with the response data
-   */
-  deletePdf: async (fileId: string): Promise<ApiResponse<{ message: string }>> => {
-    return withRetry(async () => {
-      try {
-        const response = await api.delete<{ message: string }>(`/api/pdf/${fileId}`);
-        
-        return {
-          data: response.data,
-          status: response.status,
-        };
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
-          throw {
-            message: error.response.data?.detail || 'Error deleting PDF',
-            status: error.response.status,
-          };
-        }
-        throw {
-          message: 'Network error deleting PDF',
-          status: 0,
-          isNetworkError: true
-        };
-      }
-    });
-  },
-};
 
 // Function to check if the API is available
 export const checkApiAvailability = async (): Promise<boolean> => {
@@ -763,4 +644,4 @@ export const checkApiAvailability = async (): Promise<boolean> => {
   }
 };
 
-export default api; 
+export default api;
