@@ -1,0 +1,295 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-7.4.3, pluggy-1.5.0
+rootdir: /Users/aankur/workspace/vein-diagram
+plugins: asyncio-0.23.5, cov-6.0.0, anyio-4.8.0
+asyncio: mode=strict
+collected 33 items
+
+backend/tests/services/test_biomarker_parser.py ...FF................... [ 72%]
+...FFFFF.                                                                [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_extract_biomarkers_with_claude ______________________
+
+args = ()
+keywargs = {'claude_response': {'content': [{'text': '{"biomarkers": [{"name": "Glucose", "value": 95, "unit": "mg/dL", "referenc...                   2.5 mIU/L   0.4-4.0            \n    Vitamin D, 25-OH        32 ng/mL    30-100             \n    '}
+
+    @wraps(func)
+    def patched(*args, **keywargs):
+>       with self.decoration_helper(patched,
+                                    args,
+                                    keywargs) as (newargs, newkeywargs):
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:117: in __enter__
+    return next(self.gen)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1316: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:429: in enter_context
+    result = _cm_type.__enter__(cm)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1389: in __enter__
+    self.target = self.getter()
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1564: in <lambda>
+    getter = lambda: _importer(target)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1240: in _importer
+    thing = _dot_lookup(thing, comp, import_path)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+thing = <module 'app.services.biomarker_parser' from '/Users/aankur/workspace/vein-diagram/backend/app/services/biomarker_parser.py'>
+comp = 'anthropic', import_path = 'app.services.biomarker_parser.anthropic'
+
+    def _dot_lookup(thing, comp, import_path):
+        try:
+            return getattr(thing, comp)
+        except AttributeError:
+>           __import__(import_path)
+E           ModuleNotFoundError: No module named 'app.services.biomarker_parser.anthropic'; 'app.services.biomarker_parser' is not a package
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1229: ModuleNotFoundError
+__________________ test_extract_biomarkers_with_claude_error ___________________
+
+args = ()
+keywargs = {'sample_lab_text': '\n    LABORATORY REPORT\n    Patient: John Doe\n    Specimen Collected: 01/15/2023\n    Lab: LabC...                   2.5 mIU/L   0.4-4.0            \n    Vitamin D, 25-OH        32 ng/mL    30-100             \n    '}
+
+    @wraps(func)
+    def patched(*args, **keywargs):
+>       with self.decoration_helper(patched,
+                                    args,
+                                    keywargs) as (newargs, newkeywargs):
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:117: in __enter__
+    return next(self.gen)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1316: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:429: in enter_context
+    result = _cm_type.__enter__(cm)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1389: in __enter__
+    self.target = self.getter()
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1564: in <lambda>
+    getter = lambda: _importer(target)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1240: in _importer
+    thing = _dot_lookup(thing, comp, import_path)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+thing = <module 'app.services.biomarker_parser' from '/Users/aankur/workspace/vein-diagram/backend/app/services/biomarker_parser.py'>
+comp = 'anthropic', import_path = 'app.services.biomarker_parser.anthropic'
+
+    def _dot_lookup(thing, comp, import_path):
+        try:
+            return getattr(thing, comp)
+        except AttributeError:
+>           __import__(import_path)
+E           ModuleNotFoundError: No module named 'app.services.biomarker_parser.anthropic'; 'app.services.biomarker_parser' is not a package
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1229: ModuleNotFoundError
+_________________ test_extract_biomarkers_with_claude_success __________________
+
+args = (), keywargs = {}
+
+    @wraps(func)
+    def patched(*args, **keywargs):
+>       with self.decoration_helper(patched,
+                                    args,
+                                    keywargs) as (newargs, newkeywargs):
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:117: in __enter__
+    return next(self.gen)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1316: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:429: in enter_context
+    result = _cm_type.__enter__(cm)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1389: in __enter__
+    self.target = self.getter()
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1564: in <lambda>
+    getter = lambda: _importer(target)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1240: in _importer
+    thing = _dot_lookup(thing, comp, import_path)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+thing = <module 'app.services.biomarker_parser' from '/Users/aankur/workspace/vein-diagram/backend/app/services/biomarker_parser.py'>
+comp = 'anthropic', import_path = 'app.services.biomarker_parser.anthropic'
+
+    def _dot_lookup(thing, comp, import_path):
+        try:
+            return getattr(thing, comp)
+        except AttributeError:
+>           __import__(import_path)
+E           ModuleNotFoundError: No module named 'app.services.biomarker_parser.anthropic'; 'app.services.biomarker_parser' is not a package
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1229: ModuleNotFoundError
+________________ test_extract_biomarkers_with_claude_api_error _________________
+
+args = (), keywargs = {}
+
+    @wraps(func)
+    def patched(*args, **keywargs):
+>       with self.decoration_helper(patched,
+                                    args,
+                                    keywargs) as (newargs, newkeywargs):
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:117: in __enter__
+    return next(self.gen)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1316: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:429: in enter_context
+    result = _cm_type.__enter__(cm)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1389: in __enter__
+    self.target = self.getter()
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1564: in <lambda>
+    getter = lambda: _importer(target)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1240: in _importer
+    thing = _dot_lookup(thing, comp, import_path)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+thing = <module 'app.services.biomarker_parser' from '/Users/aankur/workspace/vein-diagram/backend/app/services/biomarker_parser.py'>
+comp = 'anthropic', import_path = 'app.services.biomarker_parser.anthropic'
+
+    def _dot_lookup(thing, comp, import_path):
+        try:
+            return getattr(thing, comp)
+        except AttributeError:
+>           __import__(import_path)
+E           ModuleNotFoundError: No module named 'app.services.biomarker_parser.anthropic'; 'app.services.biomarker_parser' is not a package
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1229: ModuleNotFoundError
+________________ test_extract_biomarkers_with_claude_json_error ________________
+
+args = (), keywargs = {}
+
+    @wraps(func)
+    def patched(*args, **keywargs):
+>       with self.decoration_helper(patched,
+                                    args,
+                                    keywargs) as (newargs, newkeywargs):
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:117: in __enter__
+    return next(self.gen)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1316: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:429: in enter_context
+    result = _cm_type.__enter__(cm)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1389: in __enter__
+    self.target = self.getter()
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1564: in <lambda>
+    getter = lambda: _importer(target)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1240: in _importer
+    thing = _dot_lookup(thing, comp, import_path)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+thing = <module 'app.services.biomarker_parser' from '/Users/aankur/workspace/vein-diagram/backend/app/services/biomarker_parser.py'>
+comp = 'anthropic', import_path = 'app.services.biomarker_parser.anthropic'
+
+    def _dot_lookup(thing, comp, import_path):
+        try:
+            return getattr(thing, comp)
+        except AttributeError:
+>           __import__(import_path)
+E           ModuleNotFoundError: No module named 'app.services.biomarker_parser.anthropic'; 'app.services.biomarker_parser' is not a package
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1229: ModuleNotFoundError
+________________ test_extract_biomarkers_with_claude_no_api_key ________________
+
+args = (), keywargs = {}
+
+    @wraps(func)
+    def patched(*args, **keywargs):
+>       with self.decoration_helper(patched,
+                                    args,
+                                    keywargs) as (newargs, newkeywargs):
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:117: in __enter__
+    return next(self.gen)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1316: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:429: in enter_context
+    result = _cm_type.__enter__(cm)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1389: in __enter__
+    self.target = self.getter()
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1564: in <lambda>
+    getter = lambda: _importer(target)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1240: in _importer
+    thing = _dot_lookup(thing, comp, import_path)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+thing = <module 'app.services.biomarker_parser' from '/Users/aankur/workspace/vein-diagram/backend/app/services/biomarker_parser.py'>
+comp = 'anthropic', import_path = 'app.services.biomarker_parser.anthropic'
+
+    def _dot_lookup(thing, comp, import_path):
+        try:
+            return getattr(thing, comp)
+        except AttributeError:
+>           __import__(import_path)
+E           ModuleNotFoundError: No module named 'app.services.biomarker_parser.anthropic'; 'app.services.biomarker_parser' is not a package
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1229: ModuleNotFoundError
+________________ test_extract_biomarkers_with_claude_exception _________________
+
+args = (), keywargs = {}
+
+    @wraps(func)
+    def patched(*args, **keywargs):
+>       with self.decoration_helper(patched,
+                                    args,
+                                    keywargs) as (newargs, newkeywargs):
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:117: in __enter__
+    return next(self.gen)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1316: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py:429: in enter_context
+    result = _cm_type.__enter__(cm)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1389: in __enter__
+    self.target = self.getter()
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1564: in <lambda>
+    getter = lambda: _importer(target)
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1240: in _importer
+    thing = _dot_lookup(thing, comp, import_path)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+thing = <module 'app.services.biomarker_parser' from '/Users/aankur/workspace/vein-diagram/backend/app/services/biomarker_parser.py'>
+comp = 'anthropic', import_path = 'app.services.biomarker_parser.anthropic'
+
+    def _dot_lookup(thing, comp, import_path):
+        try:
+            return getattr(thing, comp)
+        except AttributeError:
+>           __import__(import_path)
+E           ModuleNotFoundError: No module named 'app.services.biomarker_parser.anthropic'; 'app.services.biomarker_parser' is not a package
+
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py:1229: ModuleNotFoundError
+=============================== warnings summary ===============================
+backend/app/db/database.py:18
+  /Users/aankur/workspace/vein-diagram/backend/app/db/database.py:18: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+backend/vein-d/lib/python3.9/site-packages/PyPDF2/__init__.py:21
+  /Users/aankur/workspace/vein-diagram/backend/vein-d/lib/python3.9/site-packages/PyPDF2/__init__.py:21: DeprecationWarning: PyPDF2 is deprecated. Please move to the pypdf library instead.
+    warnings.warn(
+
+backend/app/db/session.py:18
+  /Users/aankur/workspace/vein-diagram/backend/app/db/session.py:18: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/services/test_biomarker_parser.py::test_extract_biomarkers_with_claude
+FAILED backend/tests/services/test_biomarker_parser.py::test_extract_biomarkers_with_claude_error
+FAILED backend/tests/services/test_biomarker_parser.py::test_extract_biomarkers_with_claude_success
+FAILED backend/tests/services/test_biomarker_parser.py::test_extract_biomarkers_with_claude_api_error
+FAILED backend/tests/services/test_biomarker_parser.py::test_extract_biomarkers_with_claude_json_error
+FAILED backend/tests/services/test_biomarker_parser.py::test_extract_biomarkers_with_claude_no_api_key
+FAILED backend/tests/services/test_biomarker_parser.py::test_extract_biomarkers_with_claude_exception
+=================== 7 failed, 26 passed, 3 warnings in 0.66s ===================

@@ -167,31 +167,41 @@ graph TD
 
 ## Data Flow
 
-### PDF Processing Flow (with Profile)
+### PDF Processing Flow (Refactored - with Profile, Filtering, Sequential Processing)
 ```mermaid
 sequenceDiagram
     participant User
     participant Frontend
     participant BackendAPI
     participant PDFService
-    participant ProfileService
+    participant MetadataParser
     participant BiomarkerParser
     participant Database
 
     User->>Frontend: Select Profile
     User->>Frontend: Upload PDF
-    Frontend->>BackendAPI: POST /api/pdfs (with profile_id)
-    BackendAPI->>ProfileService: Verify Profile(profile_id)
-    ProfileService->>BackendAPI: Profile OK
-    BackendAPI->>PDFService: Process PDF(pdf_file, profile_id)
-    PDFService->>PDFService: Store PDF temporarily
-    PDFService->>PDFService: Extract text (OCR if needed)
-    PDFService->>BiomarkerParser: Parse biomarkers(text)
-    BiomarkerParser->>Database: Store biomarkers (associating with PDF)
-    PDFService->>Database: Store PDF metadata (linking to profile_id)
-    Database->>BackendAPI: Confirmation
-    BackendAPI->>Frontend: Processing result (pdf_id)
-    Frontend->>User: Success notification
+    Frontend->>BackendAPI: POST /api/pdfs/upload (with profile_id)
+    BackendAPI->>PDFService: process_pdf_background(pdf_id, db_session)
+    PDFService->>Database: Get PDF record
+    PDFService->>PDFService: extract_text_from_pdf(file_path) [All Pages]
+    PDFService->>Database: Save full extracted text (temp)
+    PDFService->>MetadataParser: extract_metadata_with_claude(first_few_pages_text)
+    MetadataParser->>Database: Update PDF metadata (patient info, date, etc.)
+    PDFService->>PDFService: filter_relevant_pages(all_pages_text_dict)
+    alt Relevant pages found
+        PDFService->>PDFService: process_pages_sequentially(relevant_pages)
+        loop For each relevant page
+            PDFService->>BiomarkerParser: extract_biomarkers_with_claude(page_text)
+            BiomarkerParser-->>PDFService: page_biomarkers
+        end
+        PDFService->>PDFService: De-duplicate biomarkers
+        PDFService->>Database: Store final biomarkers (linked to pdf_id, profile_id)
+        PDFService->>Database: Update PDF parsing_confidence
+    else No relevant pages
+        PDFService->>PDFService: Log warning, skip biomarker saving
+    end
+    PDFService->>Database: Update PDF status to 'processed' or 'error'
+    %% Note: Frontend polls /api/pdfs/status/{file_id} separately
 ```
 
 ### Visualization Data Flow (with Profile)

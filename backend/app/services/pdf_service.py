@@ -36,23 +36,182 @@ file_handler = logging.FileHandler(os.path.join(log_dir, 'pdf_service.log'))
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'))
 logger.addHandler(file_handler)
 
-# Maximum number of pages to extract from PDFs
-MAX_PAGES = 5
+# Maximum number of pages to extract from PDFs (Commented out to process all pages)
+# MAX_PAGES = 5
 
-def extract_text_from_pdf(file_path: str) -> str:
+# --- Helper Functions for Page Filtering (Phase 2) ---
+
+def _load_biomarker_aliases() -> List[str]:
+    """Loads biomarker names and aliases from the JSON file."""
+    aliases = []
+    try:
+        # Construct the path relative to the current file's directory
+        current_dir = os.path.dirname(__file__)
+        aliases_path = os.path.join(current_dir, '..', 'utils', 'biomarker_aliases.json')
+        
+        with open(aliases_path, 'r') as f:
+            data = json.load(f)
+            for biomarker_info in data.get("biomarkers", []):
+                # Add the main name
+                if name := biomarker_info.get("name"):
+                    aliases.append(name.lower())
+                # Add all aliases
+                for alias in biomarker_info.get("aliases", []):
+                    aliases.append(alias.lower())
+        logger.info(f"Loaded {len(aliases)} biomarker names and aliases.")
+    except FileNotFoundError:
+        logger.error(f"Biomarker aliases file not found at {aliases_path}")
+    except json.JSONDecodeError:
+        logger.error(f"Error decoding JSON from biomarker aliases file at {aliases_path}")
+    except Exception as e:
+        logger.error(f"Error loading biomarker aliases: {str(e)}")
+    return list(set(aliases)) # Return unique list
+
+def score_page_relevance(page_text: str, all_aliases: List[str]) -> int:
+    """Scores a page based on the presence of biomarker keywords, units, and table patterns."""
+    score = 0
+    if not page_text:
+        return 0
+
+    # 1. Check for biomarker names/aliases (case-insensitive)
+    # Create a regex pattern for aliases (ensure proper escaping)
+    # Limit alias length to avoid overly broad matches
+    valid_aliases = [re.escape(alias) for alias in all_aliases if 2 < len(alias) < 50]
+    if valid_aliases:
+        alias_pattern = r'\b(' + '|'.join(valid_aliases) + r')\b'
+        try:
+            # Use finditer to count occurrences efficiently
+            matches = list(re.finditer(alias_pattern, page_text, re.IGNORECASE))
+            if matches:
+                score += 10 * len(matches) # Score per alias found
+                logger.debug(f"Found {len(matches)} alias matches on page.")
+        except re.error as re_err:
+             logger.error(f"Regex error checking aliases: {re_err}")
+
+
+    # 2. Check for common units associated with numeric values
+    # Pattern: number (optional decimal) followed by common units
+    unit_pattern = r'\b\d+(\.\d+)?\s*(mg/dL|g/dL|%|mmol/L|U/L|IU/L|ng/mL|pg/mL|mIU/L|μIU/mL|μg/dL|ug/dL|mEq/L|meq/L|K/μL|K/uL|M/μL|M/uL|fL|pg|mm/hr)\b'
+    try:
+        unit_matches = list(re.finditer(unit_pattern, page_text, re.IGNORECASE))
+        if unit_matches:
+            score += 1 * len(unit_matches) # Lower score for units
+            logger.debug(f"Found {len(unit_matches)} unit matches on page.")
+    except re.error as re_err:
+        logger.error(f"Regex error checking units: {re_err}")
+
+    # 3. Check for potential table structures (heuristic)
+    # Look for multiple lines with similar indentation and potential delimiters (spaces, tabs)
+    lines = page_text.strip().split('\n')
+    table_like_lines = 0
+    if len(lines) > 3: # Need at least a few lines to suggest a table
+        potential_table_pattern = r'^\s*[\w\s\(\)\-\+,/]+(\s{2,}|\t)[\d\.<>\-\s]+' # Line starts with text, then space/tab, then numbers/symbols
+        for line in lines:
+            if re.search(potential_table_pattern, line):
+                table_like_lines += 1
+        if table_like_lines > 2: # If more than 2 lines look like table rows
+            score += 5
+            logger.debug(f"Found {table_like_lines} table-like lines.")
+
+    logger.debug(f"Page scored with relevance: {score}")
+    return score
+
+def filter_relevant_pages(pages_text_dict: Dict[int, str]) -> List[Tuple[int, str]]:
+    """Filters pages based on relevance score."""
+    relevant_pages = []
+    all_aliases = _load_biomarker_aliases()
+    if not all_aliases:
+        logger.warning("No aliases loaded, cannot perform relevance scoring. Returning all pages.")
+        # Fallback: return all pages if aliases couldn't be loaded
+        return sorted(pages_text_dict.items())
+
+    min_relevance_score = 1 # Minimum score to be considered relevant (at least one unit match or part of a table)
+
+    for page_num, page_text in pages_text_dict.items():
+        score = score_page_relevance(page_text, all_aliases)
+        if score >= min_relevance_score:
+            relevant_pages.append((page_num, page_text))
+            logger.info(f"Page {page_num} deemed relevant with score {score}.")
+        else:
+             logger.info(f"Page {page_num} deemed irrelevant with score {score}.")
+
+    # Sort by page number
+    relevant_pages.sort(key=lambda x: x[0])
+    logger.info(f"Filtered down to {len(relevant_pages)} relevant pages out of {len(pages_text_dict)} total.")
+    return relevant_pages
+
+def process_pages_sequentially(relevant_pages: List[Tuple[int, str]], filename: str) -> List[Dict[str, Any]]:
     """
-    Extract text from a PDF file using PyPDF2 or Tesseract OCR for image-based PDFs.
-    Limited to the first MAX_PAGES pages.
-    
+    Processes relevant pages sequentially using the single-page Claude extractor
+    and de-duplicates the results.
+
+    Args:
+        relevant_pages: List of tuples (page_number, page_text) for relevant pages.
+        filename: Original PDF filename for logging.
+
+    Returns:
+        List of de-duplicated biomarker dictionaries.
+    """
+    all_biomarkers_raw = []
+    logger.info(f"Starting sequential processing for {len(relevant_pages)} relevant pages from {filename}.")
+
+    for page_num, page_text in relevant_pages:
+        logger.info(f"Processing page {page_num} of {filename} sequentially...")
+        try:
+            # Call the modified single-page extractor from biomarker_parser
+            page_biomarkers, _ = extract_biomarkers_with_claude(page_text, f"{filename}_page_{page_num}")
+            if page_biomarkers:
+                logger.info(f"Extracted {len(page_biomarkers)} biomarkers from page {page_num}.")
+                # Add page number info for potential debugging or advanced de-duplication later
+                for bm in page_biomarkers:
+                    bm['source_page'] = page_num
+                all_biomarkers_raw.extend(page_biomarkers)
+            else:
+                logger.info(f"No biomarkers found on page {page_num}.")
+        except Exception as e:
+            logger.error(f"Error processing page {page_num} sequentially: {str(e)}")
+            # Continue to the next page even if one fails
+
+    logger.info(f"Finished sequential processing. Found {len(all_biomarkers_raw)} raw biomarkers across all relevant pages.")
+
+    # De-duplicate biomarkers based on standardized name (keep first occurrence)
+    final_biomarkers = []
+    seen_biomarker_names = set()
+    for biomarker in all_biomarkers_raw:
+        # Use standardized name if available, otherwise original name
+        name_key = biomarker.get("name", "").lower()
+        if not name_key:
+             name_key = biomarker.get("original_name", "").lower()
+
+        if name_key and name_key not in seen_biomarker_names:
+            final_biomarkers.append(biomarker)
+            seen_biomarker_names.add(name_key)
+        elif name_key:
+             logger.debug(f"Skipping duplicate biomarker: {name_key} from page {biomarker.get('source_page', 'unknown')}")
+        else:
+             logger.warning(f"Skipping biomarker with no identifiable name: {biomarker}")
+
+
+    logger.info(f"De-duplicated biomarkers: {len(final_biomarkers)} final biomarkers.")
+    return final_biomarkers
+
+
+# --- End Helper Functions ---
+
+
+def extract_text_from_pdf(file_path: str) -> Dict[int, str]:
+    """
+    Extract text from all pages of a PDF file using PyPDF2 or Tesseract OCR for image-based PDFs.
+
     Args:
         file_path: Path to the PDF file
-        
+
     Returns:
-        str: Extracted text from the PDF
+        Dict[int, str]: Dictionary mapping page number (0-indexed) to extracted text.
     """
     logger.info(f"[PDF_TEXT_EXTRACTION_START] Extracting text from PDF: {file_path}")
     start_time = datetime.utcnow()
-    
+
     try:
         # Create logs directory if it doesn't exist
         log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
@@ -68,68 +227,69 @@ def extract_text_from_pdf(file_path: str) -> str:
             logger.debug(f"[PDF_METADATA] Number of pages: {total_pages}")
             if pdf_reader.metadata:
                 logger.debug(f"[PDF_METADATA] Author: {pdf_reader.metadata.get('/Author', 'None')}")
-                logger.debug(f"[PDF_METADATA] Creation date: {pdf_reader.metadata.get('/CreationDate', 'None')}")
-            
-            # Initialize an empty string to store the text
-            text = ""
-            
-            # Determine how many pages to extract (limited to MAX_PAGES)
-            pages_to_extract = min(total_pages, MAX_PAGES)
-            logger.info(f"[PAGE_LIMIT] Extracting only the first {pages_to_extract} pages of {total_pages} total pages")
-            
-            # Loop through each page and extract text (up to MAX_PAGES)
-            for page_num in range(pages_to_extract):
-                page = pdf_reader.pages[page_num]
-                page_text = page.extract_text()
-                text += page_text if page_text else ""
-                logger.debug(f"[PAGE_EXTRACTION] Page {page_num+1}: Extracted {len(page_text) if page_text else 0} characters")
-            
-            # Log extracted text for debugging
-            debug_text_path = os.path.join(log_dir, f"pdf_extracted_text_{os.path.basename(file_path)}.txt")
+            logger.debug(f"[PDF_METADATA] Creation date: {pdf_reader.metadata.get('/CreationDate', 'None')}")
+
+            # Initialize a dictionary to store text per page
+            pages_text_dict: Dict[int, str] = {}
+
+            # Loop through each page and extract text
+            logger.info(f"[PAGE_EXTRACTION] Extracting text from all {total_pages} pages.")
+            for page_num in range(total_pages):
+                try:
+                    page = pdf_reader.pages[page_num]
+                    page_text = page.extract_text()
+                    pages_text_dict[page_num] = page_text if page_text else ""
+                    logger.debug(f"[PAGE_EXTRACTION] Page {page_num}: Extracted {len(page_text) if page_text else 0} characters")
+                except Exception as page_error:
+                    logger.error(f"[PAGE_EXTRACTION_ERROR] Error extracting text from page {page_num}: {str(page_error)}")
+                    pages_text_dict[page_num] = "" # Store empty string on error
+
+            # Log extracted text for debugging (save as JSON)
+            debug_text_path = os.path.join(log_dir, f"pdf_extracted_text_{os.path.basename(file_path)}.json")
             try:
                 with open(debug_text_path, "w") as f:
-                    f.write(text if text.strip() else "No text extracted with PyPDF2")
-                logger.debug(f"[EXTRACTED_TEXT_SAVED] PDF text saved to {debug_text_path}")
+                    json.dump(pages_text_dict, f, indent=2)
+                logger.debug(f"[EXTRACTED_TEXT_SAVED] PDF text per page saved to {debug_text_path}")
             except Exception as e:
-                logger.error(f"[TEXT_SAVE_ERROR] Could not save extracted text: {str(e)}")
-            
-            # If no text was extracted, the PDF might be image-based
-            if not text.strip():
-                logger.info("[OCR_FALLBACK] No text extracted with PyPDF2, PDF might be image-based. Attempting OCR...")
-                text = _extract_text_with_ocr(file_path)
-                
-                # Save OCR text for debugging
-                debug_ocr_path = os.path.join(log_dir, f"pdf_ocr_text_{os.path.basename(file_path)}.txt")
+                logger.error(f"[TEXT_SAVE_ERROR] Could not save extracted text dictionary: {str(e)}")
+
+            # If no text was extracted from any page, the PDF might be image-based
+            if not any(pages_text_dict.values()):
+                logger.info("[OCR_FALLBACK] No text extracted with PyPDF2 from any page, PDF might be image-based. Attempting OCR...")
+                pages_text_dict = _extract_text_with_ocr(file_path)
+
+                # Save OCR text for debugging (save as JSON)
+                debug_ocr_path = os.path.join(log_dir, f"pdf_ocr_text_{os.path.basename(file_path)}.json")
                 try:
                     with open(debug_ocr_path, "w") as f:
-                        f.write(text)
-                    logger.debug(f"[OCR_TEXT_SAVED] OCR text saved to {debug_ocr_path}")
+                        json.dump(pages_text_dict, f, indent=2)
+                    logger.debug(f"[OCR_TEXT_SAVED] OCR text per page saved to {debug_ocr_path}")
                 except Exception as e:
-                    logger.error(f"[OCR_TEXT_SAVE_ERROR] Could not save OCR text: {str(e)}")
-            
+                    logger.error(f"[OCR_TEXT_SAVE_ERROR] Could not save OCR text dictionary: {str(e)}")
+
             extraction_time = (datetime.utcnow() - start_time).total_seconds()
-            logger.info(f"[PDF_TEXT_EXTRACTION_COMPLETE] Extracted {len(text)} characters in {extraction_time:.2f} seconds")
-            
-            return text
+            total_chars = sum(len(txt) for txt in pages_text_dict.values())
+            logger.info(f"[PDF_TEXT_EXTRACTION_COMPLETE] Extracted {total_chars} characters across {len(pages_text_dict)} pages in {extraction_time:.2f} seconds")
+
+            return pages_text_dict
     except Exception as e:
         logger.error(f"[PDF_EXTRACTION_ERROR] Error extracting text from PDF: {str(e)}")
         raise
 
-def _extract_text_with_ocr(file_path: str) -> str:
+def _extract_text_with_ocr(file_path: str) -> Dict[int, str]:
     """
-    Extract text from an image-based PDF using Tesseract OCR.
-    Limited to the first MAX_PAGES pages.
-    
+    Extract text from all pages of an image-based PDF using Tesseract OCR.
+
     Args:
         file_path: Path to the PDF file
-        
+
     Returns:
-        str: Extracted text from the PDF
+        Dict[int, str]: Dictionary mapping page number (0-indexed) to extracted text.
     """
     try:
         logger.info(f"[OCR_START] Extracting text from image-based PDF using OCR: {file_path}")
         ocr_start_time = datetime.utcnow()
-        
+
         # Create debug directory for OCR images
         log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
         debug_img_dir = os.path.join(log_dir, f"ocr_images_{os.path.basename(file_path).replace('.pdf', '')}")
@@ -158,63 +318,65 @@ def _extract_text_with_ocr(file_path: str) -> str:
         
         # Convert PDF to images
         logger.debug("[OCR_PROCESS] Converting PDF to images")
-        # Limit to first MAX_PAGES pages
-        pages = pdf2image.convert_from_path(file_path, dpi=300, first_page=1, last_page=MAX_PAGES)
+        # Process all pages
+        pages = pdf2image.convert_from_path(file_path, dpi=300) # Removed page limits
         total_pages_converted = len(pages)
-        logger.debug(f"[OCR_PROCESS] Converted {total_pages_converted} pages to images (limited to first {MAX_PAGES} pages)")
-        
+        logger.debug(f"[OCR_PROCESS] Converted {total_pages_converted} pages to images")
+
         # Extract text from each page
-        full_text = ""
+        pages_text_dict: Dict[int, str] = {}
         for i, page in enumerate(pages):
-            logger.debug(f"[OCR_PAGE_PROCESSING] Processing page {i+1} of {total_pages_converted}")
+            logger.debug(f"[OCR_PAGE_PROCESSING] Processing page {i} of {total_pages_converted-1}")
             page_start_time = datetime.utcnow()
-            
+
             # Save the page image for debugging
-            img_path = os.path.join(debug_img_dir, f"page_{i+1}.png")
+            img_path = os.path.join(debug_img_dir, f"page_{i}.png")
             try:
                 page.save(img_path)
-                logger.debug(f"[OCR_IMAGE_SAVED] Saved page {i+1} image to {img_path}")
+                logger.debug(f"[OCR_IMAGE_SAVED] Saved page {i} image to {img_path}")
             except Exception as e:
                 logger.error(f"[OCR_IMAGE_SAVE_ERROR] Could not save page image: {str(e)}")
-            
+
             # Use pytesseract to get text from the image
             try:
                 # Try different OCR configurations for better results
                 page_text = pytesseract.image_to_string(page, config='--psm 6')  # Assume a single uniform block of text
-                
+
                 # If no text was extracted, try another mode
                 if not page_text.strip():
                     logger.debug(f"[OCR_RETRY] No text found with default settings, trying alternative OCR mode")
                     page_text = pytesseract.image_to_string(page, config='--psm 3')  # Fully automatic page segmentation
-                
+
                 page_time = (datetime.utcnow() - page_start_time).total_seconds()
-                
+
                 # Save individual page OCR results
-                page_text_path = os.path.join(debug_img_dir, f"page_{i+1}_text.txt")
+                page_text_path = os.path.join(debug_img_dir, f"page_{i}_text.txt")
                 try:
                     with open(page_text_path, "w") as f:
                         f.write(page_text)
-                    logger.debug(f"[OCR_PAGE_TEXT_SAVED] OCR text for page {i+1} saved to {page_text_path}")
+                    logger.debug(f"[OCR_PAGE_TEXT_SAVED] OCR text for page {i} saved to {page_text_path}")
                 except Exception as e:
                     logger.error(f"[OCR_PAGE_TEXT_SAVE_ERROR] Could not save page OCR text: {str(e)}")
-                
-                logger.debug(f"[OCR_PAGE_COMPLETE] Page {i+1} processed in {page_time:.2f} seconds, extracted {len(page_text)} characters")
-                full_text += f"\n--- Page {i+1} ---\n{page_text}\n"
+
+                logger.debug(f"[OCR_PAGE_COMPLETE] Page {i} processed in {page_time:.2f} seconds, extracted {len(page_text)} characters")
+                pages_text_dict[i] = page_text
             except Exception as e:
-                logger.error(f"[OCR_PAGE_ERROR] Error performing OCR on page {i+1}: {str(e)}")
-                full_text += f"\n--- Page {i+1} (OCR ERROR) ---\n"
-        
-        if not full_text.strip():
+                logger.error(f"[OCR_PAGE_ERROR] Error performing OCR on page {i}: {str(e)}")
+                pages_text_dict[i] = "" # Store empty string on error
+
+        if not any(pages_text_dict.values()):
             logger.warning("[OCR_NO_TEXT] OCR could not extract any text from the PDF")
-            return "OCR processing did not extract any text. The PDF might be encrypted or contain only images without text."
-            
+            # Return empty dict, but log the issue
+            return {}
+
         ocr_time = (datetime.utcnow() - ocr_start_time).total_seconds()
         logger.info(f"[OCR_COMPLETE] OCR processing completed in {ocr_time:.2f} seconds")
-        return full_text
-        
+        return pages_text_dict
+
     except Exception as e:
         logger.error(f"[OCR_ERROR] Error during OCR processing: {str(e)}")
-        return f"OCR processing failed: {str(e)}"
+        # Return empty dict on major error
+        return {}
 
 def process_pdf_background(pdf_id: int, db_session=None):
     """
@@ -240,20 +402,27 @@ def process_pdf_background(pdf_id: int, db_session=None):
         pdf.status = "processing"
         db_session.commit()
         
-        # Extract text
+        # Extract text from all pages
         logger.info(f"Extracting text from PDF {pdf_id}")
-        text = extract_text_from_pdf(pdf.file_path)
-        
-        # Save extracted text
-        pdf.extracted_text = text
+        pages_text_dict = extract_text_from_pdf(pdf.file_path)
+
+        # Combine text for saving (or consider saving page-wise if needed later)
+        full_extracted_text = "\n--- Page Break ---\n".join(pages_text_dict.values())
+        pdf.extracted_text = full_extracted_text # Store combined text for now
         db_session.commit()
+
+        # --- Metadata Extraction (Phase 3) ---
+        # Extract metadata using only the first few pages (e.g., 0, 1, 2)
+        num_pages_for_metadata = 3
+        metadata_text = ""
+        for i in range(num_pages_for_metadata):
+            metadata_text += pages_text_dict.get(i, "") + "\n" # Add newline separator
         
-        # Parse metadata using Claude API
-        logger.info(f"Parsing metadata from text for PDF {pdf_id}")
+        logger.info(f"Parsing metadata from first {num_pages_for_metadata} pages' text for PDF {pdf_id}")
         from app.services.metadata_parser import extract_metadata_with_claude
-        metadata = extract_metadata_with_claude(text, pdf.filename)
-        
-        # Update PDF with extracted metadata
+        metadata = extract_metadata_with_claude(metadata_text.strip(), pdf.filename)
+
+        # Update PDF with extracted metadata (existing logic)
         if metadata:
             logger.info(f"Extracted metadata for PDF {pdf_id}: {metadata}")
             # First, handle the report_date separately to ensure proper conversion
@@ -303,15 +472,25 @@ def process_pdf_background(pdf_id: int, db_session=None):
         else:
             logger.warning(f"No metadata extracted for PDF {pdf_id}")
         
-        # Parse biomarkers using Claude API
-        logger.info(f"Parsing biomarkers from text for PDF {pdf_id}")
-        biomarkers, metadata = extract_biomarkers_with_claude(text, pdf.filename)
-        
+        # --- Biomarker Extraction (Phase 2 & 5 Integration) ---
+        # Filter relevant pages
+        logger.info(f"Filtering relevant pages for biomarker extraction in PDF {pdf_id}")
+        relevant_pages = filter_relevant_pages(pages_text_dict)
+
+        # Process relevant pages sequentially
+        if relevant_pages:
+            logger.info(f"Processing {len(relevant_pages)} relevant pages sequentially for biomarkers in PDF {pdf_id}")
+            biomarkers = process_pages_sequentially(relevant_pages, pdf.filename)
+        else:
+            logger.warning(f"No relevant pages found for biomarker extraction in PDF {pdf_id}. Skipping biomarker processing.")
+            biomarkers = []
+
+        # --- Save Biomarkers ---
         if not biomarkers:
-            logger.warning(f"No biomarkers found in PDF {pdf_id}")
+            logger.warning(f"No biomarkers extracted after filtering and sequential processing for PDF {pdf_id}")
         else:
             logger.info(f"Extracted {len(biomarkers)} biomarkers from PDF {pdf_id}")
-            
+
             # Save biomarkers to database
             for biomarker in biomarkers:
                 db_session.add(Biomarker(
@@ -366,13 +545,13 @@ def parse_biomarkers_from_text(text: str, pdf_id=None) -> Tuple[List[Dict[str, A
     Args:
         text: Extracted text from the PDF
         pdf_id: Optional PDF ID (for backward compatibility)
-        
+
     Returns:
         Tuple containing a list of biomarker dictionaries and a confidence score
     """
     # Use the improved parser from biomarker_parser.py
     from app.services.biomarker_parser import parse_biomarkers_from_text as fallback_parser
-    
+
     try:
         # First try to use the Claude API for better results
         if os.environ.get('ANTHROPIC_API_KEY'):
@@ -396,4 +575,4 @@ def parse_biomarkers_from_text(text: str, pdf_id=None) -> Tuple[List[Dict[str, A
     biomarkers = fallback_parser(text)
     confidence = 0.5  # Lower confidence for fallback parser
     
-    return biomarkers, confidence 
+    return biomarkers, confidence
