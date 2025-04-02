@@ -41,10 +41,10 @@ Handles management of user profiles.
 
 Handles PDF file uploads and status.
 
-*   **`POST /upload`**: Upload a PDF file for processing. Triggers background processing. Handles duplicates based on file hash.
+*   **`POST /upload`**: Upload a PDF file for processing. Triggers background processing (`process_pdf_background` via FastAPI `BackgroundTasks` without passing the DB session). Handles duplicates based on file hash.
     *   Form Data: `file` (UploadFile), `profile_id` (Optional UUID string).
     *   Response: `PDFResponse` schema (initial status: "pending", uses file hash as `file_id`).
-*   **`GET /status/{file_id}`**: Get the processing status and metadata of a specific PDF.
+*   **`GET /status/{file_id}`**: Get the processing status and metadata of a specific PDF. Polled by the frontend to track background processing progress.
     *   Path Param: `file_id` (File hash).
     *   Response: `PDFStatusResponse` schema.
 *   **`GET /list`**: List all uploaded PDFs and their status.
