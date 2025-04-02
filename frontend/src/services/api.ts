@@ -644,4 +644,41 @@ export const checkApiAvailability = async (): Promise<boolean> => {
   }
 };
 
+// Delete a specific biomarker entry
+export const deleteBiomarkerEntry = async (biomarkerEntryId: number): Promise<void> => {
+  // No retry for DELETE operations by default, as they are not idempotent
+  try {
+    console.log(`Making API request to DELETE /api/biomarkers/${biomarkerEntryId}`);
+    const response = await api.delete(`/api/biomarkers/${biomarkerEntryId}`);
+    
+    // Check for successful status (usually 204 No Content for DELETE)
+    if (response.status !== 204) {
+      console.warn(`Unexpected status code ${response.status} for DELETE request.`);
+      // Optionally throw an error or handle based on application logic
+    }
+    
+    console.log(`Successfully deleted biomarker entry ${biomarkerEntryId}`);
+    // No data is returned on successful DELETE (204)
+    return; 
+  } catch (error) {
+    console.error(`Failed to delete biomarker entry ${biomarkerEntryId}:`, error);
+    
+    // Rethrow as a standardized ApiError
+    if (axios.isAxiosError(error)) {
+      const apiError: ApiError = {
+        message: error.response?.data?.detail || error.response?.data?.message || `Error deleting biomarker entry ${biomarkerEntryId}`,
+        status: error.response?.status || 500,
+        data: error.response?.data || null,
+        isNetworkError: !error.response && error.message?.includes('Network Error'),
+      };
+      throw apiError;
+    } else if (error instanceof Error) {
+      throw { message: error.message, status: 500, data: null } as ApiError;
+    } else {
+      throw { message: 'An unknown error occurred during deletion.', status: 500, data: null } as ApiError;
+    }
+  }
+};
+
+
 export default api;

@@ -18,6 +18,7 @@ erDiagram
         String patient_id "(Nullable) Lab report ID"
         DateTime created_at
         DateTime last_modified
+        JSON favorite_biomarkers "(Nullable) Ordered list of fav names"
     }
 
     PDFS {
@@ -89,6 +90,7 @@ erDiagram
 *   **Key Columns**:
     *   `name`: User-provided name for the profile.
     *   `date_of_birth`, `gender`, `patient_id`: Optional demographic information, potentially extracted from reports or entered by the user. `patient_id` can be a lab-specific identifier.
+    *   `favorite_biomarkers`: JSON array storing an ordered list of favorite biomarker names for this profile.
 *   **Relationships**:
     *   One-to-Many with `pdfs` (a profile can have multiple PDFs).
     *   One-to-Many with `biomarkers` (a profile can have multiple biomarker entries across different PDFs).

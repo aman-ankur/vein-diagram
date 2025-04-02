@@ -1,4 +1,4 @@
-fastapi==0.95.1
+fastapi # Removed version pin to allow upgrade
 uvicorn==0.22.0
 pydantic==2.6.3
 python-multipart==0.0.6
@@ -19,3 +19,4 @@ pytest-asyncio==0.23.5
 psycopg2-binary==2.9.6
 fuzzywuzzy==0.18.0
 python-Levenshtein==0.21.1
+alembic==1.13.1 # Added for database migrations
