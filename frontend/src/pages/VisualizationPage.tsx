@@ -196,43 +196,17 @@ const VisualizationPage: React.FC = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success'); 
 
 
-  // --- Effects ---
+  // --- Helper Function ---
 
-  // 1. Load initial favorite names from backend profile data when profile changes
-  useEffect(() => {
-    if (activeProfile?.favorite_biomarkers) { // Check the field added to the Profile type
-      console.log(`Profile changed to ${activeProfile.id}, loading favorites from profile data.`);
-      setFavoriteNames(activeProfile.favorite_biomarkers);
-    } else {
-      // Clear favorites if profile is removed or has no favorites
-      setFavoriteNames([]);
-      setProcessedFavoritesData([]);
-    }
-  }, [activeProfile]);
-
-
-  // 2. Fetch all biomarkers when profile changes (and is loaded) or fileId changes
-  useEffect(() => {
-    // Only fetch if profile context is not loading
-    if (!profileLoading) { 
-      fetchBiomarkers();
-    }
-  }, [fileId, activeProfile, profileLoading]);
-
-  // 3. Process biomarkers for the favorite grid (Hybrid Logic: Explicit Favorites + Top Scored Fillers)
-  useEffect(() => {
+  // Function to calculate and set the processed data for the favorite grid
+  const calculateAndSetGridData = (currentFavoriteNames: string[]) => {
     if (biomarkers.length > 0 && activeProfile?.id) {
-      console.log('Processing biomarkers for favorite grid (Hybrid Logic)...');
-
-      // Get explicitly favorited names (already in favoriteNames state)
-      const explicitFavoriteNames = favoriteNames;
-      console.log('Explicit favorites:', explicitFavoriteNames);
+      console.log('Calculating grid data with explicit favorites:', currentFavoriteNames);
 
       // Process data for explicit favorites
       let processedExplicitFavorites: ProcessedFavoriteData[] = [];
-      if (explicitFavoriteNames.length > 0) {
-        processedExplicitFavorites = processBiomarkersForFavorites(biomarkers, explicitFavoriteNames);
-        console.log(`Processed ${processedExplicitFavorites.length} explicit favorites.`);
+      if (currentFavoriteNames.length > 0) {
+        processedExplicitFavorites = processBiomarkersForFavorites(biomarkers, currentFavoriteNames);
       }
 
       // Determine how many filler slots are needed
@@ -240,8 +214,6 @@ const VisualizationPage: React.FC = () => {
       let processedFillers: ProcessedFavoriteData[] = [];
 
       if (slotsToFill > 0) {
-        console.log(`Need to fill ${slotsToFill} slots with top-scored biomarkers.`);
-
         // --- Calculate scores for potential fillers ---
         const biomarkersByName: { [key: string]: { date: Date; reportId: string | number }[] } = {};
         let latestReportDate: Date | null = null;
@@ -261,7 +233,7 @@ const VisualizationPage: React.FC = () => {
 
         // Calculate scores ONLY for base biomarkers that are NOT already explicit favorites
         const potentialFillerNames = BASE_IMPORTANT_BIOMARKERS.filter(
-          name => !explicitFavoriteNames.includes(name) && biomarkersByName[name]
+          name => !currentFavoriteNames.includes(name) && biomarkersByName[name]
         );
 
         const scoredFillers = potentialFillerNames.map(name => {
@@ -279,10 +251,8 @@ const VisualizationPage: React.FC = () => {
 
         // Select top N fillers needed
         const topFillerNames = scoredFillers.slice(0, slotsToFill).map(bm => bm.name);
-        console.log('Top scored fillers selected:', topFillerNames);
 
         if (topFillerNames.length > 0) {
-          // Process data for the selected fillers
           processedFillers = processBiomarkersForFavorites(biomarkers, topFillerNames);
           // Sort fillers based on their score ranking
           processedFillers.sort((a, b) => {
@@ -290,24 +260,60 @@ const VisualizationPage: React.FC = () => {
             const scoreB = scoredFillers.find(s => s.name === b.name)?.score ?? 0;
             return scoreB - scoreA;
           });
-          console.log(`Processed ${processedFillers.length} filler biomarkers.`);
         }
-      } else {
-        console.log('No filler slots needed or available.');
       }
 
       // Combine explicit favorites and fillers
       const finalGridData = [...processedExplicitFavorites, ...processedFillers];
-      console.log('Final combined grid data:', finalGridData.map(d => d.name));
-
+      console.log('Setting final grid data:', finalGridData.map(d => d.name));
       setProcessedFavoritesData(finalGridData);
 
     } else {
       console.log('Clearing favorite grid data (no biomarkers or profile).');
       setProcessedFavoritesData([]); // Clear if no biomarkers or no profile
     }
-  // Rerun when biomarkers, the active profile, OR the list of explicit favorite names changes
-  }, [biomarkers, activeProfile, favoriteNames]);
+  };
+
+
+  // --- Effects ---
+
+  // 1. Load initial favorite names when profile changes
+  useEffect(() => {
+    if (activeProfile?.favorite_biomarkers) { // Check the field added to the Profile type
+      console.log(`Profile changed to ${activeProfile.id}, loading favorites from profile data.`);
+      console.log(`Profile changed to ${activeProfile.id}, loading favorites from profile data.`);
+      setFavoriteNames(activeProfile.favorite_biomarkers);
+    } else {
+      // Clear favorites if profile is removed or has no favorites
+      console.log('No active profile or no favorites in profile, clearing favoriteNames.');
+      setFavoriteNames([]);
+      // setProcessedFavoritesData([]); // Removed - calculation happens later
+    }
+    // Note: Grid calculation is now handled in the biomarker loading effect
+  }, [activeProfile]);
+
+
+  // 2. Fetch all biomarkers when profile changes (and is loaded) or fileId changes
+  useEffect(() => {
+    // Only fetch if profile context is not loading
+    if (!profileLoading) { 
+      fetchBiomarkers();
+    }
+  }, [fileId, activeProfile, profileLoading]);
+
+  // 3. Calculate grid data when biomarkers load or profile changes (using current favoriteNames state)
+  useEffect(() => {
+    // Only calculate if biomarkers are loaded and profile is active
+    if (!biomarkerLoading && biomarkers.length > 0 && activeProfile?.id) {
+      console.log('Biomarkers loaded or profile changed, recalculating grid data...');
+      calculateAndSetGridData(favoriteNames); // Use the current favoriteNames state
+    } else if (!biomarkerLoading && activeProfile?.id) {
+      // Handle case where profile is active but no biomarkers exist yet
+      console.log('Profile active but no biomarkers, clearing grid data.');
+      calculateAndSetGridData(favoriteNames); // Will likely result in empty grid
+    }
+  }, [biomarkers, biomarkerLoading, activeProfile]); // Rerun if biomarkers, loading state, or profile changes
+
 
   // 4. Fetch available profiles if the list is empty
   useEffect(() => {
@@ -588,6 +594,9 @@ const VisualizationPage: React.FC = () => {
       const newFavorites = updatedProfile.favorite_biomarkers || [];
       console.log(`[handleToggleFavorite] Updating state with:`, newFavorites); // Log state update
       setFavoriteNames(newFavorites);
+      // --- Trigger grid recalculation ---
+      calculateAndSetGridData(newFavorites); 
+      // --- End trigger ---
       setSnackbarMessage(`Favorite ${currentIsFavorite ? 'removed' : 'added'}.`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
@@ -636,7 +645,11 @@ const VisualizationPage: React.FC = () => {
       // Call backend service
       const updatedProfile = await addFavoriteBiomarker(activeProfile.id, biomarkerName);
       // Update state with the list returned from backend
-      setFavoriteNames(updatedProfile.favorite_biomarkers || []);
+      const newFavorites = updatedProfile.favorite_biomarkers || [];
+      setFavoriteNames(newFavorites);
+      // --- Trigger grid recalculation ---
+      calculateAndSetGridData(newFavorites);
+      // --- End trigger ---
       setSnackbarMessage(`${biomarkerName} added to favorites.`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
@@ -747,7 +760,11 @@ const VisualizationPage: React.FC = () => {
       const updatedProfile = await addFavoriteBiomarker(activeProfile.id, favoriteToAdd);
       
       // Update state with the final list from the backend
-      setFavoriteNames(updatedProfile.favorite_biomarkers || []);
+      const newFavorites = updatedProfile.favorite_biomarkers || [];
+      setFavoriteNames(newFavorites);
+      // --- Trigger grid recalculation ---
+      calculateAndSetGridData(newFavorites);
+      // --- End trigger ---
       
       // Close the modal
       handleCloseReplaceModal();
@@ -777,20 +794,25 @@ const VisualizationPage: React.FC = () => {
     
     console.log(`Favorite order changed, attempting to save new order for profile ${activeProfile.id}:`, orderedNames);
     
-    // Optimistically update the local state for immediate UI feedback
-    setFavoriteNames(orderedNames); 
+    // --- REMOVED OPTIMISTIC UPDATE ---
+    // setFavoriteNames(orderedNames); 
     
     try {
       // Call the backend API to persist the new order
-      await updateFavoriteOrder(activeProfile.id, orderedNames);
+      const updatedProfile = await updateFavoriteOrder(activeProfile.id, orderedNames);
       console.log(`Successfully saved new favorite order for profile ${activeProfile.id}`);
+      
+      // Update state with the confirmed order from the backend
+      const newFavorites = updatedProfile.favorite_biomarkers || [];
+      setFavoriteNames(newFavorites);
+      // --- Trigger grid recalculation ---
+      calculateAndSetGridData(newFavorites);
+      // --- End trigger ---
+
       // Show success feedback (optional, could be too noisy)
       // setSnackbarMessage('Favorite order saved.');
       // setSnackbarSeverity('success');
       // setSnackbarOpen(true);
-      
-      // Note: We don't need to update favoriteNames state again here as it was updated optimistically.
-      // The useEffect for processing favorites will rerun due to favoriteNames changing.
       
     } catch (err) {
       console.error(`Error saving favorite order for profile ${activeProfile.id}:`, err);
@@ -800,8 +822,8 @@ const VisualizationPage: React.FC = () => {
       setSnackbarOpen(true);
       
       // Revert optimistic update if save fails? 
-      // This is complex, might be better to just refetch profile data or rely on next refresh.
-      // For now, we'll leave the optimistic update in place.
+      // No optimistic update to revert, but maybe refetch profile to be safe?
+      // For now, just show error. The state might be inconsistent until next refresh.
     }
   }; // Correct closing brace for handleFavoriteOrderChange
 
@@ -1013,43 +1035,43 @@ const VisualizationPage: React.FC = () => {
             profileId={activeProfile.id}
             favoriteData={processedFavoritesData} // Pass current data (could be empty)
             onToggleFavorite={handleToggleFavorite} // Used by star icon
-            onDeleteFavorite={(biomarkerName) => {
-              // When we delete a favorite, we need to ensure it's removed from the state immediately
-              if (activeProfile?.id) {
-                console.log(`Deleting favorite ${biomarkerName} via delete button`);
+            onDeleteFavorite={async (biomarkerName) => { // Make async for await
+              // When we delete a favorite from the grid tile's 'x' button
+              if (!activeProfile?.id) return;
+            
+              console.log(`Deleting favorite ${biomarkerName} via delete button`);
+            
+              // --- REMOVED OPTIMISTIC UPDATE ---
+              // const originalFavoriteNames = [...favoriteNames]; 
+              // const updatedFavoritesOptimistic = favoriteNames.filter(name => name !== biomarkerName);
+              // setFavoriteNames(updatedFavoritesOptimistic);
+            
+              // Perform the backend update
+              try {
+                const updatedProfile = await removeFavoriteBiomarker(activeProfile.id, biomarkerName);
+                console.log('Delete successful, updated favorites from backend:', updatedProfile.favorite_biomarkers);
                 
-                // Immediately update local state to give instant UI feedback
-                const updatedFavorites = favoriteNames.filter(name => name !== biomarkerName);
-                setFavoriteNames(updatedFavorites);
+                // Update favorites state from backend to ensure sync
+                const newFavorites = updatedProfile.favorite_biomarkers || [];
+                setFavoriteNames(newFavorites); 
+                // --- Trigger grid recalculation ---
+                calculateAndSetGridData(newFavorites);
+                // --- End trigger ---
                 
-                // Also immediately update the processed data
-                setProcessedFavoritesData(prevData => 
-                  prevData.filter(item => item.name !== biomarkerName)
-                );
+                setSnackbarMessage(`${biomarkerName} removed from favorites.`);
+                setSnackbarSeverity('success');
+                setSnackbarOpen(true);
+              } catch (err) {
+                console.error(`Error deleting favorite ${biomarkerName}:`, err);
                 
-                // Then perform the backend update
-                removeFavoriteBiomarker(activeProfile.id, biomarkerName)
-                  .then((updatedProfile) => {
-                    console.log('Delete successful, updated favorites:', updatedProfile.favorite_biomarkers);
-                    // Update favorites state from backend to ensure sync
-                    setFavoriteNames(updatedProfile.favorite_biomarkers || []);
-                    setSnackbarMessage(`${biomarkerName} removed from favorites.`);
-                    setSnackbarSeverity('success');
-                    setSnackbarOpen(true);
-                  })
-                  .catch((err) => {
-                    console.error(`Error deleting favorite ${biomarkerName}:`, err);
-                    // Revert the optimistic update
-                    setFavoriteNames(favoriteNames);
-                    // Refresh processed data
-                    if (biomarkers.length > 0) {
-                      const processedData = processBiomarkersForFavorites(biomarkers, favoriteNames);
-                      setProcessedFavoritesData(processedData);
-                    }
-                    setSnackbarMessage('Failed to remove from favorites.');
-                    setSnackbarSeverity('error');
-                    setSnackbarOpen(true);
-                  });
+                // Revert the optimistic update for favoriteNames (this triggers the useEffect)
+                // No optimistic update to revert, just show error
+                // setFavoriteNames(originalFavoriteNames); 
+                
+                // Snackbar message
+                setSnackbarMessage('Failed to remove from favorites.');
+                setSnackbarSeverity('error');
+                setSnackbarOpen(true);
               }
             }}
             onAddClick={handleOpenAddModal}
