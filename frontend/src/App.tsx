@@ -38,6 +38,7 @@ import UploadPage from './pages/UploadPage';
 import VisualizationPage from './pages/VisualizationPage';
 import ProfileManagement from './pages/ProfileManagement';
 import BiomarkerHistoryPage from './pages/BiomarkerHistoryPage'; // Import the new page
+const DashboardPage = React.lazy(() => import('./pages/DashboardPage.tsx')); // Lazy load DashboardPage - Added .tsx extension
 import APIStatusIndicator from './components/APIStatusIndicator';
 import { checkApiAvailability } from './services/api';
 
@@ -171,9 +172,10 @@ function App() {
     { text: 'Home', icon: <HomeIcon />, path: '/' },
     { text: 'Upload', icon: <UploadIcon />, path: '/upload' },
     { text: 'Visualization', icon: <AnalyticsIcon />, path: '/visualization' },
-    { text: 'Biomarkers', icon: <ScienceIcon />, path: '/biomarkers' },
+    { text: 'Biomarkers', icon: <ScienceIcon />, path: '/biomarkers' }, // Assuming this is not the summary page
     { text: 'Profiles', icon: <PersonIcon />, path: '/profiles' },
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    // Ensure the Dashboard item correctly points to the new route
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' }, 
   ];
 
   const drawer = (
@@ -251,10 +253,12 @@ function App() {
                   <Route path="/upload" element={<UploadPage />} />
                   <Route path="/visualization" element={<VisualizationPage />} />
                   {/* Add route for profile-specific visualization */}
-                  <Route path="/visualization/:fileId" element={<VisualizationPage />} /> 
+                  <Route path="/visualization/:fileId" element={<VisualizationPage />} />
                   <Route path="/profiles" element={<ProfileManagement />} />
                   {/* Add route for biomarker history */}
-                  <Route path="/profile/:profileId/history" element={<BiomarkerHistoryPage />} /> 
+                  <Route path="/profile/:profileId/history" element={<BiomarkerHistoryPage />} />
+                  {/* Add route for the new dashboard */}
+                  <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="*" element={
                     <Box sx={{ textAlign: 'center', mt: 4 }}>
                       <Typography variant="h4">Page Not Found</Typography>
