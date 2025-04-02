@@ -125,6 +125,7 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
   
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click when deleting
+    console.log(`🔴 BiomarkerTile: Delete button clicked for "${name}"`);
     onDeleteFavorite(name);
   };
 
@@ -230,6 +231,7 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
           size="small"
           onClick={handleDeleteClick} // Ensure this calls the correct prop handler
           aria-label={`Remove ${name} from favorites`}
+          data-no-dnd="true" // Add attribute to prevent drag-and-drop on this element
           sx={{
             position: 'absolute', 
             bottom: 4, // Position near bottom
@@ -302,11 +304,16 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
                   labelStyle={{ color: theme.palette.text.secondary, marginBottom: '4px' }}
                   labelFormatter={(label) => {
                     // Check if label is a valid date representation before formatting
-                    const date = new Date(label);
-                    if (!isNaN(date.getTime())) { // Check if date is valid
-                      return `Date: ${format(date, DATE_FORMAT.DISPLAY)}`;
+                    try {
+                      const date = new Date(label);
+                      // Less restrictive check - just ensure it's a valid date
+                      if (!isNaN(date.getTime())) {
+                        return `Date: ${format(date, DATE_FORMAT.DISPLAY)}`;
+                      }
+                    } catch (err) {
+                      console.error('Error parsing date:', label, err);
                     }
-                    return 'Date: Invalid'; // Fallback for invalid dates
+                    return `Measurement Value`; // Fallback for invalid dates
                   }}
                   formatter={(value) => [`${value} ${latestUnit ?? ''}`, null]} // Value only, no name
                 />

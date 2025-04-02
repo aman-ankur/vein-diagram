@@ -214,10 +214,27 @@ export const processBiomarkersForFavorites = (
       trend: trend,
       category: latest?.category, // Add the category from the latest record
       // Map sorted history (which now only contains valid dates)
-      history: sortedHistory.map(bm => ({
-        date: bm.dateObject!, 
-        value: bm.value, // Keep value even if null/undefined for chart? Or filter? Keeping for now.
-      })).sort((a, b) => a.date.getTime() - b.date.getTime()), // Ensure history is sorted chronologically for sparkline
+      history: sortedHistory
+        .map(bm => {
+          // Less strict validation - just ensure it's a valid date object
+          if (!bm.dateObject || isNaN(bm.dateObject.getTime())) {
+            console.warn(`Skipping invalid date in history for ${normalizedFavName}:`, bm.dateObject);
+            return null; // Skip truly invalid dates
+          }
+          
+          // Log the valid date for debugging
+          console.log(`Valid date for ${normalizedFavName} history:`, 
+            bm.dateObject.toISOString(), 
+            `Year: ${bm.dateObject.getFullYear()}`
+          );
+          
+          return {
+            date: bm.dateObject,
+            value: bm.value
+          };
+        })
+        .filter((item): item is { date: Date; value: number } => item !== null) // Remove nulls and ensure type safety
+        .sort((a, b) => a.date.getTime() - b.date.getTime()), // Ensure history is sorted chronologically for sparkline
     });
   });
 
