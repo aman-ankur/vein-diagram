@@ -19,7 +19,7 @@ graph TD
     subgraph Backend
         direction LR
         Routes[API Routes] --> Services[Business Logic Services (incl. Profile/Favorite/HealthScore Logic)]
-        Services --> Models[Data Models (incl. Profile/Favorite)]
+        Services --> Models[Data Models (Profile incl. favorite_biomarkers)]
         Services --> PDFProcessing[PDF Processing Engine]
         Services --> Config[Configuration (e.g., optimal_ranges.json)]
         Models --> DB
@@ -117,8 +117,8 @@ graph TD
         direction LR
         PDFRoutes[pdf_routes.py]
         BiomarkerRoutes[biomarker_routes.py]
-        ProfileRoutes[profile_routes.py]
-        HealthScoreRoutes[health_score_routes.py]
+    ProfileRoutes[profile_routes.py (incl. /favorites endpoints)]
+    HealthScoreRoutes[health_score_routes.py]
     end
 
     subgraph Services
@@ -140,7 +140,7 @@ graph TD
         direction LR
         PDFModel[pdf_model.py]
         BiomarkerModel[biomarker_model.py]
-        ProfileModel[profile_model.py]
+        ProfileModel[profile_model.py (with favorite_biomarkers)]
     end
 
     API_Routes --> Services

@@ -16,18 +16,31 @@ The project is advancing with a focus on integrating user personalization featur
 
 Significant recent developments include:
 
-1.  **Profile Management Implementation**:
-    *   Added backend API endpoints (FastAPI) for CRUD operations on user profiles.
-    *   Created database models (`profile_model.py`) and schemas (`profile_schema.py`) for profiles.
-    *   Developed frontend components (`ProfileManagement.tsx`) and services (`profileService.ts`) for managing profiles.
-    *   Implemented logic to associate uploaded PDF reports with specific user profiles.
-    *   Added tests (`test_profile_routes.py`, `ProfileManagement.test.tsx`) for the new functionality.
+1.  **Profile Management & Backend Favorites**:
+    *   Implemented backend API endpoints (FastAPI) for profile CRUD.
+    *   **Added `favorite_biomarkers` JSON column to `Profile` model and updated schemas.**
+    *   **Set up Alembic for database migrations and applied initial migration for the new column.**
+    *   **Added backend API endpoints for adding, removing, and reordering favorite biomarkers (`/api/profiles/{id}/favorites/...`).**
+    *   Implemented profile matching and association logic.
+    *   Developed frontend components (`ProfileManagement.tsx`) and services (`profileService.ts`).
+    *   Associated uploaded PDFs with profiles.
+    *   Added tests (`test_profile_routes.py`, `ProfileManagement.test.tsx`).
+    *   Fixed Pydantic v2 `from_attributes` config error.
+    *   Resolved FastAPI/Starlette dependency conflict.
 
-2.  **Favorite Biomarkers Implementation**:
-    *   Added backend API endpoints to manage favorite biomarkers linked to profiles.
-    *   Updated database schemas to store favorite status.
-    *   Created frontend components (`FavoriteBiomarkersGrid.tsx`, `AddFavoriteModal.tsx`, `BiomarkerTile.tsx`) to display and manage favorites.
-    *   Implemented utility functions (`favoritesUtils.ts`) for handling favorite logic.
+2.  **Frontend Favorite Management & Biomarker Deletion**:
+    *   **Migrated favorite state management from localStorage to backend API calls.**
+    *   Updated `VisualizationPage.tsx` to fetch/update favorites via `profileService.ts`.
+    *   Added star icon to `BiomarkerTable` for adding/removing favorites.
+    *   Implemented `ReplaceFavoriteModal.tsx` and logic in `VisualizationPage.tsx` to handle adding favorites when the grid is full.
+    *   Added delete ('x') icon to `BiomarkerTile.tsx` for direct removal of favorites.
+    *   **Implemented drag-and-drop reordering for favorite tiles** using `dnd-kit` in `FavoriteBiomarkersGrid.tsx`, saving the order via the backend API.
+    *   **Added 3-dot menu and "Delete Entry" action to `BiomarkerTable.tsx`**.
+    *   Added backend endpoint (`DELETE /api/biomarkers/{id}`) and frontend service/handler (`deleteBiomarkerEntry`) for biomarker deletion.
+    *   Added confirmation dialog for biomarker deletion.
+    *   Removed obsolete local storage functions from `favoritesUtils.ts`.
+    *   Fixed date display issues in `BiomarkerTile.tsx` tooltip and `biomarkerUtils.ts`.
+    *   Fixed positioning/visibility of the delete button on `BiomarkerTile.tsx`.
 
 3.  **Enhanced PDF Processing & Claude Integration**:
     *   Continued refinement of Claude API prompts for extraction accuracy.
@@ -88,6 +101,8 @@ The immediate priorities are:
 8.  **Add Health Score Tests**:
     *   Write backend tests for the calculation logic and API endpoint.
     *   Write frontend tests for the new Health Score components.
+    *   **Add tests for backend favorite management endpoints.**
+    *   **Add frontend tests for favorite drag-and-drop and modal interactions.**
 
 ## Active Decisions and Considerations
 
@@ -124,9 +139,9 @@ The immediate priorities are:
     *   **Status**: Design and implementation ongoing.
 
 2.  **Managing Favorites**:
-    *   **Challenge**: Making the process of adding/removing favorites intuitive across different contexts (tables, visualizations).
-    *   **Approach**: Consistent iconography and interaction patterns. Modal (`AddFavoriteModal.tsx`) for adding, direct interaction on tiles/rows for removing.
-    *   **Status**: Implemented, refining based on usability.
+    *   **Challenge**: Making the process of adding/removing/reordering favorites intuitive across different contexts (tiles, table, modals).
+    *   **Approach**: Consistent iconography (star, x), drag-and-drop for tiles, modals for adding/replacing. Backend persistence.
+    *   **Status**: Implemented. Minor UI tweaks might be needed based on feedback.
 
 3.  **Onboarding for New Features**:
     *   **Challenge**: Introducing users to profile management and favorites without overwhelming them.

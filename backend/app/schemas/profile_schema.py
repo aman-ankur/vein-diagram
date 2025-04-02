@@ -22,20 +22,24 @@ class ProfileUpdate(BaseModel):
     date_of_birth: Optional[datetime] = Field(None, description="Date of birth")
     gender: Optional[str] = Field(None, description="Gender")
     patient_id: Optional[str] = Field(None, description="Patient ID used in lab reports")
+    # Add favorite biomarkers to update schema
+    favorite_biomarkers: Optional[List[str]] = Field(None, description="Ordered list of favorite biomarker names")
 
 class ProfileInDB(ProfileBase):
     """Schema for profile data as stored in the database."""
     id: UUID4
     created_at: datetime
     last_modified: datetime
+    favorite_biomarkers: List[str] = Field(default_factory=list, description="Ordered list of favorite biomarker names")
 
     class Config:
-        orm_mode = True
+        from_attributes = True # Pydantic V2 uses from_attributes instead of orm_mode
 
 class ProfileResponse(ProfileInDB):
     """Schema for profile data returned in API responses."""
     biomarker_count: Optional[int] = Field(0, description="Number of biomarkers associated with this profile")
     pdf_count: Optional[int] = Field(0, description="Number of PDF reports associated with this profile")
+    favorite_biomarkers: List[str] = Field(default_factory=list, description="Ordered list of favorite biomarker names")
 
 class ProfileList(BaseModel):
     """Schema for a list of profiles."""
@@ -72,4 +76,4 @@ class ProfileAssociationRequest(BaseModel):
     profile_id: Optional[str] = Field(None, description="ID of the profile to associate with the PDF. If null, create a new profile.")
     pdf_id: str = Field(..., description="ID of the PDF to associate")
     create_new_profile: bool = Field(False, description="Whether to create a new profile instead of using an existing one")
-    metadata_updates: Optional[Dict[str, Any]] = Field(None, description="Updates to make to the extracted metadata when creating a profile") 
+    metadata_updates: Optional[Dict[str, Any]] = Field(None, description="Updates to make to the extracted metadata when creating a profile")
