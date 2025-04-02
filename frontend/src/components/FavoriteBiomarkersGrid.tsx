@@ -56,9 +56,19 @@ const SortableBiomarkerTile: React.FC<{
     zIndex: isDragging ? 100 : 'auto', // Ensure dragging tile is on top
   };
 
+  // Create a wrapped onDeleteFavorite handler with debug logging
+  const handleDelete = (biomarkerName: string) => {
+    console.log(`🟢 SortableBiomarkerTile: Delete handler called for "${biomarkerName}"`);
+    // Call the original handler
+    props.onDeleteFavorite(biomarkerName);
+  };
+
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <BiomarkerTile {...props} />
+      <BiomarkerTile 
+        {...props} 
+        onDeleteFavorite={handleDelete} 
+      />
     </div>
   );
 };
@@ -72,9 +82,33 @@ const FavoriteBiomarkersGrid: React.FC<FavoriteBiomarkersGridProps> = ({
   onAddClick,
   onOrderChange, // Destructure the order change handler
 }) => {
+  // Configure a custom pointer sensor that ignores clicks on elements with data-no-dnd attribute
+  const customPointerSensor = useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 8, // Start dragging after moving 8px
+    },
+    // Add a custom handler to prevent dragging when clicking on no-drag elements
+    eventListeners: {
+      // @ts-ignore - DndKit types might not include all the event properties
+      onPointerDown: ({ nativeEvent }) => {
+        let target = nativeEvent.target;
+        
+        // Check if the click is on or within an element with data-no-dnd
+        while (target) {
+          if (target.hasAttribute && target.hasAttribute('data-no-dnd')) {
+            console.log('🚫 Preventing drag start on no-drag element');
+            return false; // Prevents drag from starting
+          }
+          target = target.parentElement;
+        }
+        return true; // Allow drag to start
+      }
+    }
+  });
+  
   // Use sensors for pointer and keyboard interactions
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    customPointerSensor,
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })

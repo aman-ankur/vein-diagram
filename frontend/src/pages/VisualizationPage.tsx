@@ -1013,7 +1013,45 @@ const VisualizationPage: React.FC = () => {
             profileId={activeProfile.id}
             favoriteData={processedFavoritesData} // Pass current data (could be empty)
             onToggleFavorite={handleToggleFavorite} // Used by star icon
-            onDeleteFavorite={handleToggleFavorite} // Used by delete icon (same logic: remove from favorites)
+            onDeleteFavorite={(biomarkerName) => {
+              // When we delete a favorite, we need to ensure it's removed from the state immediately
+              if (activeProfile?.id) {
+                console.log(`Deleting favorite ${biomarkerName} via delete button`);
+                
+                // Immediately update local state to give instant UI feedback
+                const updatedFavorites = favoriteNames.filter(name => name !== biomarkerName);
+                setFavoriteNames(updatedFavorites);
+                
+                // Also immediately update the processed data
+                setProcessedFavoritesData(prevData => 
+                  prevData.filter(item => item.name !== biomarkerName)
+                );
+                
+                // Then perform the backend update
+                removeFavoriteBiomarker(activeProfile.id, biomarkerName)
+                  .then((updatedProfile) => {
+                    console.log('Delete successful, updated favorites:', updatedProfile.favorite_biomarkers);
+                    // Update favorites state from backend to ensure sync
+                    setFavoriteNames(updatedProfile.favorite_biomarkers || []);
+                    setSnackbarMessage(`${biomarkerName} removed from favorites.`);
+                    setSnackbarSeverity('success');
+                    setSnackbarOpen(true);
+                  })
+                  .catch((err) => {
+                    console.error(`Error deleting favorite ${biomarkerName}:`, err);
+                    // Revert the optimistic update
+                    setFavoriteNames(favoriteNames);
+                    // Refresh processed data
+                    if (biomarkers.length > 0) {
+                      const processedData = processBiomarkersForFavorites(biomarkers, favoriteNames);
+                      setProcessedFavoritesData(processedData);
+                    }
+                    setSnackbarMessage('Failed to remove from favorites.');
+                    setSnackbarSeverity('error');
+                    setSnackbarOpen(true);
+                  });
+              }
+            }}
             onAddClick={handleOpenAddModal}
             onOrderChange={handleFavoriteOrderChange} // Pass the order change handler
           />
