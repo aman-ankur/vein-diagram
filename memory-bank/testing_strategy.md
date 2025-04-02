@@ -39,6 +39,7 @@ The goal is to maintain a high level of confidence in the application's correctn
 -   **PDF Processing**: Critical area requiring thorough testing due to complexity and variability. Includes testing text extraction (all pages), OCR fallback, metadata extraction (initial pages), page relevance filtering, sequential biomarker extraction (mocked Claude calls per page), fallback parser logic, de-duplication, and data standardization. Sample PDFs (`backend/sample_reports/`) are used.
 -   **API Endpoints**: Ensuring API contracts are met, request validation works, correct responses/status codes are returned, and background tasks are initiated correctly (e.g., PDF processing).
 -   **Profile Management**: Testing CRUD operations, profile matching logic, and correct association of PDFs/biomarkers with profiles.
+-   **Favorite Management**: Testing backend API endpoints for adding, removing, and reordering favorites. Testing frontend logic for toggling, replacing (when full), deleting, and drag-and-drop reordering.
 -   **Health Score Calculation**: Testing the backend logic for score calculation, including handling of optimal ranges, different biomarker values, and edge cases (e.g., missing data).
 -   **Health Score API**: Testing the `/api/health-score/{profile_id}` endpoint for correctness and performance.
 -   **Health Score Frontend Components**: Testing the rendering and display logic of `HealthScoreOverview.tsx` and related components.
