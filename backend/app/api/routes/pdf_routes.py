@@ -146,10 +146,10 @@ async def upload_pdf(
         # Start background processing
         background_tasks.add_task(
             process_pdf_background,
-            pdf_id=pdf.id,
-            db_session=db
+            pdf_id=pdf.id
+            # db_session=db # Removed: Background task should create its own session
         )
-        
+
         return PDFResponse(
             file_id=pdf.file_id,
             filename=pdf.filename,
@@ -268,4 +268,4 @@ async def delete_pdf(file_id: str, db: Session = Depends(get_db)):
     db.delete(pdf)
     db.commit()
     
-    return {"message": f"File {pdf.filename} deleted successfully"} 
+    return {"message": f"File {pdf.filename} deleted successfully"}

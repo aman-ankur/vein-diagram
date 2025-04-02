@@ -156,8 +156,8 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess, initialFileI
     try {
       // Wait until the PDF is fully processed
       let statusCheckAttempts = 0;
-      const maxAttempts = 60; // 60 attempts with 2 second intervals = 2 minutes max wait time
-      
+      const maxAttempts = 300; // Increased: 300 attempts * 2 sec = 600 seconds (10 minutes) max wait time
+
       // Check if the PDF has been processed before attempting to match profiles
       const checkPdfProcessed = async (): Promise<boolean> => {
         try {
@@ -195,10 +195,34 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess, initialFileI
           return false;
         }
       };
-      
-      // Poll until the PDF is processed or max attempts reached
+
+      // --- Start Polling Logic ---
       let isProcessed = false;
-      while (statusCheckAttempts < maxAttempts && !isProcessed) {
+
+      // **Initial Status Check**
+      try {
+        console.log(`Performing initial status check for PDF: ${pdfId}`);
+        const initialStatusResponse = await axios.get(`${API_BASE_URL}/api/pdf/status/${pdfId}`);
+        const initialStatus = initialStatusResponse.data.status;
+        console.log(`Initial status for PDF ${pdfId}: ${initialStatus}`);
+
+        if (initialStatus === "processed" || initialStatus === "completed") {
+          console.log(`PDF ${pdfId} already processed. Skipping polling.`);
+          isProcessed = true; // Mark as processed to proceed directly to matching
+        } else if (initialStatus === "error" || initialStatus === "failed") {
+          console.error(`PDF ${pdfId} processing failed previously. Aborting.`);
+          throw new Error(`PDF processing failed previously: ${initialStatusResponse.data.error_message || "Unknown error"}`);
+        }
+        // Otherwise, status is 'pending' or 'processing', so continue to polling loop
+      } catch (initialError) {
+         console.error(`Error during initial status check for PDF ${pdfId}:`, initialError);
+         // If initial check fails, proceed to polling loop as a fallback,
+         // but log the error. The loop's error handling will take over.
+      }
+
+
+      // **Polling Loop (only if not already processed/failed)**
+      while (!isProcessed && statusCheckAttempts < maxAttempts) {
         statusCheckAttempts++;
         try {
           isProcessed = await checkPdfProcessed();
@@ -222,28 +246,39 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess, initialFileI
         }
       }
       
-      // If we've reached max attempts without successful processing, throw error
-      if (!isProcessed) {
-        throw new Error("PDF processing timed out. The server might be experiencing high load or the PDF is taking too long to process.");
+      // If polling finished but PDF is still not processed (e.g., initial check failed and loop timed out)
+      if (!isProcessed && statusCheckAttempts >= maxAttempts) {
+        throw new Error("PDF processing timed out after multiple attempts.");
       }
-      
-      console.log("Calling profile matching API for PDF:", pdfId);
-      
-      const result: ProfileMatchingResponse = await findMatchingProfiles(pdfId);
-      console.log("Profile matching results:", result);
-      
-      // If we have valid results, show the modal
-      setProfileMatches(result.matches || []);
-      setExtractedMetadata(result.metadata || {});
-      
-      // Always show the matching modal, even if no matches are found
-      // In that case, it will default to the "Create New Profile" option
-      console.log("Showing profile matching modal");
-      setIsMatchingModalVisible(true);
-    } catch (error) {
+
+      // --- Profile Matching (only if processed) ---
+      if (isProcessed) {
+          console.log("Calling profile matching API for PDF:", pdfId);
+          const result: ProfileMatchingResponse = await findMatchingProfiles(pdfId);
+          console.log("Profile matching results:", result);
+
+          // If we have valid results, show the modal
+          setProfileMatches(result.matches || []);
+          setExtractedMetadata(result.metadata || {});
+
+          // Always show the matching modal, even if no matches are found
+          // In that case, it will default to the "Create New Profile" option
+          console.log("Showing profile matching modal");
+          setIsMatchingModalVisible(true);
+      } else {
+           // This case should ideally not be reached if timeout error is thrown correctly
+           console.error(`Polling loop finished for PDF ${pdfId} but it was not marked as processed.`);
+           message.error("PDF processing check completed, but status is unclear. Please check manually.");
+           onUploadSuccess(pdfId); // Fallback
+      }
+
+
+    } catch (error) { // This catch block handles errors from the entire process (initial check, polling, matching API call)
       console.error('Error finding matching profiles:', error);
-      message.error('Failed to find matching profiles. Using default profile.');
-      
+      // Display the error message from the exception if available
+      const errorMessage = error instanceof Error ? error.message : 'Failed to find matching profiles or process PDF.';
+      message.error(errorMessage + ' Using default profile.');
+
       // Fall back to default behavior - just pass the fileId back
       // In a production app, we might want to offer a retry option
       onUploadSuccess(pdfId);
@@ -354,4 +389,4 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess, initialFileI
   );
 };
 
-export default PDFUploader; 
+export default PDFUploader;
