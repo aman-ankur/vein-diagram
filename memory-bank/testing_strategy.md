@@ -44,7 +44,7 @@ The goal is to maintain a high level of confidence in the application's correctn
 -   **Health Score API**: Testing the `/api/health-score/{profile_id}` endpoint for correctness and performance.
 -   **Health Score Frontend Components**: Testing the rendering and display logic of `HealthScoreOverview.tsx` and related components.
 -   **Data Integrity**: Verifying correct data storage, retrieval, and relationships in the database (primarily via integration tests).
--   **Component Rendering & Interaction**: Ensuring UI components render correctly based on props/state and respond appropriately to user interactions.
+-   **Component Rendering & Interaction**: Ensuring UI components render correctly based on props/state and respond appropriately to user interactions (including the redesigned Smart Summary tab).
 -   **State Management (Frontend)**: Verifying that global state (like `ProfileContext`) is updated and consumed correctly.
 
 ## Running Tests
