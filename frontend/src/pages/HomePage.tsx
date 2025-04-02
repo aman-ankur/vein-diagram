@@ -25,9 +25,12 @@ import SecurityIcon from '@mui/icons-material/Security';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import BiotechIcon from '@mui/icons-material/Biotech';
 import ScienceIcon from '@mui/icons-material/Science';
-import Dashboard from '../components/Dashboard';
+// Remove import for the old Dashboard component as it's no longer rendered here
+// import Dashboard from '../components/Dashboard'; 
 import storageService, { STORAGE_KEYS } from '../services/localStorage';
-import { getAllBiomarkers, ApiError } from '../services/api';
+// Fix: Import ApiError from the correct location (assuming it's in types/api.ts)
+import { getAllBiomarkers } from '../services/api'; 
+import { ApiError } from '../types/api'; // Import ApiError type
 import LoadingIndicator from '../components/LoadingIndicator';
 import ErrorHandler from '../components/ErrorHandler';
 
@@ -387,9 +390,13 @@ const HomePage: React.FC = () => {
                     <Tab label="Explore Features" id="tab-2" />
                   </Tabs>
                 </Box>
-                
                 <TabPanel value={tabValue} index={0}>
-                  <Dashboard />
+                  {/* Remove rendering of the old Dashboard component here */}
+                  {/* <Dashboard /> */}
+                  <Typography variant="h5" gutterBottom align="center">Welcome Back!</Typography>
+                  <Typography variant="body1" color="text.secondary" align="center" paragraph>
+                    Use the sidebar navigation to view your dashboard, visualizations, or upload new reports.
+                  </Typography>
                   
                   <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center', gap: 2 }}>
                     <Button 
@@ -735,4 +742,4 @@ const HomePage: React.FC = () => {
   );
 };
 
-export default HomePage; 
+export default HomePage;

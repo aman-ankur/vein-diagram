@@ -21,12 +21,22 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Card,
+  CardContent,
+  IconButton,
+  alpha,
+  Fade,
+  useMediaQuery
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import HistoryIcon from '@mui/icons-material/History';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { getAllBiomarkers, getBiomarkersByFileId, getBiomarkerCategories, getBiomarkerExplanation, getPDFStatus, PDFProcessingStatus } from '../services/api';
 import { getAllProfiles } from '../services/profileService';
 import BiomarkerTable from '../components/BiomarkerTable';
@@ -59,11 +69,186 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+// New component for report metadata display
+const ReportMetadataCard: React.FC<{
+  metadata: {
+    lab_name?: string;
+    report_date?: string;
+    filename?: string;
+    profile_name?: string;
+  }
+}> = ({ metadata }) => {
+  const theme = useTheme();
+  
+  return (
+    <Card 
+      elevation={0}
+      sx={{ 
+        backgroundColor: alpha(theme.palette.background.paper, 0.7),
+        backdropFilter: 'blur(10px)',
+        borderRadius: '16px',
+        mb: 3,
+        border: `1px solid ${alpha(theme.palette.divider, 0.05)}`
+      }}
+    >
+      <CardContent sx={{ p: 2.5 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <LocalHospitalOutlinedIcon sx={{ mr: 1, color: theme.palette.text.secondary }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary">Lab Provider</Typography>
+                <Typography variant="body2" fontWeight="medium">{metadata.lab_name || 'Unknown Lab'}</Typography>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <AccessTimeIcon sx={{ mr: 1, color: theme.palette.text.secondary }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary">Report Date</Typography>
+                <Typography variant="body2" fontWeight="medium">
+                  {metadata.report_date 
+                    ? new Date(metadata.report_date).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      }) 
+                    : 'Unknown Date'}
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <InfoOutlinedIcon sx={{ mr: 1, color: theme.palette.text.secondary }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary">File Name</Typography>
+                <Typography variant="body2" fontWeight="medium" noWrap sx={{ maxWidth: '150px' }}>
+                  {metadata.filename || 'No File'}
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <TrendingUpIcon sx={{ mr: 1, color: theme.palette.text.secondary }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary">Patient</Typography>
+                <Typography variant="body2" fontWeight="medium">
+                  {metadata.profile_name || 'No Patient'}
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+      </CardContent>
+    </Card>
+  );
+};
+
+// New component for category filters with improved visual design
+const CategoryFilters: React.FC<{
+  categories: string[];
+  selectedCategory: string | null;
+  onCategorySelect: (category: string | null) => void;
+}> = ({ categories, selectedCategory, onCategorySelect }) => {
+  const theme = useTheme();
+  
+  return (
+    <Box 
+      sx={{ 
+        display: 'flex', 
+        flexWrap: 'wrap', 
+        gap: 1, 
+        mb: 3,
+        pb: 2,
+        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+      }}
+    >
+      <Chip
+        label="All Categories"
+        onClick={() => onCategorySelect(null)}
+        color={selectedCategory === null ? 'primary' : 'default'}
+        variant={selectedCategory === null ? 'filled' : 'outlined'}
+        sx={{ 
+          borderRadius: '8px',
+          '&.MuiChip-filled': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.15),
+            color: theme.palette.primary.main,
+            fontWeight: 500
+          },
+          '&.MuiChip-outlined': {
+            borderColor: alpha(theme.palette.divider, 0.3),
+            color: theme.palette.text.secondary
+          }
+        }}
+      />
+      
+      {categories.map((category) => (
+        <Chip
+          key={category}
+          label={category}
+          onClick={() => onCategorySelect(category)}
+          color={selectedCategory === category ? 'primary' : 'default'}
+          variant={selectedCategory === category ? 'filled' : 'outlined'}
+          sx={{ 
+            borderRadius: '8px',
+            '&.MuiChip-filled': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.15),
+              color: theme.palette.primary.main,
+              fontWeight: 500
+            },
+            '&.MuiChip-outlined': {
+              borderColor: alpha(theme.palette.divider, 0.3),
+              color: theme.palette.text.secondary
+            }
+          }}
+        />
+      ))}
+    </Box>
+  );
+};
+
+// Enhanced action button with improved styling
+const ActionButton: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  color?: string;
+}> = ({ icon, label, onClick, color }) => {
+  const theme = useTheme();
+  
+  return (
+    <Button
+      startIcon={icon}
+      onClick={onClick}
+      variant="outlined"
+      sx={{
+        borderRadius: '10px',
+        textTransform: 'none',
+        px: 2,
+        py: 1,
+        borderColor: color ? color : alpha(theme.palette.primary.main, 0.2),
+        color: color ? color : theme.palette.primary.main,
+        bgcolor: alpha(color || theme.palette.primary.main, 0.05),
+        '&:hover': {
+          bgcolor: alpha(color || theme.palette.primary.main, 0.1),
+          borderColor: color ? color : alpha(theme.palette.primary.main, 0.3),
+        }
+      }}
+    >
+      {label}
+    </Button>
+  );
+};
+
 const BiomarkerPage: React.FC = () => {
   const { fileId } = useParams<{ fileId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Get the view param from URL or default to 'current'
   const viewParam = searchParams.get('view');
@@ -251,16 +436,16 @@ const BiomarkerPage: React.FC = () => {
   };
   
   // Handle category selection
-  const handleCategoryClick = (category: string) => {
-    setSelectedCategory(selectedCategory === category ? null : category);
+  const handleCategoryClick = (category: string | null) => {
+    setSelectedCategory(category);
   };
   
-  // Handle back navigation
+  // Handle back button
   const handleBack = () => {
-    navigate(-1);
+    navigate('/dashboard');
   };
   
-  // Handle upload new PDF
+  // Handle upload new
   const handleUploadNew = () => {
     navigate('/upload');
   };
@@ -397,283 +582,236 @@ const BiomarkerPage: React.FC = () => {
     }
   };
   
+  // This returns the redesigned UI
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Breadcrumbs navigation */}
-      <Breadcrumbs 
-        separator={<NavigateNextIcon fontSize="small" />} 
-        aria-label="breadcrumb"
-        sx={{ mb: 3 }}
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      {/* Header with back button and title */}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 3 
+        }}
       >
-        <Link color="inherit" href="/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
-          Home
-        </Link>
-        {fileId ? (
-          <>
-            <Link 
-              color="inherit" 
-              href="/biomarkers" 
-              onClick={(e) => { e.preventDefault(); navigate('/biomarkers'); }}
-            >
-              Biomarkers
-            </Link>
-            <Typography color="text.primary">Report Results</Typography>
-          </>
-        ) : (
-          <Typography color="text.primary">Biomarkers</Typography>
-        )}
-      </Breadcrumbs>
-      
-      {/* Header section */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {fileId ? 'Lab Report Results' : 'Biomarker Dashboard'}
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton 
+            onClick={handleBack} 
+            sx={{ 
+              mr: 2, 
+              bgcolor: alpha(theme.palette.background.paper, 0.6), 
+              '&:hover': { bgcolor: alpha(theme.palette.background.paper, 0.8) }
+            }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 600, 
+              color: theme.palette.text.primary,
+              fontSize: { xs: '1.5rem', sm: '2rem' } 
+            }}
+          >
+            Health Analysis
           </Typography>
-          {fileId && metadata.lab_name && (
-            <Typography variant="subtitle1" color="text.secondary">
-              {metadata.lab_name} {metadata.report_date ? `• ${metadata.report_date}` : ''}
-              {metadata.profile_name ? ` • ${metadata.profile_name}` : ''}
-            </Typography>
-          )}
         </Box>
         
-        <Box>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={handleBack}
-            sx={{ mr: 2 }}
-          >
-            Back
-          </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Fade in={!loading}>
+            <Box>
+              <ViewToggle 
+                currentView={currentView} 
+                onChange={handleViewChange} 
+              />
+            </Box>
+          </Fade>
           
-          <Button
-            variant="contained"
-            startIcon={<UploadFileIcon />}
-            onClick={handleUploadNew}
-          >
-            Upload New Report
-          </Button>
+          {!isMobile && (
+            <ActionButton
+              icon={<UploadFileIcon />}
+              label="Upload New Report"
+              onClick={handleUploadNew}
+              color={theme.palette.info.main}
+            />
+          )}
         </Box>
       </Box>
       
-      {/* View toggle - show on both overview and specific file pages */}
-      <Box sx={{ mb: 4 }}>
-        <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            View Options
-          </Typography>
-          
-          <ViewToggle 
-            currentView={currentView} 
-            onViewChange={handleViewChange}
-            disabled={!profileId}
-            disabledText={profileId ? undefined : "Please associate a PDF with a profile to enable history view"}
-          />
-          
-          {!fileId && (
-            <Box sx={{ mt: 2, p: 1, borderTop: 1, borderColor: 'divider' }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Select a profile to view history:
-              </Typography>
-              <FormControl fullWidth sx={{ mt: 1 }}>
-                <InputLabel id="profile-select-label">Profile</InputLabel>
-                <Select
-                  labelId="profile-select-label"
-                  id="profile-select"
-                  value={profileId || ''}
-                  label="Profile"
-                  onChange={handleProfileSelect}
-                  disabled={profilesLoading}
-                >
-                  <MenuItem value="">
-                    <em>Select a profile</em>
-                  </MenuItem>
-                  {profiles.map((profile) => (
-                    <MenuItem key={profile.id} value={profile.id}>
-                      {profile.name} {profile.date_of_birth ? `(DOB: ${new Date(profile.date_of_birth).toLocaleDateString()})` : ''}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-          )}
-          
-          {!profileId && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              <AlertTitle>No Profile Selected</AlertTitle>
-              {fileId 
-                ? "This PDF is not associated with a profile. To enable the history view, please associate this PDF with a profile."
-                : "Please select a profile or upload a PDF associated with a profile to view history."
-              }
-            </Alert>
-          )}
-          
-          {profileId && currentView === 'history' && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              <AlertTitle>History View</AlertTitle>
-              You are viewing all biomarkers from all reports associated with this profile.
-              The Source column shows which report each biomarker came from.
-            </Alert>
-          )}
-        </Paper>
-      </Box>
+      {/* Error alert */}
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3, borderRadius: '12px' }}
+        >
+          <AlertTitle>Error</AlertTitle>
+          {error}
+        </Alert>
+      )}
       
-      {/* Main content */}
-      <Paper sx={{ mb: 4 }}>
-        {/* Tabs for different views */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={tabValue} onChange={handleTabChange} aria-label="biomarker tabs">
-            <Tab label="All Biomarkers" id="biomarker-tab-0" aria-controls="biomarker-tabpanel-0" />
-            {fileId && <Tab label="Abnormal Values" id="biomarker-tab-1" aria-controls="biomarker-tabpanel-1" />}
-            <Tab label="By Category" id="biomarker-tab-2" aria-controls="biomarker-tabpanel-2" />
-            <Tab label="Visualizations" id="biomarker-tab-3" aria-controls="biomarker-tabpanel-3" />
+      {/* Report metadata card */}
+      {!loading && Object.keys(metadata).length > 0 && (
+        <ReportMetadataCard metadata={metadata} />
+      )}
+      
+      {/* Profile selector */}
+      {currentView === 'history' && profiles.length > 0 && (
+        <FormControl 
+          variant="outlined" 
+          sx={{ 
+            mb: 3, 
+            minWidth: 240,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '10px',
+              '& fieldset': {
+                borderColor: alpha(theme.palette.divider, 0.2),
+              },
+              '&:hover fieldset': {
+                borderColor: alpha(theme.palette.primary.main, 0.5),
+              },
+            },
+          }}
+        >
+          <InputLabel id="profile-select-label">Select Profile</InputLabel>
+          <Select
+            labelId="profile-select-label"
+            id="profile-select"
+            value={profileId || ''}
+            onChange={handleProfileSelect}
+            label="Select Profile"
+          >
+            {profiles.map((profile) => (
+              <MenuItem key={profile.id} value={profile.id}>
+                {profile.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+      
+      {/* Loading indicator */}
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}>
+          <CircularProgress size={40} thickness={4} />
+        </Box>
+      )}
+      
+      {/* Categories filter */}
+      {!loading && categories.length > 0 && (
+        <CategoryFilters
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onCategorySelect={handleCategoryClick}
+        />
+      )}
+      
+      {/* Tab Navigation */}
+      {!loading && (
+        <Box sx={{ borderBottom: 1, borderColor: alpha(theme.palette.divider, 0.1), mb: 2 }}>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange} 
+            aria-label="biomarker display tabs"
+            textColor="primary"
+            indicatorColor="primary"
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontSize: '1rem',
+                fontWeight: 500,
+                minWidth: 100,
+                px: 3
+              }
+            }}
+          >
+            <Tab label="Table View" id="biomarker-tab-0" aria-controls="biomarker-tabpanel-0" />
+            <Tab label="Visualization" id="biomarker-tab-1" aria-controls="biomarker-tabpanel-1" />
           </Tabs>
         </Box>
-        
-        {/* All biomarkers tab */}
-        <TabPanel value={tabValue} index={0}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <BiomarkerTable 
-              biomarkers={biomarkers} 
-              error={error}
-              onExplainWithAI={handleExplainBiomarker}
-              onViewHistory={onViewHistory}
-              showSource={currentView === 'history'}
-            />
-          )}
-        </TabPanel>
-        
-        {/* Abnormal values tab - only available for specific file */}
-        {fileId && (
-          <TabPanel value={tabValue} index={1}>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <BiomarkerTable 
-                biomarkers={biomarkers.filter(b => b.isAbnormal)} 
+      )}
+      
+      {/* Tab Panels */}
+      {!loading && (
+        <>
+          <TabPanel value={tabValue} index={0}>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                borderRadius: '16px',
+                bgcolor: alpha(theme.palette.background.paper, 0.6),
+                border: `1px solid ${alpha(theme.palette.divider, 0.05)}`,
+                overflow: 'hidden'
+              }}
+            >
+              <BiomarkerTable
+                fileId={fileId}
+                biomarkers={biomarkers}
+                isLoading={loading}
                 error={error}
-                onExplainWithAI={handleExplainBiomarker}
                 onViewHistory={onViewHistory}
+                onExplainWithAI={handleExplainBiomarker}
                 showSource={currentView === 'history'}
               />
-            )}
+            </Paper>
           </TabPanel>
-        )}
-        
-        {/* By category tab */}
-        <TabPanel value={tabValue} index={fileId ? 2 : 1}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <Box>
-              <Box sx={{ mb: 3 }}>
-                <Typography 
-                  variant="h6" 
-                  gutterBottom
-                  sx={{ 
-                    color: theme.palette.mode === 'dark' 
-                      ? theme.palette.grey[100] 
-                      : theme.palette.grey[900] 
-                  }}
-                >
-                  Filter by Category
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {categories.map((category) => (
-                    <Chip
-                      key={category}
-                      label={category}
-                      onClick={() => handleCategoryClick(category)}
-                      sx={{
-                        backgroundColor: selectedCategory === category
-                          ? theme.palette.mode === 'dark'
-                            ? theme.palette.primary.dark
-                            : theme.palette.primary.main
-                          : theme.palette.mode === 'dark'
-                            ? 'rgba(255, 255, 255, 0.16)'
-                            : 'rgba(0, 0, 0, 0.08)',
-                        color: selectedCategory === category
-                          ? '#fff'
-                          : theme.palette.mode === 'dark'
-                            ? theme.palette.primary.light
-                            : theme.palette.primary.main,
-                        '&:hover': {
-                          backgroundColor: selectedCategory === category
-                            ? theme.palette.mode === 'dark'
-                              ? theme.palette.primary.main
-                              : theme.palette.primary.dark
-                            : theme.palette.mode === 'dark'
-                              ? 'rgba(255, 255, 255, 0.24)'
-                              : 'rgba(0, 0, 0, 0.12)'
-                        }
-                      }}
-                    />
-                  ))}
-                </Box>
-              </Box>
-              
-              <Divider sx={{ my: 3 }} />
-              
-              {selectedCategory ? (
-                <BiomarkerTable 
-                  biomarkers={biomarkers} 
-                  error={error}
-                  onExplainWithAI={handleExplainBiomarker}
-                  onViewHistory={onViewHistory}
-                  showSource={currentView === 'history'}
-                />
-              ) : (
-                <Alert severity="info">
-                  Select a category to view biomarkers
-                </Alert>
-              )}
-            </Box>
-          )}
-        </TabPanel>
-
-        {/* Visualizations tab */}
-        <TabPanel value={tabValue} index={fileId ? 3 : 2}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <BiomarkerVisualization 
-              biomarkers={biomarkers} 
-              error={error}
-              onExplainWithAI={handleExplainBiomarker}
-              showSource={currentView === 'history'}
-            />
-          )}
-        </TabPanel>
-      </Paper>
+          
+          <TabPanel value={tabValue} index={1}>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 3, 
+                borderRadius: '16px',
+                bgcolor: alpha(theme.palette.background.paper, 0.6),
+                border: `1px solid ${alpha(theme.palette.divider, 0.05)}`,
+              }}
+            >
+              <BiomarkerVisualization 
+                biomarkers={biomarkers}
+                onSelectBiomarker={handleExplainBiomarker}
+              />
+            </Paper>
+          </TabPanel>
+        </>
+      )}
       
       {/* AI Explanation Modal */}
-      {currentBiomarker && (
-        <ExplanationModal
-          open={explanationModalOpen}
-          onClose={handleCloseExplanationModal}
-          biomarkerName={currentBiomarker.name}
-          biomarkerValue={currentBiomarker.value}
-          biomarkerUnit={currentBiomarker.unit}
-          referenceRange={currentBiomarker.referenceRange || 
-            (currentBiomarker.reference_range_low !== null && currentBiomarker.reference_range_high !== null 
-              ? `${currentBiomarker.reference_range_low}-${currentBiomarker.reference_range_high}` 
-              : "Not available")}
-          isLoading={explanationLoading}
-          error={explanationError}
-          explanation={explanation}
-        />
+      <ExplanationModal
+        open={explanationModalOpen}
+        onClose={handleCloseExplanationModal}
+        biomarker={currentBiomarker}
+        explanation={explanation}
+        loading={explanationLoading}
+        error={explanationError}
+      />
+      
+      {/* Mobile Upload Button - Fixed at bottom for mobile */}
+      {isMobile && (
+        <Box 
+          sx={{ 
+            position: 'fixed', 
+            bottom: 16, 
+            right: 16, 
+            zIndex: 10 
+          }}
+        >
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<UploadFileIcon />}
+            onClick={handleUploadNew}
+            sx={{ 
+              borderRadius: '12px', 
+              px: 3, 
+              py: 1.5,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              textTransform: 'none',
+              fontWeight: 500
+            }}
+          >
+            Upload
+          </Button>
+        </Box>
       )}
     </Container>
   );

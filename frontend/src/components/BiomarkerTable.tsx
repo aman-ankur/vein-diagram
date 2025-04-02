@@ -22,7 +22,9 @@ import {
   alpha,
   Button,
   TableSortLabel,
-  CircularProgress
+  CircularProgress,
+  Avatar,
+  Grid // Added Grid import
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -38,12 +40,12 @@ import {
   Timeline as TimelineIcon,
   History as HistoryIcon,
   Psychology as PsychologyIcon,
-  MoreVert as MoreVertIcon, // Added for 3-dot menu
-  Delete as DeleteIcon, // Added for delete action
-  StarBorder as StarBorderIcon, // Added for favorite toggle
-  Star as StarIcon // Added for favorite toggle
+  MoreVert as MoreVertIcon,
+  Delete as DeleteIcon,
+  StarBorder as StarBorderIcon,
+  Star as StarIcon
 } from '@mui/icons-material';
-import { SvgIcon, Menu, MenuItem } from '@mui/material'; // Added Menu, MenuItem
+import { SvgIcon, Menu, MenuItem } from '@mui/material';
 import type { Biomarker } from '../types/biomarker';
 
 // Re-export the Biomarker type
@@ -57,17 +59,17 @@ interface BiomarkerTableProps {
   onRefresh?: () => void;
   onViewHistory?: (biomarker: Biomarker) => void;
   onExplainWithAI?: (biomarker: Biomarker) => void;
-  onDeleteBiomarker?: (biomarkerId: number) => void; // Added delete callback
-  onToggleFavorite?: (biomarkerName: string) => void; // Added favorite toggle callback
-  isFavoriteChecker?: (biomarkerName: string) => boolean; // Function to check if a biomarker is favorite
-  isFavoriteLimitReached?: boolean; // Flag if max favorites reached
-  onReplaceFavoriteRequest?: (biomarkerName: string) => void; // Callback to trigger replacement modal
-  showSource?: boolean; // Show source PDF information
+  onDeleteBiomarker?: (biomarkerId: number) => void;
+  onToggleFavorite?: (biomarkerName: string) => void;
+  isFavoriteChecker?: (biomarkerName: string) => boolean;
+  isFavoriteLimitReached?: boolean;
+  onReplaceFavoriteRequest?: (biomarkerName: string) => void;
+  showSource?: boolean;
 }
 
 // Interface for the column definition
 interface Column {
-  id: keyof Biomarker | 'status' | 'actions'; // Added 'actions'
+  id: keyof Biomarker | 'status' | 'actions';
   label: string;
   minWidth?: number;
   align?: 'right' | 'left' | 'center';
@@ -134,8 +136,9 @@ const isOutsideRange = (biomarker: Biomarker): boolean | undefined => {
   return undefined;
 };
 
-// Function to get status chip for biomarker
+// Updated StatusChip component with more subtle design
 const StatusChip: React.FC<{ biomarker: Biomarker }> = ({ biomarker }) => {
+  const theme = useTheme();
   const isAbnormal = biomarker.isAbnormal !== undefined 
     ? biomarker.isAbnormal 
     : isOutsideRange(biomarker);
@@ -144,10 +147,14 @@ const StatusChip: React.FC<{ biomarker: Biomarker }> = ({ biomarker }) => {
     return (
       <Chip 
         size="small" 
-        icon={<WarningIcon />} 
         label="Unknown" 
-        color="default"
-        variant="outlined"
+        sx={{
+          backgroundColor: alpha(theme.palette.grey[500], 0.12),
+          color: theme.palette.text.secondary,
+          fontWeight: 500,
+          borderRadius: '8px',
+          border: 'none'
+        }}
       />
     );
   }
@@ -156,35 +163,74 @@ const StatusChip: React.FC<{ biomarker: Biomarker }> = ({ biomarker }) => {
     <Tooltip title="Outside normal range">
       <Chip 
         size="small" 
-        icon={<ErrorIcon />} 
         label="Abnormal" 
-        color="error" 
-        variant="outlined"
+        sx={{
+          backgroundColor: alpha(theme.palette.error.main, 0.12),
+          color: theme.palette.error.main,
+          fontWeight: 500,
+          borderRadius: '8px',
+          border: 'none'
+        }}
       />
     </Tooltip>
   ) : (
     <Tooltip title="Within normal range">
       <Chip 
         size="small" 
-        icon={<CheckIcon />} 
-        label="Normal" 
-        color="success" 
-        variant="outlined"
+        label="Normal"
+        sx={{
+          backgroundColor: alpha(theme.palette.success.main, 0.12),
+          color: theme.palette.success.main,
+          fontWeight: 500,
+          borderRadius: '8px',
+          border: 'none'
+        }}
       />
     </Tooltip>
   );
 };
 
-// Row component with expandable details
+// Enhanced action button
+const ActionIconButton: React.FC<{
+  icon: React.ReactNode;
+  tooltip: string;
+  onClick: () => void;
+  color?: string;
+}> = ({ icon, tooltip, onClick, color }) => {
+  const theme = useTheme();
+  
+  return (
+    <Tooltip title={tooltip}>
+      <IconButton
+        size="small"
+        onClick={onClick}
+        sx={{
+          color: color || theme.palette.primary.main,
+          backgroundColor: alpha(color || theme.palette.primary.main, 0.08),
+          '&:hover': {
+            backgroundColor: alpha(color || theme.palette.primary.main, 0.15),
+          },
+          mr: 1,
+          width: 36,
+          height: 36
+        }}
+      >
+        {icon}
+      </IconButton>
+    </Tooltip>
+  );
+};
+
+// Updated BiomarkerRow component
 const BiomarkerRow: React.FC<{
   biomarker: Biomarker;
   onViewHistory?: (biomarker: Biomarker) => void;
   onExplainWithAI?: (biomarker: Biomarker) => void;
-  onDeleteBiomarker?: (biomarkerId: number) => void; // Added delete callback
-  onToggleFavorite?: (biomarkerName: string) => void; // Added favorite toggle callback
-  isFavoriteChecker?: (biomarkerName: string) => boolean; // Function to check if a biomarker is favorite
-  isFavoriteLimitReached?: boolean; // Flag if max favorites reached
-  onReplaceFavoriteRequest?: (biomarkerName: string) => void; // Callback to trigger replacement modal
+  onDeleteBiomarker?: (biomarkerId: number) => void;
+  onToggleFavorite?: (biomarkerName: string) => void;
+  isFavoriteChecker?: (biomarkerName: string) => boolean;
+  isFavoriteLimitReached?: boolean;
+  onReplaceFavoriteRequest?: (biomarkerName: string) => void;
   showSource?: boolean;
 }> = ({ 
   biomarker, 
@@ -198,99 +244,65 @@ const BiomarkerRow: React.FC<{
   showSource = false 
 }) => {
   const [open, setOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null); // State for menu anchor
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const menuOpen = Boolean(anchorEl);
   const theme = useTheme();
   
-  // Check if the current biomarker is a favorite
-  const isCurrentFavorite = isFavoriteChecker ? isFavoriteChecker(biomarker.name) : false;
-  
-  // --- Menu Handlers ---
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
-
+  
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
-
+  
   const handleDeleteClick = () => {
     handleMenuClose();
     if (onDeleteBiomarker && biomarker.id) {
       onDeleteBiomarker(biomarker.id);
-    } else {
-      console.error("Delete handler or biomarker ID missing for:", biomarker);
     }
   };
   
   const handleFavoriteToggle = () => {
-    if (!onToggleFavorite || !biomarker.name) return;
-
-    if (isCurrentFavorite) {
-      // If it's already a favorite, just toggle (remove)
-      onToggleFavorite(biomarker.name);
-    } else {
-      // If it's not a favorite, check the limit
-      if (isFavoriteLimitReached && onReplaceFavoriteRequest) {
-        // Limit reached, trigger the replacement request flow
-        onReplaceFavoriteRequest(biomarker.name);
+    handleMenuClose();
+    if (onToggleFavorite) {
+      if (isFavoriteChecker && !isFavoriteChecker(biomarker.name) && isFavoriteLimitReached) {
+        // Handle the limit reached case
+        if (onReplaceFavoriteRequest) {
+          onReplaceFavoriteRequest(biomarker.name);
+        }
       } else {
-        // Limit not reached, just toggle (add)
         onToggleFavorite(biomarker.name);
       }
     }
   };
-  // --- End Menu Handlers ---
   
-  // Format date string helper
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
-    return date.toLocaleDateString();
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
   
-  // Get source display name
   const getSourceDisplayName = () => {
-    if (!biomarker.fileId) return 'Unknown';
+    if (!biomarker.fileName) return 'Unknown';
     
-    if (biomarker.fileName) {
-      // If we have a filename, use that (truncated if needed)
-      return biomarker.fileName.length > 15 
-        ? `${biomarker.fileName.substring(0, 12)}...` 
-        : biomarker.fileName;
-    }
-    
-    // Otherwise use a truncated file ID
-    return `Report ${biomarker.fileId.substring(0, 6)}`;
+    // Just return the filename without the path and extension
+    const filename = biomarker.fileName.split('/').pop() || '';
+    return filename.replace(/\.[^.]+$/, '');
   };
   
-  // Debug console logs
-  useEffect(() => {
-    console.log(`BiomarkerRow: Mounted for ${biomarker.name} (ID: ${biomarker.id})`, {
-      hasOnViewHistory: !!onViewHistory,
-      hasOnExplainWithAI: !!onExplainWithAI
-    });
-    
-    return () => {
-      console.log(`BiomarkerRow: Unmounted for ${biomarker.name} (ID: ${biomarker.id})`);
-    };
-  }, [biomarker.id, biomarker.name, onViewHistory, onExplainWithAI]);
+  const isFavorite = isFavoriteChecker ? isFavoriteChecker(biomarker.name) : false;
   
   return (
     <>
       <TableRow 
         sx={{ 
-          '& > *': { borderBottom: 'unset' },
-          '&:hover': {
-            backgroundColor: theme.palette.mode === 'dark' 
-              ? 'rgba(255, 255, 255, 0.08)' 
-              : 'rgba(0, 0, 0, 0.04)'
+          '&:hover': { 
+            backgroundColor: alpha(theme.palette.primary.main, 0.04),
           },
-          // In history view, highlight rows from current file differently
-          ...(showSource && biomarker.fileId && {
-            backgroundColor: theme.palette.mode === 'dark' 
-              ? 'rgba(0, 100, 255, 0.05)' 
-              : 'rgba(0, 100, 255, 0.03)'
-          })
+          cursor: 'pointer',
+          backgroundColor: open ? alpha(theme.palette.primary.main, 0.03) : 'transparent',
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`
         }}
       >
         <TableCell>
@@ -298,174 +310,204 @@ const BiomarkerRow: React.FC<{
             aria-label="expand row"
             size="small"
             onClick={() => setOpen(!open)}
+            sx={{ color: theme.palette.text.secondary }}
           >
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
+        
         <TableCell component="th" scope="row">
-          {biomarker.name}
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="body2" fontWeight={500}>
+                {biomarker.name}
+              </Typography>
+              {/* Removed description display */}
+            </Box>
+          </Box>
         </TableCell>
-        <TableCell align="right">{biomarker.value}</TableCell>
-        <TableCell align="center">{biomarker.unit}</TableCell>
-        <TableCell align="center">{biomarker.referenceRange}</TableCell>
+        
+        <TableCell align="right">
+          <Typography variant="body2" fontWeight={600}>
+            {typeof biomarker.value === 'number' ? biomarker.value.toFixed(2) : biomarker.value}
+          </Typography>
+        </TableCell>
+        
+        <TableCell align="center">
+          <Typography variant="body2" color="text.secondary">
+            {biomarker.unit || '-'}
+          </Typography>
+        </TableCell>
+        
+        <TableCell align="center">
+          <Typography variant="body2" color="text.secondary">
+            {biomarker.referenceRange || (
+              biomarker.reference_range_low !== null && biomarker.reference_range_high !== null
+                ? `${biomarker.reference_range_low} - ${biomarker.reference_range_high}`
+                : '-'
+            )}
+          </Typography>
+        </TableCell>
+        
         <TableCell align="center">
           <StatusChip biomarker={biomarker} />
         </TableCell>
-        <TableCell align="center">
-          <Chip
-            label={biomarker.category || 'Uncategorized'}
-            size="small"
-            sx={{
-              backgroundColor: theme.palette.mode === 'dark' 
-                ? 'rgba(255, 255, 255, 0.16)'
-                : 'rgba(0, 0, 0, 0.08)',
-              color: theme.palette.mode === 'dark'
-                ? theme.palette.primary.light
-                : theme.palette.primary.main
-            }}
-          />
-        </TableCell>
+        
         <TableCell align="center">
           <Chip 
-            label={formatDate(biomarker.reportDate || biomarker.date)}
+            label={biomarker.category || 'General'} 
             size="small"
-            color={showSource ? "secondary" : "default"}
-            variant={showSource ? "filled" : "outlined"}
             sx={{ 
-              fontWeight: showSource ? 'medium' : 'normal',
+              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              color: theme.palette.primary.main,
+              fontWeight: 500,
+              borderRadius: '8px',
+              border: 'none'
             }}
           />
         </TableCell>
-        {showSource && (
-          <TableCell align="center">
-            {biomarker.fileId ? (
-              <Tooltip title={`View source report: ${biomarker.fileName || biomarker.fileId}`}>
-                <Chip
-                  size="small"
-                  label={getSourceDisplayName()}
-                  color="primary"
-                  variant="outlined"
-                  onClick={() => {
-                    if (biomarker.fileId) {
-                      window.open(`/pdf/${biomarker.fileId}`, '_blank');
-                    }
-                  }}
-                  sx={{ 
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: theme.palette.primary.light,
-                      color: theme.palette.common.white
-                    }
-                  }}
-                />
-              </Tooltip>
-            ) : (
-              'Unknown'
-            )}
-          </TableCell>
-        )}
+        
         <TableCell align="center">
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'nowrap' }}>
+          <Typography variant="body2" color="text.secondary">
+            {biomarker.reportDate ? formatDate(biomarker.reportDate) : '-'}
+          </Typography>
+        </TableCell>
+        
+        <TableCell align="center">
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             {onViewHistory && (
-              <Tooltip title="View History">
-                <IconButton 
-                  onClick={() => onViewHistory(biomarker)}
-                  size="small"
-                  sx={{ 
-                    color: theme.palette.mode === 'dark' 
-                      ? theme.palette.primary.light
-                      : theme.palette.primary.main
-                  }}
-                >
-                  <HistoryIcon />
-                </IconButton>
-              </Tooltip>
+              <ActionIconButton
+                icon={<HistoryIcon fontSize="small" />}
+                tooltip="View History"
+                onClick={() => {
+                  // Removed stopPropagation
+                  onViewHistory(biomarker);
+                }}
+                color={theme.palette.info.main}
+              />
             )}
+            
             {onExplainWithAI && (
-              <Tooltip title="Explain with AI">
-                <IconButton 
-                  onClick={() => onExplainWithAI(biomarker)}
-                  size="small"
-                  sx={{ 
-                    color: theme.palette.mode === 'dark' 
-                      ? theme.palette.secondary.light
-                      : theme.palette.secondary.main
-                  }}
-                >
-                  <PsychologyIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            {/* 3-Dot Menu */}
-            {onDeleteBiomarker && (
-              <Tooltip title="More Actions">
-                <IconButton
-                  aria-label="more actions"
-                  aria-controls={`actions-menu-${biomarker.id}`}
-                  aria-haspopup="true"
-                  onClick={handleMenuClick}
-                  size="small"
-                >
-                  <MoreVertIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            {/* Favorite Toggle Button */}
-            {onToggleFavorite && isFavoriteChecker && onReplaceFavoriteRequest && (
-              <Tooltip title={isCurrentFavorite ? "Remove from Favorites" : "Add to Favorites"}>
-                <IconButton
-                  onClick={handleFavoriteToggle}
-                  size="small"
-                  color={isCurrentFavorite ? "warning" : "default"} // Use warning color for filled star
-                >
-                  {isCurrentFavorite ? <StarIcon /> : <StarBorderIcon />}
-                </IconButton>
-              </Tooltip>
+              <ActionIconButton
+                icon={<PsychologyIcon fontSize="small" />}
+                tooltip="Explain with AI"
+                onClick={() => {
+                  // Removed stopPropagation
+                  onExplainWithAI(biomarker);
+                }}
+                color={theme.palette.secondary.main}
+              />
             )}
           </Box>
-          {/* Actions Menu */}
-          <Menu
-            id={`actions-menu-${biomarker.id}`}
-            anchorEl={anchorEl}
-            keepMounted
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-          >
-            <MenuItem onClick={handleDeleteClick} sx={{ color: theme.palette.error.main }}>
-              <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-              Delete Entry
-            </MenuItem>
-            {/* Add other actions here if needed */}
-          </Menu>
         </TableCell>
       </TableRow>
+      
       <TableRow>
-        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={showSource ? 10 : 9}>
+        <TableCell colSpan={9} sx={{ py: 0, borderBottom: open ? `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none' }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box sx={{ margin: 2 }}>
-              <Typography variant="h6" gutterBottom component="div">
-                Biomarker Details
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  <strong>Name:</strong> {biomarker.name}<br />
-                  <strong>Value:</strong> {biomarker.value} {biomarker.unit}<br />
-                  <strong>Reference Range:</strong> {biomarker.referenceRange || 'Not available'}<br />
-                  <strong>Category:</strong> {biomarker.category || 'Uncategorized'}<br />
-                  {biomarker.date && (
-                    <><strong>Measurement Date:</strong> {formatDate(biomarker.date)}<br /></>
-                  )}
-                  {biomarker.reportDate && (
-                    <><strong>Report Date:</strong> {formatDate(biomarker.reportDate)}<br /></>
-                  )}
-                  {showSource && biomarker.fileId && (
-                    <><strong>Source File:</strong> {biomarker.fileName || biomarker.fileId}<br /></>
-                  )}
-                  {biomarker.profileId && (
-                    <><strong>Profile ID:</strong> {biomarker.profileId}<br /></>
-                  )}
-                </Typography>
-              </Box>
+            <Box sx={{ 
+              py: 3, 
+              px: 2, 
+              backgroundColor: alpha(theme.palette.background.paper, 0.4),
+              borderRadius: 2
+            }}>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" gutterBottom component="div" color="primary.main">
+                    Biomarker Details
+                  </Typography>
+                  <Box sx={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '1fr 1fr', 
+                    gap: 2,
+                    '& .detail-label': {
+                      color: theme.palette.text.secondary,
+                      fontSize: '0.875rem'
+                    },
+                    '& .detail-value': {
+                      fontWeight: 500,
+                      fontSize: '0.875rem'
+                    }
+                  }}>
+                    <Typography className="detail-label">Name:</Typography>
+                    <Typography className="detail-value">{biomarker.name}</Typography>
+                    
+                    <Typography className="detail-label">Category:</Typography>
+                    <Typography className="detail-value">{biomarker.category || 'General'}</Typography>
+                    
+                    <Typography className="detail-label">Value:</Typography>
+                    <Typography className="detail-value">
+                      {typeof biomarker.value === 'number' ? biomarker.value.toFixed(2) : biomarker.value} {biomarker.unit || ''}
+                    </Typography>
+                    
+                    <Typography className="detail-label">Status:</Typography>
+                    <Typography className="detail-value">
+                      <StatusChip biomarker={biomarker} />
+                    </Typography>
+                    
+                    {biomarker.reportDate && (
+                      <>
+                        <Typography className="detail-label">Report Date:</Typography>
+                        <Typography className="detail-value">{formatDate(biomarker.reportDate)}</Typography>
+                      </>
+                    )}
+                    
+                    {showSource && biomarker.fileName && (
+                      <>
+                        <Typography className="detail-label">Source:</Typography>
+                        <Typography className="detail-value">{getSourceDisplayName()}</Typography>
+                      </>
+                    )}
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  {/* Removed description section */}
+                  
+                  <Box sx={{ 
+                    mt: 0, // Removed dependency on description
+                    display: 'flex', 
+                    gap: 1, 
+                    flexWrap: 'wrap',
+                    justifyContent: { xs: 'center', md: 'flex-start' } 
+                  }}>
+                    {onExplainWithAI && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<PsychologyIcon />}
+                        onClick={() => onExplainWithAI(biomarker)}
+                        sx={{ 
+                          borderRadius: '10px',
+                          textTransform: 'none',
+                          bgcolor: theme.palette.secondary.main,
+                          '&:hover': {
+                            bgcolor: theme.palette.secondary.dark
+                          }
+                        }}
+                      >
+                        Explain with AI
+                      </Button>
+                    )}
+                    
+                    {onViewHistory && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<HistoryIcon />}
+                        onClick={() => onViewHistory(biomarker)}
+                        sx={{ 
+                          borderRadius: '10px',
+                          textTransform: 'none',
+                          borderColor: alpha(theme.palette.primary.main, 0.5)
+                        }}
+                      >
+                        View History
+                      </Button>
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
             </Box>
           </Collapse>
         </TableCell>
@@ -474,7 +516,7 @@ const BiomarkerRow: React.FC<{
   );
 };
 
-// Main Biomarker Table component
+// Updated BiomarkerTable component
 const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   fileId,
   biomarkers = [],
@@ -483,90 +525,72 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   onRefresh,
   onViewHistory,
   onExplainWithAI,
-  onDeleteBiomarker, // Added delete prop
-  onToggleFavorite, // Added favorite toggle prop
-  isFavoriteChecker, // Added favorite checker prop
-  isFavoriteLimitReached, // Added limit flag prop
-  onReplaceFavoriteRequest, // Added replace request prop
+  onDeleteBiomarker,
+  onToggleFavorite,
+  isFavoriteChecker,
+  isFavoriteLimitReached,
+  onReplaceFavoriteRequest,
   showSource = false
 }) => {
-  const [filteredBiomarkers, setFilteredBiomarkers] = useState<Biomarker[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [orderBy, setOrderBy] = useState<keyof Biomarker>('name');
-  const [order, setOrder] = useState<'asc' | 'desc'>('asc');
+  const theme = useTheme();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const theme = useTheme();
+  const [searchTerm, setSearchTerm] = useState('');
+  // Allow orderBy to be a key of Biomarker OR 'status'
+  const [orderBy, setOrderBy] = useState<keyof Biomarker | 'status'>('name'); 
+  const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   
-  // Debug console logs
-  console.log('BiomarkerTable: Props received', { 
-    biomarkersCount: biomarkers?.length,
-    isLoading,
-    error,
-    hasOnRefresh: !!onRefresh,
-    hasOnViewHistory: !!onViewHistory,
-    hasOnExplainWithAI: !!onExplainWithAI,
-    showSource
+  const filteredBiomarkers = biomarkers.filter((biomarker) => {
+    const searchFields = [
+      biomarker.name,
+      biomarker.category,
+      // Removed description from search
+      String(biomarker.value),
+      biomarker.unit
+    ].filter(Boolean);
+    
+    return searchFields.some(field => 
+      field && field.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   });
   
-  // Set up effect to log when component mounts and unmounts
-  useEffect(() => {
-    console.log('BiomarkerTable: Component mounted');
+  const sortedBiomarkers = [...filteredBiomarkers].sort((a, b) => {
+    const isAsc = order === 'asc';
     
-    return () => {
-      console.log('BiomarkerTable: Component unmounted');
-    };
-  }, []);
+    // Handle special case for sorting by 'status'
+    if (orderBy === 'status') {
+      const aStatus = a.isAbnormal || isOutsideRange(a) || false;
+      const bStatus = b.isAbnormal || isOutsideRange(b) || false;
+      return isAsc ? (aStatus === bStatus ? 0 : aStatus ? 1 : -1) : (aStatus === bStatus ? 0 : aStatus ? -1 : 1);
+    }
+    
+    // Default sorting for other fields (ensure orderBy is a valid key here)
+    const validOrderBy = orderBy as keyof Biomarker; // Cast because we handled 'status'
+    const aValue = a[validOrderBy] as string | number;
+    const bValue = b[validOrderBy] as string | number;
+    
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return isAsc ? aValue - bValue : bValue - aValue;
+    }
+    
+    const aString = String(aValue || '').toLowerCase();
+    const bString = String(bValue || '').toLowerCase();
+    
+    return isAsc ? aString.localeCompare(bString) : bString.localeCompare(aString);
+  });
   
-  // Filter and sort biomarkers whenever the dependencies change
-  useEffect(() => {
-    // Filter biomarkers based on search term
-    let filtered = biomarkers.filter(biomarker => 
-      biomarker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (biomarker.category && biomarker.category.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-    
-    // Sort biomarkers
-    filtered = filtered.sort((a, b) => {
-      const aValue = a[orderBy];
-      const bValue = b[orderBy];
-      
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return order === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-      
-      // For numeric values
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return order === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-      
-      // Handle null/undefined values
-      if (aValue === undefined && bValue !== undefined) return order === 'asc' ? -1 : 1;
-      if (aValue !== undefined && bValue === undefined) return order === 'asc' ? 1 : -1;
-      
-      return 0;
-    });
-    
-    setFilteredBiomarkers(filtered);
-    console.log(`BiomarkerTable: Filtered biomarkers updated - ${filtered.length} items`);
-  }, [biomarkers, searchTerm, orderBy, order]);
-  
-  // Handle sort request
   const handleRequestSort = (property: keyof Biomarker) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(property);
+    // Allow setting orderBy to 'status'
+    setOrderBy(property as keyof Biomarker | 'status'); 
   };
   
-  // Handle search
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
-    setPage(0); // Reset to first page when searching
+    setPage(0);
   };
   
-  // Pagination handlers
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -576,242 +600,191 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
     setPage(0);
   };
   
-  // Table column definitions
+  // Simplified getColumns as 'viewHistory' was never a column id
   const getColumns = (): Column[] => {
-    const baseColumns: Column[] = [
-      { id: 'name', label: 'Biomarker', minWidth: 150, sortable: true },
-      { id: 'value', label: 'Value', minWidth: 80, align: 'right', sortable: true },
-      { id: 'unit', label: 'Unit', minWidth: 60, align: 'center', sortable: true },
-      { id: 'referenceRange', label: 'Reference Range', minWidth: 120, align: 'center', sortable: false },
-      { id: 'status', label: 'Status', minWidth: 100, align: 'center', sortable: true },
-      { id: 'category', label: 'Category', minWidth: 120, align: 'center', sortable: true },
-    ];
-    
-    // In history view, make date column more prominent and add source
-    if (showSource) {
-      baseColumns.push(
-        { id: 'reportDate', label: 'Test Date', minWidth: 120, align: 'center', sortable: true },
-        { id: 'fileId', label: 'Source Report', minWidth: 140, align: 'center', sortable: false }
-      );
-    } else {
-      baseColumns.push(
-        { id: 'reportDate', label: 'Date', minWidth: 100, align: 'center', sortable: true }
-      );
-    }
-    
-    // Add actions column
-    baseColumns.push({ id: 'actions', label: 'Actions', minWidth: 100, align: 'center', sortable: false });
-    
-    return baseColumns;
+    return columns;
   };
-
-  const columns = getColumns();
   
-  // Empty state when no biomarkers
-  if (biomarkers.length === 0 && !isLoading && !error) {
-    return (
-      <Paper sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="text.secondary" gutterBottom>
-          No Biomarkers Found
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {fileId 
-            ? "No biomarkers were extracted from this file. The file may not contain laboratory results."
-            : "Please upload a laboratory result PDF to view biomarkers."
-          }
-        </Typography>
-        {onRefresh && (
-          <Button
-            startIcon={<RefreshIcon />}
-            onClick={onRefresh}
-            sx={{ mt: 2 }}
-          >
-            Refresh
-          </Button>
-        )}
-      </Paper>
-    );
-  }
+  const paginatedBiomarkers = sortedBiomarkers.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
   
   return (
-    <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: 2, boxShadow: 2 }}>
-      {/* Error state */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-          {onRefresh && (
-            <Button 
-              size="small" 
-              color="inherit" 
-              startIcon={<RefreshIcon />} 
-              onClick={onRefresh}
-              sx={{ ml: 2 }}
-            >
-              Retry
-            </Button>
-          )}
-        </Alert>
-      )}
-      
-      {/* Loading state */}
-      {isLoading && (
-        <Box sx={{ width: '100%' }}>
-          <LinearProgress />
-        </Box>
-      )}
-      
-      {/* Table toolbar */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, flexWrap: 'wrap', gap: 1 }}>
+    <Box>
+      {/* Search, Filter, Refresh Bar */}
+      <Box sx={{ 
+        p: 2, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 2
+      }}>
         <TextField
-          size="small"
           variant="outlined"
+          size="small"
           placeholder="Search biomarkers..."
           value={searchTerm}
           onChange={handleSearchChange}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon />
+                <SearchIcon fontSize="small" />
               </InputAdornment>
             ),
+            sx: { 
+              borderRadius: '10px',
+              bgcolor: alpha(theme.palette.background.paper, 0.5),
+              '& fieldset': {
+                borderColor: alpha(theme.palette.divider, 0.2),
+              }
+            }
           }}
-          sx={{ width: { xs: '100%', sm: 250 } }}
+          sx={{ minWidth: 250 }}
         />
         
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Filter">
-            <IconButton>
-              <FilterListIcon />
-            </IconButton>
-          </Tooltip>
           {onRefresh && (
-            <Tooltip title="Refresh">
-              <IconButton onClick={onRefresh} disabled={isLoading}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={onRefresh}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                textTransform: 'none',
+                borderColor: alpha(theme.palette.primary.main, 0.3),
+                color: theme.palette.primary.main
+              }}
+            >
+              Refresh
+            </Button>
           )}
         </Box>
       </Box>
       
-      {/* Help text for history view */}
-      {showSource && (
-        <Box sx={{ px: 2, pb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Showing biomarkers from all lab reports associated with this profile. 
-            <strong> Click on the source chip to view the original report.</strong>
-          </Typography>
-        </Box>
+      {isLoading && (
+        <LinearProgress sx={{ height: 2 }} />
       )}
       
-      {/* Table */}
-      <TableContainer sx={{ maxHeight: 600 }}>
-        <Table stickyHeader aria-label="biomarker table">
-          <TableHead>
-            <TableRow>
-              <TableCell style={{ width: 50 }} /> {/* Empty cell for expand/collapse button */}
-              {columns.map((column) => (
-                <TableCell
-                  key={column.id}
-                  align={column.align}
-                  style={{ minWidth: column.minWidth }}
-                  sortDirection={orderBy === column.id ? order : false}
-                >
-                  {column.sortable ? (
-                    <TableSortLabel
-                      active={orderBy === column.id}
-                      direction={orderBy === column.id ? order : 'asc'}
-                      onClick={() => column.id !== 'status' && column.sortable && handleRequestSort(column.id as keyof Biomarker)}
-                    >
-                      {column.label}
-                    </TableSortLabel>
-                  ) : (
-                    column.label
-                  )}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} sx={{ py: 5, textAlign: 'center' }}>
-                  <CircularProgress size={40} thickness={5} />
-                  <Typography variant="body1" sx={{ mt: 2 }}>
-                    Loading biomarker data...
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} sx={{ py: 5, textAlign: 'center' }}>
-                  <Alert 
-                    severity="error" 
-                    sx={{ 
-                      justifyContent: 'center', 
-                      '& .MuiAlert-message': { width: 'auto' } 
-                    }}
-                  >
-                    {error}
-                  </Alert>
-                  {onRefresh && (
-                    <Button 
-                      startIcon={<RefreshIcon />} 
-                      onClick={onRefresh}
-                      sx={{ mt: 2 }}
-                    >
-                      Try Again
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ) : filteredBiomarkers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} sx={{ py: 5, textAlign: 'center' }}>
-                  {biomarkers.length === 0 ? (
-                    <Typography variant="body1" color="text.secondary">
-                      No biomarker data available
-                    </Typography>
-                  ) : (
-                    <Typography variant="body1" color="text.secondary">
-                      No biomarkers match your search
-                    </Typography>
-                  )}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredBiomarkers
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((biomarker) => (
-                  <BiomarkerRow 
-                    key={biomarker.id} 
-                    biomarker={biomarker} 
-                    onViewHistory={onViewHistory}
-                    onExplainWithAI={onExplainWithAI}
-                    onDeleteBiomarker={onDeleteBiomarker} // Pass delete handler down
-                    onToggleFavorite={onToggleFavorite} // Pass favorite toggle handler
-                    isFavoriteChecker={isFavoriteChecker} // Pass favorite checker
-                    isFavoriteLimitReached={isFavoriteLimitReached} // Pass limit flag
-                    onReplaceFavoriteRequest={onReplaceFavoriteRequest} // Pass replace request handler
-                    showSource={showSource}
-                  />
-                ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mx: 2, 
+            mt: 1, 
+            mb: 2,
+            borderRadius: '10px'
+          }}
+        >
+          {error}
+        </Alert>
+      )}
       
-      {/* Pagination */}
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25, 50]}
-        component="div"
-        count={filteredBiomarkers.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
-    </Paper>
+      {!isLoading && biomarkers.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 5 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No biomarkers found
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Try adjusting your filters or upload a new report.
+          </Typography>
+        </Box>
+      ) : (
+        <>
+          <TableContainer>
+            <Table aria-label="biomarkers table" size="medium">
+              <TableHead>
+                <TableRow sx={{ '& th': { borderBottom: `2px solid ${alpha(theme.palette.divider, 0.1)}` } }}>
+                  <TableCell sx={{ width: 48 }}></TableCell>
+                  
+                  {getColumns().map((column) => (
+                    <TableCell
+                      key={column.id}
+                      align={column.align}
+                      style={{ minWidth: column.minWidth }}
+                      sortDirection={orderBy === column.id ? order : false}
+                      sx={{ 
+                        color: theme.palette.text.secondary,
+                        fontWeight: 600,
+                        fontSize: '0.82rem'
+                      }}
+                    >
+                      {column.sortable ? (
+                        <TableSortLabel
+                          active={orderBy === column.id}
+                          direction={orderBy === column.id ? order : 'asc'}
+                          onClick={() => handleRequestSort(column.id as keyof Biomarker)}
+                          IconComponent={order === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon}
+                          sx={{
+                            '& .MuiTableSortLabel-icon': {
+                              fontSize: '0.9rem',
+                              opacity: 0.5
+                            }
+                          }}
+                        >
+                          {column.label}
+                        </TableSortLabel>
+                      ) : (
+                        column.label
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              
+              <TableBody>
+                {paginatedBiomarkers.length > 0 ? (
+                  paginatedBiomarkers.map((biomarker) => (
+                    <BiomarkerRow
+                      key={`${biomarker.name}-${biomarker.value}-${biomarker.id || Math.random()}`}
+                      biomarker={biomarker}
+                      onViewHistory={onViewHistory}
+                      onExplainWithAI={onExplainWithAI}
+                      onDeleteBiomarker={onDeleteBiomarker}
+                      onToggleFavorite={onToggleFavorite}
+                      isFavoriteChecker={isFavoriteChecker}
+                      isFavoriteLimitReached={isFavoriteLimitReached}
+                      onReplaceFavoriteRequest={onReplaceFavoriteRequest}
+                      showSource={showSource}
+                    />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                      <Typography variant="body1" color="text.secondary">
+                        No matching biomarkers found
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            component="div"
+            count={filteredBiomarkers.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            sx={{
+              borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                fontSize: '0.875rem',
+                color: theme.palette.text.secondary
+              },
+              '& .MuiSelect-outlined': {
+                borderRadius: '8px'
+              }
+            }}
+          />
+        </>
+      )}
+    </Box>
   );
 };
 
