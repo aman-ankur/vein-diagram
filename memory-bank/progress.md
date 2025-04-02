@@ -9,8 +9,8 @@ The project is in the **advanced development phase**, integrating core features 
 | Backend Core          | In Progress | 90%      | Profile management API complete.                                      |
 | PDF Processing        | Completed   | 100%     | Refactored for page filtering & sequential processing.                |
 | Profile Management    | Completed   | 100%     | Backend API and basic Frontend UI implemented.                        |
-| Favorite Biomarkers   | Completed   | 100%     | Backend API and Frontend components implemented.                       |
-| Frontend UI           | In Progress | 75%      | Integrating profiles & favorites.                                     |
+| Favorite Biomarkers   | Completed   | 100%     | Backend API (add/remove/reorder), Frontend components (grid, tile, modals, table integration), D&D implemented. Migrated from localStorage. |
+| Frontend UI           | In Progress | 80%      | Integrating profiles & favorites. Added biomarker deletion.           |
 | Data Visualization    | In Progress | 60%      | Time-series done, relationship mapping ongoing.                       |
 | Claude API Integration| Completed   | 100%     | Biomarker/Metadata extraction refactored. Insights integration ongoing. |
 | Testing               | In Progress | 75%      | Added tests for profiles & favorites. Updated PDF processing tests. Needs Health Score tests. |
@@ -53,7 +53,9 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ Added responsive design for tablet devices
 - ✅ **Profile Management page/components** (view, create, edit profiles)
 - ✅ **Favorite Biomarkers grid/display** components
-- ✅ **Functionality to add/remove favorite biomarkers**
+- ✅ **Functionality to add/remove/reorder favorite biomarkers (via backend)**
+- ✅ **Replace Favorite modal** when adding to full grid.
+- ✅ **Biomarker entry deletion** from table view.
 - ✅ **Basic Health Score display components (frontend)**
 
 ### Infrastructure
@@ -63,6 +65,7 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ Updated PDF processing unit tests
 - ✅ Sample PDF reports for testing
 - ✅ Logging infrastructure for debugging and monitoring
+- ✅ **Set up Alembic for database migrations.**
 
 ## What's Left to Build
 
@@ -198,8 +201,10 @@ The project is in the **advanced development phase**, integrating core features 
 - Enhanced Claude API integration for improved biomarker insights
 - Implemented caching mechanisms for faster repeated queries
 - **Implemented full User Profile Management (Backend & Frontend)**
-- **Implemented Favorite Biomarker functionality (Backend & Frontend)**
+- **Implemented Favorite Biomarker functionality (Backend & Frontend - including order persistence)**
 - **Linked uploaded PDFs to User Profiles**
+- **Implemented Biomarker Entry Deletion (Backend & Frontend)**
+- **Set up Alembic and migrated database schema**
 - Created user dashboard for managing uploaded reports
 - Improved mobile and tablet responsiveness
 - Expanded test coverage to ~75% of codebase (needs Health Score tests)
