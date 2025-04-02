@@ -14,6 +14,7 @@ import pdfplumber
 import pandas as pd
 import re
 import dateutil.parser
+import asyncio # Add asyncio import
 
 from app.services.biomarker_parser import (
     extract_biomarkers_with_claude,
@@ -24,6 +25,7 @@ from app.services.biomarker_parser import (
 from app.models.biomarker_model import Biomarker
 from app.models.pdf_model import PDF  # Import the PDF model class
 from app.db.database import SessionLocal  # Import SessionLocal for error handling
+from app.services.health_summary_service import generate_and_update_health_summary # Import the new service function
 
 # Configure logging with more detailed format
 logging.basicConfig(level=logging.INFO)
@@ -519,8 +521,21 @@ def process_pdf_background(pdf_id: int, db_session=None):
         # Update status
         pdf.status = "processed"
         pdf.processed_date = datetime.utcnow()
-        db_session.commit()
-        
+        db_session.commit() # Commit biomarker saves and status update
+
+        # --- Trigger Health Summary Generation (Temporarily disabled) ---
+        if pdf.profile_id and biomarkers: # Only generate if biomarkers were saved and profile exists
+            try:
+                logger.info(f"Triggering health summary generation for profile {pdf.profile_id} after processing PDF {pdf_id}")
+                # Run the async function synchronously in this background task context
+                asyncio.run(generate_and_update_health_summary(pdf.profile_id, db_session))
+            except Exception as summary_error:
+                # Log the error but don't let it fail the whole PDF processing
+                logger.error(f"Error during triggered health summary generation for profile {pdf.profile_id}: {summary_error}", exc_info=True)
+        elif not pdf.profile_id:
+             logger.warning(f"PDF {pdf_id} has no associated profile_id, skipping health summary generation.")
+        # If no biomarkers were found, summary generation is skipped implicitly by health_summary_service
+
         logger.info(f"Completed processing PDF {pdf_id}")
     except Exception as e:
         logger.error(f"Error processing PDF {pdf_id}: {str(e)}")
