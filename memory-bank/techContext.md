@@ -96,12 +96,13 @@ vein-diagram/
 - **OCR Limitations**: Accuracy depends on image quality in PDFs.
 - **Structure Extraction**: Complex tables or layouts can be difficult to parse reliably.
 - **Reference Range Parsing**: Variations require flexible parsing logic.
+- **Filtering Accuracy**: Heuristic page filtering might miss relevant pages or include irrelevant ones.
 
 ### Performance Considerations
-- **PDF Processing Time**: Can be significant for large/complex PDFs, mitigated by background processing.
+- **PDF Processing Time**: Can be significant for large/complex PDFs, mitigated by background processing and sequential calls.
 - **Visualization Rendering**: Large datasets require optimization (sampling, virtualization, efficient D3 usage).
 - **API Response Times**: Database query optimization, caching (backend/frontend) are important, especially with profile filtering.
-- **LLM API Latency**: Calls to Claude API add latency; caching insights is crucial.
+- **LLM API Latency**: Calls to Claude API add latency. Sequential processing adds per-page latency but avoids large timeouts. Caching insights is crucial.
 
 ### Security and Privacy
 - **Health Data Sensitivity**: All data handling must prioritize privacy (HIPAA considerations if applicable in target market). Data stored should be minimized and secured.
@@ -164,7 +165,7 @@ python-multipart==0.0.x
 - Key endpoints for Profiles (`/api/profiles/...`), Favorites (`/api/profiles/{profile_id}/favorites/...`), Biomarkers (`/api/profiles/{profile_id}/biomarkers/...`), PDFs (`/api/pdfs/...`), Health Score (`/api/health-score/{profile_id}`).
 
 ### External API Integration
-- **Claude API**: Via `llm_service.py` using `httpx` to send prompts and receive text for extraction and insights. Requires API key management.
+- **Claude API**: Via `llm_service.py` (for insights) and `biomarker_parser.py`/`metadata_parser.py` (for extraction) using `anthropic` SDK or `httpx`. Requires API key management.
 
 ### File System Integration
 - Temporary storage (`backend/uploads/`?) for PDFs during processing.

@@ -42,74 +42,75 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.DEBUG)
 
 # Load Claude API key from environment variable
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+# ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "") # Key is retrieved within the function now
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 
 # Set this to True to save all Claude API requests and responses for debugging
 SAVE_CLAUDE_RESPONSES = True
 
 # Dictionary of common biomarker aliases for robust matching
-BIOMARKER_ALIASES = {
-    "glucose": ["blood glucose", "fasting glucose", "plasma glucose", "gluc", "glu"],
-    "hemoglobin a1c": ["hba1c", "a1c", "glycated hemoglobin", "glycosylated hemoglobin", "hemoglobin a1c"],
-    "total cholesterol": ["cholesterol", "tc", "total chol", "chol, total"],
-    "hdl cholesterol": ["hdl", "hdl-c", "high density lipoprotein", "good cholesterol"],
-    "ldl cholesterol": ["ldl", "ldl-c", "low density lipoprotein", "bad cholesterol"],
-    "triglycerides": ["tg", "trigs", "triglyceride"],
-    "tsh": ["thyroid stimulating hormone", "thyrotropin", "thyroid function"],
-    "free t4": ["ft4", "thyroxine", "free thyroxine"],
-    "free t3": ["ft3", "triiodothyronine", "free triiodothyronine"],
-    "vitamin d": ["25-hydroxyvitamin d", "25-oh vitamin d", "vitamin d, 25-hydroxy", "vit d"],
-    "vitamin b12": ["b12", "cobalamin", "vit b12"],
-    "ferritin": ["ferr", "serum ferritin"],
-    "iron": ["fe", "serum iron"],
-    "transferrin": ["tf", "trf"],
-    "tibc": ["total iron binding capacity"],
-    "creatinine": ["creat", "cr", "serum creatinine"],
-    "bun": ["blood urea nitrogen", "urea nitrogen"],
-    "egfr": ["estimated glomerular filtration rate", "gfr"],
-    "alt": ["alanine aminotransferase", "sgpt"],
-    "ast": ["aspartate aminotransferase", "sgot"],
-    "alkaline phosphatase": ["alp", "alk phos"],
-    "total bilirubin": ["tbili", "bilirubin total"],
-    "albumin": ["alb", "serum albumin"],
-    "total protein": ["tp", "protein, total"],
-    "sodium": ["na", "na+", "serum sodium"],
-    "potassium": ["k", "k+", "serum potassium"],
-    "chloride": ["cl", "cl-", "serum chloride"],
-    "bicarbonate": ["hco3", "hco3-", "co2", "carbon dioxide"],
-    "calcium": ["ca", "ca2+", "serum calcium"],
-    "magnesium": ["mg", "mg2+", "serum magnesium"],
-    "phosphorus": ["p", "phos", "phosphate", "serum phosphorus"],
-    "uric acid": ["ua", "serum uric acid"],
-    "hemoglobin": ["hgb", "hb", "hg"],
-    "hematocrit": ["hct", "ht"],
-    "wbc": ["white blood cell count", "white blood cells", "leukocytes"],
-    "platelet count": ["plt", "platelets"],
-    "mch": ["mean corpuscular hemoglobin"],
-    "mchc": ["mean corpuscular hemoglobin concentration"],
-    "mcv": ["mean corpuscular volume"],
-    "rdw": ["red cell distribution width"],
-    "neutrophils": ["neut", "neutrophil count", "polys"],
-    "lymphocytes": ["lymphs", "lymphocyte count"],
-    "monocytes": ["mono", "monocyte count"],
-    "eosinophils": ["eos", "eosinophil count"],
-    "basophils": ["baso", "basophil count"],
-    "psa": ["prostate specific antigen"],
-    "c-reactive protein": ["crp", "c reactive protein"],
-    "esr": ["erythrocyte sedimentation rate", "sed rate"],
-    "homocysteine": ["hcy"],
-    "cortisol": ["cort", "serum cortisol"],
-    "testosterone": ["test", "total testosterone"],
-    "estradiol": ["e2"],
-    "progesterone": ["prog"],
-    "dhea-s": ["dehydroepiandrosterone sulfate"],
-    "folate": ["folic acid"],
-    "hla-b27": ["human leukocyte antigen b27"],
-    "ana": ["antinuclear antibody"],
-    "rf": ["rheumatoid factor"],
-    "tpo antibodies": ["thyroid peroxidase antibodies", "anti-tpo", "thyroid antibodies"],
-}
+# COMMENTED OUT - Aliases should be loaded from utils/biomarker_aliases.json
+# BIOMARKER_ALIASES = {
+#     "glucose": ["blood glucose", "fasting glucose", "plasma glucose", "gluc", "glu"],
+#     "hemoglobin a1c": ["hba1c", "a1c", "glycated hemoglobin", "glycosylated hemoglobin", "hemoglobin a1c"],
+#     "total cholesterol": ["cholesterol", "tc", "total chol", "chol, total"],
+#     "hdl cholesterol": ["hdl", "hdl-c", "high density lipoprotein", "good cholesterol"],
+#     "ldl cholesterol": ["ldl", "ldl-c", "low density lipoprotein", "bad cholesterol"],
+#     "triglycerides": ["tg", "trigs", "triglyceride"],
+#     "tsh": ["thyroid stimulating hormone", "thyrotropin", "thyroid function"],
+#     "free t4": ["ft4", "thyroxine", "free thyroxine"],
+#     "free t3": ["ft3", "triiodothyronine", "free triiodothyronine"],
+#     "vitamin d": ["25-hydroxyvitamin d", "25-oh vitamin d", "vitamin d, 25-hydroxy", "vit d"],
+#     "vitamin b12": ["b12", "cobalamin", "vit b12"],
+#     "ferritin": ["ferr", "serum ferritin"],
+#     "iron": ["fe", "serum iron"],
+#     "transferrin": ["tf", "trf"],
+#     "tibc": ["total iron binding capacity"],
+#     "creatinine": ["creat", "cr", "serum creatinine"],
+#     "bun": ["blood urea nitrogen", "urea nitrogen"],
+#     "egfr": ["estimated glomerular filtration rate", "gfr"],
+#     "alt": ["alanine aminotransferase", "sgpt"],
+#     "ast": ["aspartate aminotransferase", "sgot"],
+#     "alkaline phosphatase": ["alp", "alk phos"],
+#     "total bilirubin": ["tbili", "bilirubin total"],
+#     "albumin": ["alb", "serum albumin"],
+#     "total protein": ["tp", "protein, total"],
+#     "sodium": ["na", "na+", "serum sodium"],
+#     "potassium": ["k", "k+", "serum potassium"],
+#     "chloride": ["cl", "cl-", "serum chloride"],
+#     "bicarbonate": ["hco3", "hco3-", "co2", "carbon dioxide"],
+#     "calcium": ["ca", "ca2+", "serum calcium"],
+#     "magnesium": ["mg", "mg2+", "serum magnesium"],
+#     "phosphorus": ["p", "phos", "phosphate", "serum phosphorus"],
+#     "uric acid": ["ua", "serum uric acid"],
+#     "hemoglobin": ["hgb", "hb", "hg"],
+#     "hematocrit": ["hct", "ht"],
+#     "wbc": ["white blood cell count", "white blood cells", "leukocytes"],
+#     "platelet count": ["plt", "platelets"],
+#     "mch": ["mean corpuscular hemoglobin"],
+#     "mchc": ["mean corpuscular hemoglobin concentration"],
+#     "mcv": ["mean corpuscular volume"],
+#     "rdw": ["red cell distribution width"],
+#     "neutrophils": ["neut", "neutrophil count", "polys"],
+#     "lymphocytes": ["lymphs", "lymphocyte count"],
+#     "monocytes": ["mono", "monocyte count"],
+#     "eosinophils": ["eos", "eosinophil count"],
+#     "basophils": ["baso", "basophil count"],
+#     "psa": ["prostate specific antigen"],
+#     "c-reactive protein": ["crp", "c reactive protein"],
+#     "esr": ["erythrocyte sedimentation rate", "sed rate"],
+#     "homocysteine": ["hcy"],
+#     "cortisol": ["cort", "serum cortisol"],
+#     "testosterone": ["test", "total testosterone"],
+#     "estradiol": ["e2"],
+#     "progesterone": ["prog"],
+#     "dhea-s": ["dehydroepiandrosterone sulfate"],
+#     "folate": ["folic acid"],
+#     "hla-b27": ["human leukocyte antigen b27"],
+#     "ana": ["antinuclear antibody"],
+#     "rf": ["rheumatoid factor"],
+#     "tpo antibodies": ["thyroid peroxidase antibodies", "anti-tpo", "thyroid antibodies"]
+# }
 
 class TimeoutError(Exception):
     """Exception raised when a function call times out"""
@@ -145,27 +146,27 @@ def with_timeout(timeout_seconds, default_return=None):
         return wrapper
     return decorator
 
-def extract_biomarkers_with_claude(text: str, filename: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def extract_biomarkers_with_claude(page_text: str, filename: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
-    Extract biomarkers from PDF text using Claude API.
-    
+    Extract biomarkers from a single page of PDF text using Claude API.
+
     Args:
-        text: Text content from PDF
-        filename: Name of the file for logging
-        
+        page_text: Text content from a single PDF page
+        filename: Name of the original file for logging context
+
     Returns:
-        Tuple containing a list of biomarkers and metadata
+        Tuple containing a list of biomarkers found on the page and an empty metadata dict (metadata handled separately).
     """
     logger.info(f"[CLAUDE_EXTRACTION_START] Extracting biomarkers from {filename}")
     start_time = datetime.now()
-    
-    # Preprocess the text
-    processed_text = _preprocess_text_for_claude(text)
-    logger.debug(f"[TEXT_PREPROCESSING] Preprocessed text from {len(text)} to {len(processed_text)} characters")
-    
-    # Prepare the prompt for Claude - using string concatenation to avoid % formatting issues
+
+    # Preprocess the page text
+    processed_text = _preprocess_text_for_claude(page_text)
+    logger.debug(f"[TEXT_PREPROCESSING] Preprocessed page text from {len(page_text)} to {len(processed_text)} characters for file {filename}")
+
+    # Prepare the prompt for Claude - simplified for single page, no metadata request
     prompt = """
-Extract ONLY legitimate clinical biomarkers from this medical lab report. Focus exclusively on measurements that have numeric values and units.
+Extract ONLY legitimate clinical biomarkers from this single page of a medical lab report. Focus exclusively on measurements that have numeric values and units.
 
 For each biomarker, provide:
 - name: Standardized name
@@ -183,7 +184,7 @@ For each biomarker, provide:
 
 CRITICAL: DO NOT extract page numbers, headers, footers, patient info, dates, IDs, URLs, or explanatory text.
 
-Return valid JSON matching exactly this structure:
+Return valid JSON matching exactly this structure (NO METADATA):
 {
   "biomarkers": [
     {
@@ -200,16 +201,12 @@ Return valid JSON matching exactly this structure:
       "is_abnormal": false,
       "confidence": 0.98
     }
-  ],
-  "metadata": {
-    "lab_name": "Unknown",
-    "report_date": "Unknown"
-  }
+  ]
 }
 
 Your response MUST be COMPLETE, VALID JSON with no truncation.
 
-Lab report text:
+Lab report page text:
 """ + processed_text
 
     try:
@@ -244,16 +241,16 @@ Lab report text:
         # Call the API with timeout
         response = call_claude_api()
         
-        # If the call timed out, return empty results and fall back to text-based parser
+        # If the call timed out, return empty results and fall back to text-based parser for this page
         if response is None:
-            logger.error("[CLAUDE_API_TIMEOUT] API call timed out")
-            logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to timeout")
-            fallback_results = parse_biomarkers_from_text(text)
-            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
-            return fallback_results, {}
-        
+            logger.error(f"[CLAUDE_API_TIMEOUT] API call timed out for page processing of {filename}")
+            logger.info(f"[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to timeout")
+            fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
+            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
+            return fallback_results, {} # Return empty metadata dict
+
         api_duration = (datetime.now() - api_start_time).total_seconds()
-        logger.info(f"[CLAUDE_API_RESPONSE] Received response from Claude API in {api_duration:.2f} seconds")
+        logger.info(f"[CLAUDE_API_RESPONSE] Received response from Claude API for page processing of {filename} in {api_duration:.2f} seconds")
         
         # Get the response content
         response_content = response.content[0].text
@@ -297,24 +294,24 @@ Lab report text:
                     logger.warning(f"[JSON_DECODE_ERROR] Could not parse fixed JSON: {str(decode_error)}")
                     repaired_json = _repair_json(fixed_json_str)
                     parsed_response = json.loads(repaired_json)
-                
+
                 biomarkers = parsed_response.get("biomarkers", [])
-                metadata = parsed_response.get("metadata", {})
-                
-                logger.info(f"[BIOMARKERS_EXTRACTED] Extracted {len(biomarkers)} biomarkers from Claude API response")
-                
-                # Log metadata if available
-                if metadata:
-                    logger.info(f"[METADATA_EXTRACTED] Extracted metadata: {json.dumps(metadata)}")
-                
-                # If no biomarkers were found, fall back to text-based parser
+                # metadata = parsed_response.get("metadata", {}) # Metadata is no longer requested here
+
+                logger.info(f"[BIOMARKERS_EXTRACTED] Extracted {len(biomarkers)} biomarkers from Claude API response for page of {filename}")
+
+                # Log metadata if available (should be empty now)
+                # if metadata:
+                #     logger.info(f"[METADATA_EXTRACTED] Extracted metadata: {json.dumps(metadata)}")
+
+                # If no biomarkers were found, fall back to text-based parser for this page
                 if not biomarkers:
-                    logger.warning("[NO_BIOMARKERS_FOUND] No biomarkers found in Claude API response")
-                    logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to empty biomarkers list")
-                    fallback_results = parse_biomarkers_from_text(text)
-                    logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
-                    return fallback_results, metadata
-                
+                    logger.warning(f"[NO_BIOMARKERS_FOUND] No biomarkers found in Claude API response for page of {filename}")
+                    logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to empty biomarkers list")
+                    fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
+                    logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
+                    return fallback_results, {} # Return empty metadata dict
+
                 # Filter biomarkers based on confidence score - require at least 60% confidence
                 filtered_biomarkers = []
                 for biomarker in biomarkers:
@@ -343,44 +340,48 @@ Lab report text:
                         logger.error(f"[BIOMARKER_PROCESSING_ERROR] Error processing biomarker {i}: {str(e)}")
                         logger.error(f"[BIOMARKER_PROCESSING_STACK_TRACE] {traceback.format_exc()}")
                         logger.error(f"[BIOMARKER_DATA] Problem biomarker data: {json.dumps(biomarker)}")
-                
+
                 processing_duration = (datetime.now() - processing_start_time).total_seconds()
-                logger.debug(f"[BIOMARKER_PROCESSING] Processing {len(filtered_biomarkers)} biomarkers took {processing_duration:.2f} seconds")
-                
+                logger.debug(f"[BIOMARKER_PROCESSING] Processing {len(filtered_biomarkers)} biomarkers for page of {filename} took {processing_duration:.2f} seconds")
+
                 total_duration = (datetime.now() - start_time).total_seconds()
-                logger.info(f"[BIOMARKER_EXTRACTION_COMPLETE] Total extraction took {total_duration:.2f} seconds")
-                
-                # If we have no valid biomarkers, try the fallback parser
+                logger.info(f"[BIOMARKER_EXTRACTION_COMPLETE] Total extraction for page of {filename} took {total_duration:.2f} seconds")
+
+                # If we have no valid biomarkers, try the fallback parser for this page
                 if not processed_biomarkers:
-                    logger.warning("[NO_VALID_BIOMARKERS] No valid biomarkers found in Claude response. Using fallback parser.")
-                    fallback_results = parse_biomarkers_from_text(text)
-                    logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
-                    return fallback_results, {}
-                
-                return processed_biomarkers, metadata
+                    logger.warning(f"[NO_VALID_BIOMARKERS] No valid biomarkers found in Claude response for page of {filename}. Using fallback parser.")
+                    fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
+                    logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
+                    return fallback_results, {} # Return empty metadata dict
+
+                return processed_biomarkers, {} # Return empty metadata dict
             else:
-                logger.error("[JSON_PARSING_ERROR] Could not extract JSON from Claude API response")
-                raise ValueError("Failed to extract JSON from Claude API response")
+                logger.error(f"[JSON_PARSING_ERROR] Could not extract JSON from Claude API response for page of {filename}")
+                # Fall back to text-based parser for this page
+                logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to JSON extraction error")
+                fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
+                logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
+                return fallback_results, {} # Return empty metadata dict
         except json.JSONDecodeError as json_error:
             debug_json_path = os.path.join(log_dir, f"invalid_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
             with open(debug_json_path, "w") as f:
                 f.write(json_str if 'json_str' in locals() else response_content)
             logger.error(f"[JSON_PARSING_ERROR] Could not parse Claude API response as JSON: {str(json_error)}")
-            logger.debug(f"[CLAUDE_RESPONSE] Raw response: {response_content[:100]}...")
-            
-            # Fall back to text-based parser
-            logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to JSON parsing error")
-            fallback_results = parse_biomarkers_from_text(text)
-            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
-            return fallback_results, {}
+            logger.debug(f"[CLAUDE_RESPONSE] Raw response for page of {filename}: {response_content[:100]}...")
+
+            # Fall back to text-based parser for this page
+            logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to JSON parsing error")
+            fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
+            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
+            return fallback_results, {} # Return empty metadata dict
     except Exception as e:
-        logger.error(f"[CLAUDE_API_ERROR] Error calling Claude API: {str(e)}")
-        
-        # Fall back to text-based parser
-        logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to Claude API error")
-        fallback_results = parse_biomarkers_from_text(text)
-        logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
-        return fallback_results, {}
+        logger.error(f"[CLAUDE_API_ERROR] Error calling Claude API for page of {filename}: {str(e)}")
+
+        # Fall back to text-based parser for this page
+        logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to Claude API error")
+        fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
+        logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
+        return fallback_results, {} # Return empty metadata dict
 
 def _fix_truncated_json(json_str: str) -> str:
     """
@@ -1518,4 +1519,4 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
     logger.warning("[FALLBACK_TO_TEXT_PARSER] All Claude API methods failed. Using fallback text parser.")
     fallback_results = parse_biomarkers_from_text(text)
     logger.info(f"[TEXT_PARSER] Text parser found {len(fallback_results)} biomarkers")
-    return fallback_results, {} 
+    return fallback_results, {}

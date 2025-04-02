@@ -4,39 +4,42 @@
 
 The project is in the **advanced development phase**, integrating core features and refining the user experience. Profile management and favorite biomarkers are now key additions.
 
-| Component             | Status      | Progress | Notes                                           |
-|-----------------------|-------------|----------|-------------------------------------------------|
-| Backend Core          | In Progress | 90%      | Profile management API complete.                |
-| PDF Processing        | In Progress | 80%      | Stable, handling multiple formats.              |
-| Profile Management    | Completed   | 100%     | Backend API and basic Frontend UI implemented.  |
-| Favorite Biomarkers   | Completed   | 100%     | Backend API and Frontend components implemented. |
-| Frontend UI           | In Progress | 75%      | Integrating profiles & favorites.               |
-| Data Visualization    | In Progress | 60%      | Time-series done, relationship mapping ongoing. |
-| Claude API Integration| In Progress | 75%      | Extraction stable, insights integration ongoing.|
-| Testing               | In Progress | 70%      | Added tests for profiles & favorites. Needs Health Score tests. |
-| Health Score Feature  | In Progress | 50%      | Backend routes & Frontend components created. Integration needed. |
-| Documentation         | In Progress | 60%      | Memory bank updates ongoing.                    |
+| Component             | Status      | Progress | Notes                                                                 |
+|-----------------------|-------------|----------|-----------------------------------------------------------------------|
+| Backend Core          | In Progress | 90%      | Profile management API complete.                                      |
+| PDF Processing        | Completed   | 100%     | Refactored for page filtering & sequential processing.                |
+| Profile Management    | Completed   | 100%     | Backend API and basic Frontend UI implemented.                        |
+| Favorite Biomarkers   | Completed   | 100%     | Backend API and Frontend components implemented.                       |
+| Frontend UI           | In Progress | 75%      | Integrating profiles & favorites.                                     |
+| Data Visualization    | In Progress | 60%      | Time-series done, relationship mapping ongoing.                       |
+| Claude API Integration| Completed   | 100%     | Biomarker/Metadata extraction refactored. Insights integration ongoing. |
+| Testing               | In Progress | 75%      | Added tests for profiles & favorites. Updated PDF processing tests. Needs Health Score tests. |
+| Health Score Feature  | In Progress | 50%      | Backend routes & Frontend components created. Integration needed.       |
+| Documentation         | In Progress | 70%      | Memory bank updated for PDF processing changes.                       |
 
 ## What Works
 
 ### Backend
 - ✅ Complete FastAPI application structure
 - ✅ PDF upload endpoint and file handling
-- ✅ Advanced text extraction from PDFs with OCR fallback
+- ✅ Advanced text extraction from PDFs (all pages) with OCR fallback
 - ✅ Comprehensive database models and schemas (including Profiles)
-- ✅ Advanced biomarker identification with Claude API integration
-- ✅ Fallback pattern-matching parser for biomarker extraction
+- ✅ Advanced biomarker identification with Claude API (sequential, filtered pages)
+- ✅ Fallback pattern-matching parser for biomarker extraction (per page)
 - ✅ API routes for retrieving processed biomarker data
 - ✅ API routes for **managing user profiles** (create, read, update, delete)
 - ✅ API routes for **managing favorite biomarkers** per profile
-- ✅ Page-by-page PDF processing to handle large documents
+- ✅ PDF processing pipeline refactored for page filtering and sequential processing
 - ✅ Biomarker standardization and categorization
 - ✅ Reference range parsing and normalization
 - ✅ Detailed logging system for debugging and monitoring
-- ✅ Implemented caching mechanisms for performance improvement
-- ✅ Enhanced Claude API integration for biomarker insights
+- ✅ Implemented caching mechanisms for performance improvement (for explanations)
+- ✅ Enhanced Claude API integration for biomarker insights (separate from extraction)
 - ✅ **Linking of uploaded PDFs to specific user profiles**
 - ✅ **Initial implementation of Health Score calculation logic (backend)**
+- ✅ **PDF Page Filtering** based on relevance scoring
+- ✅ **Sequential Claude API calls** for biomarker extraction
+- ✅ **Biomarker De-duplication** across pages
 
 ### Frontend
 - ✅ React application setup with TypeScript
@@ -57,6 +60,7 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ Project directory structure
 - ✅ Development environment configuration
 - ✅ Comprehensive testing setup for both frontend and backend (including profiles, favorites)
+- ✅ Updated PDF processing unit tests
 - ✅ Sample PDF reports for testing
 - ✅ Logging infrastructure for debugging and monitoring
 
@@ -111,9 +115,9 @@ The project is in the **advanced development phase**, integrating core features 
 - 🔄 Add interactive elements to visualizations
 - ✅ Implement responsive design
 
-### Milestone 3: Claude API Integration (Mostly Completed)
+### Milestone 3: Claude API Integration (Completed)
 - ✅ Set up Claude API connection
-- ✅ Develop prompts for biomarker extraction
+- ✅ Develop prompts for biomarker extraction (Refactored for sequential processing)
 - ✅ Develop prompts for biomarker insights and relationships
 - 🔄 Create UI components for displaying insights
 - ✅ Implement caching for common explanations
@@ -153,6 +157,11 @@ The project is in the **advanced development phase**, integrating core features 
    - **Status**: Mostly Resolved
    - **Mitigation**: Normalization logic, potential for user override later.
 
+3. **Filtering Accuracy**: The relevance scoring is heuristic and might occasionally miss relevant pages or include irrelevant ones.
+   - **Severity**: Low
+   - **Status**: Implemented
+   - **Mitigation**: Monitor logs, refine scoring logic/aliases based on real-world examples.
+
 ### Frontend
 1. **Visualization Performance**: Improved with sampling, monitor large datasets.
    - **Severity**: Low
@@ -170,10 +179,10 @@ The project is in the **advanced development phase**, integrating core features 
    - **Mitigation**: Review state management strategy (e.g., Context API, Zustand) if needed.
 
 ### Integration
-1. **API Response Times**: Background processing helps, but complex queries might be slow.
+1. **API Response Times**: Background processing helps, but complex queries might be slow. Sequential processing adds per-page latency but avoids full timeouts.
    - **Severity**: Low
-   - **Status**: Partially Resolved
-   - **Mitigation**: Caching, query optimization, background tasks.
+   - **Status**: Partially Resolved / Mitigated
+   - **Mitigation**: Caching, query optimization, background tasks. Monitor overall processing time.
 
 ## Recent Achievements
 
@@ -182,7 +191,7 @@ The project is in the **advanced development phase**, integrating core features 
 - Enhanced biomarker identification with standardization and categorization
 - Implemented reference range parsing and normalization
 - Created comprehensive error handling and logging system
-- Optimized PDF processing for large documents with page-by-page approach
+- **Refactored PDF processing for page filtering and sequential Claude calls**
 - Expanded test coverage for edge cases and error scenarios
 - Completed time-series visualization component for biomarker trends
 - Implemented relationship mapping between key biomarkers
@@ -193,7 +202,8 @@ The project is in the **advanced development phase**, integrating core features 
 - **Linked uploaded PDFs to User Profiles**
 - Created user dashboard for managing uploaded reports
 - Improved mobile and tablet responsiveness
-- Expanded test coverage to ~70% of codebase (needs Health Score tests)
+- Expanded test coverage to ~75% of codebase (needs Health Score tests)
+- Updated PDF processing unit tests and fixed errors.
 
 ## Next Immediate Tasks
 
