@@ -1,6 +1,6 @@
 import React from 'react';
-import { ToggleButtonGroup, ToggleButton, Box, Typography, Tooltip, Paper, Stack } from '@mui/material';
-import { Description as DescriptionIcon, History as HistoryIcon } from '@mui/icons-material';
+import { ToggleButtonGroup, ToggleButton, Typography, Box, alpha, useTheme, Tooltip } from '@mui/material';
+import { Timeline as TimelineIcon, Description as DescriptionIcon } from '@mui/icons-material';
 
 /**
  * Props for the ViewToggle component
@@ -14,7 +14,7 @@ export interface ViewToggleProps {
   /**
    * Callback function when view mode changes
    */
-  onViewChange: (view: 'current' | 'history') => void;
+  onChange: (view: 'current' | 'history') => void;
   
   /**
    * Whether to disable the toggle functionality
@@ -32,99 +32,148 @@ export interface ViewToggleProps {
  */
 const ViewToggle: React.FC<ViewToggleProps> = ({
   currentView,
-  onViewChange,
+  onChange,
   disabled = false,
   disabledText
 }) => {
+  const theme = useTheme();
+
   const handleChange = (
-    _event: React.MouseEvent<HTMLElement>,
-    newView: 'current' | 'history',
+    event: React.MouseEvent<HTMLElement>,
+    newView: 'current' | 'history' | null
   ) => {
     if (newView !== null) {
-      onViewChange(newView);
+      onChange(newView);
     }
   };
 
-  const toggleContent = (
-    <Paper 
-      elevation={2} 
-      sx={{ 
-        p: 1.5, 
-        borderRadius: 2,
-        backgroundColor: theme => theme.palette.background.paper
+  const buttonContent = (
+    <ToggleButtonGroup
+      value={currentView}
+      exclusive
+      onChange={handleChange}
+      aria-label="view toggle"
+      disabled={disabled}
+      sx={{
+        backgroundColor: alpha(theme.palette.background.paper, 0.5),
+        backdropFilter: 'blur(8px)',
+        borderRadius: '12px',
+        padding: '4px',
+        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        '& .MuiToggleButtonGroup-grouped': {
+          margin: 0,
+          border: 0,
+          paddingTop: '6px',
+          paddingBottom: '6px',
+          paddingLeft: '12px',
+          paddingRight: '12px',
+          '&.Mui-disabled': {
+            border: 0,
+            color: alpha(theme.palette.text.primary, 0.3),
+          },
+          '&:not(:first-of-type)': {
+            borderRadius: '8px',
+          },
+          '&:first-of-type': {
+            borderRadius: '8px',
+          },
+        },
       }}
     >
-      <Stack spacing={1}>
-        <Typography 
-          variant="subtitle1" 
-          fontWeight="medium" 
-          align="center"
-          sx={{ mb: 0.5 }}
-        >
-          View Mode
-        </Typography>
-        
-        <ToggleButtonGroup
-          value={currentView}
-          exclusive
-          onChange={handleChange}
-          aria-label="biomarker view mode"
-          disabled={disabled}
-          size="large"
-          fullWidth
-          sx={{ 
-            '& .MuiToggleButtonGroup-grouped': {
-              border: 1,
-              borderColor: 'divider',
-              py: 1,
-              '&.Mui-selected': {
-                backgroundColor: theme => theme.palette.primary.main,
-                color: theme => theme.palette.primary.contrastText,
-                '&:hover': {
-                  backgroundColor: theme => theme.palette.primary.dark,
-                },
-              },
-              '&:not(.Mui-selected)': {
-                '&:hover': {
-                  backgroundColor: theme => theme.palette.action.hover,
-                }
-              }
+      <ToggleButton 
+        value="current" 
+        aria-label="current view"
+        sx={{
+          borderRadius: '8px',
+          color: currentView === 'current' ? theme.palette.primary.main : theme.palette.text.secondary,
+          typography: 'body2',
+          fontWeight: currentView === 'current' ? 600 : 400,
+          backgroundColor: currentView === 'current' 
+            ? alpha(theme.palette.primary.main, 0.08)
+            : 'transparent',
+          '&:hover': {
+            backgroundColor: currentView === 'current' 
+              ? alpha(theme.palette.primary.main, 0.12)
+              : alpha(theme.palette.background.paper, 0.6),
+          },
+          '&.Mui-selected': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+            color: theme.palette.primary.main,
+            fontWeight: 600,
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.12),
             }
+          }
+        }}
+      >
+        <DescriptionIcon 
+          fontSize="small" 
+          sx={{ mr: 1, fontSize: '1rem' }} 
+        />
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            fontWeight: 'inherit',
+            textTransform: 'none',
+            letterSpacing: 0
           }}
         >
-          <ToggleButton value="current" aria-label="current PDF view">
-            <DescriptionIcon sx={{ mr: 1 }} />
-            <Typography variant="body1" fontWeight="medium">Current PDF</Typography>
-          </ToggleButton>
-          <ToggleButton value="history" aria-label="profile history view">
-            <HistoryIcon sx={{ mr: 1 }} />
-            <Typography variant="body1" fontWeight="medium">Profile History</Typography>
-          </ToggleButton>
-        </ToggleButtonGroup>
-        
-        <Typography 
-          variant="caption" 
-          color="text.secondary" 
-          align="center"
-        >
-          {currentView === 'current' 
-            ? 'Viewing biomarkers from the current lab report only' 
-            : 'Viewing all historical biomarkers for this profile'}
+          Current Report
         </Typography>
-      </Stack>
-    </Paper>
+      </ToggleButton>
+      
+      <ToggleButton 
+        value="history" 
+        aria-label="history view"
+        sx={{
+          borderRadius: '8px',
+          color: currentView === 'history' ? theme.palette.primary.main : theme.palette.text.secondary,
+          typography: 'body2',
+          fontWeight: currentView === 'history' ? 600 : 400,
+          backgroundColor: currentView === 'history' 
+            ? alpha(theme.palette.primary.main, 0.08)
+            : 'transparent',
+          '&:hover': {
+            backgroundColor: currentView === 'history' 
+              ? alpha(theme.palette.primary.main, 0.12)
+              : alpha(theme.palette.background.paper, 0.6),
+          },
+          '&.Mui-selected': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+            color: theme.palette.primary.main,
+            fontWeight: 600,
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.12),
+            }
+          }
+        }}
+      >
+        <TimelineIcon 
+          fontSize="small" 
+          sx={{ mr: 1, fontSize: '1rem' }} 
+        />
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            fontWeight: 'inherit',
+            textTransform: 'none',
+            letterSpacing: 0
+          }}
+        >
+          History View
+        </Typography>
+      </ToggleButton>
+    </ToggleButtonGroup>
   );
 
-  return (
-    <Box sx={{ width: '100%', maxWidth: 600, mx: 'auto', mb: 3 }}>
-      {disabled && disabledText ? (
-        <Tooltip title={disabledText}>
-          <span>{toggleContent}</span>
-        </Tooltip>
-      ) : (
-        toggleContent
-      )}
-    </Box>
+  return disabled && disabledText ? (
+    <Tooltip title={disabledText} arrow placement="top">
+      <Box sx={{ cursor: 'not-allowed' }}>
+        {buttonContent}
+      </Box>
+    </Tooltip>
+  ) : (
+    buttonContent
   );
 };
 

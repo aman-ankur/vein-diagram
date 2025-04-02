@@ -23,7 +23,7 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 -   **`components/`**: Contains reusable UI components used across different pages.
     -   Examples: `Header.tsx`, `Footer.tsx`, `Layout.tsx`, `PDFUploader.tsx`, `BiomarkerTable.tsx`, `BiomarkerVisualization.tsx`, `FavoriteBiomarkersGrid.tsx`, `ProfileSelector.tsx`, `LoadingIndicator.tsx`, `ErrorHandler.tsx`, **`HealthScoreOverview.tsx`**, **`ScoreDisplay.tsx`**, **`ScoreExplanation.tsx`**, **`InfluencingFactors.tsx`**, **`TrendIndicator.tsx`**.
 -   **`pages/`**: Contains top-level components representing distinct application views/routes.
-    -   Examples: `HomePage.tsx`, `UploadPage.tsx`, `VisualizationPage.tsx`, `BiomarkerHistoryPage.tsx`, `ProfileManagement.tsx`. *(Note: Health Score might be displayed within these pages, e.g., VisualizationPage)*.
+    -   Examples: `HomePage.tsx`, `UploadPage.tsx`, `VisualizationPage.tsx`, `BiomarkerHistoryPage.tsx`, `ProfileManagement.tsx`, `DashboardPage.tsx`. *(Note: Health Score intended for DashboardPage, currently placeholder due to rendering/component issues)*.
 -   **`services/`**: Handles communication with the backend API.
     -   `api.ts`: Base Axios instance configuration (sets base URL, potentially headers).
     *   `pdfService.ts`: Functions for uploading PDFs, checking status.

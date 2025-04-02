@@ -15,7 +15,8 @@ The project is in the **advanced development phase**, integrating core features 
 | Claude API Integration| Completed   | 100%     | Biomarker/Metadata extraction refactored. Insights integration ongoing. |
 | Testing               | In Progress | 75%      | Added tests for profiles & favorites. Updated PDF processing tests. Needs Health Score tests. |
 | Health Score Feature  | In Progress | 50%      | Backend routes & Frontend components created. Integration needed.       |
-| Documentation         | In Progress | 70%      | Memory bank updated for PDF processing changes.                       |
+| Dashboard Page        | In Progress | 40%      | New page created, route added, basic layout, placeholders, some data integrated. Blocked by rendering issue. |
+| Documentation         | In Progress | 75%      | Memory bank updated for PDF processing & dashboard attempt.           |
 
 ## What Works
 
@@ -56,7 +57,11 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ **Functionality to add/remove/reorder favorite biomarkers (via backend)**
 - ✅ **Replace Favorite modal** when adding to full grid.
 - ✅ **Biomarker entry deletion** from table view.
-- ✅ **Basic Health Score display components (frontend)**
+- ✅ **Basic Health Score display components (frontend)** (Though integration is blocked/removed temporarily)
+- ✅ **New Dashboard Page (`DashboardPage.tsx`) created with basic layout.**
+- ✅ **Dashboard routing added and sidebar link updated.**
+- ✅ **Old dashboard component removed from `HomePage.tsx`.**
+- ✅ **Dashboard integrates profile context, favorite names/values/trends, last report date (derived), collapsible AI summary, action buttons.**
 
 ### Infrastructure
 - ✅ Project directory structure
@@ -77,9 +82,12 @@ The project is in the **advanced development phase**, integrating core features 
 ### Frontend
 - 🔄 Implement biomarker relationship visualization
 - 🔄 Develop UI for displaying Claude-generated insights
-- 🔄 **Integrate Health Score components into relevant pages (e.g., VisualizationPage, Dashboard)**
+- 🔄 **Resolve Dashboard Rendering Issue**: Figure out why `/dashboard` route doesn't show the new page visually.
+- 🔄 **Implement Dashboard Category Status**: Add the category overview section.
+- 🔄 **Refine Dashboard Styling**: Improve visual appearance based on designs.
+- 🔄 **Integrate Health Score Components**: Fix component access/type issues and integrate properly into Dashboard.
 - 🔄 Implement filtering and search functionality (potentially filter by profile)
-- 🔄 Add responsive design for mobile devices
+- 🔄 Add responsive design for mobile devices (including Dashboard)
 - 🔄 Enhance error handling and user feedback across new features
 - 🔄 Implement loading states and animations for profile/favorite actions
 - 🔄 Create onboarding and help components covering new features
@@ -132,6 +140,7 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ **Implement Profile Management Frontend UI**
 - ✅ **Implement Favorite Biomarkers Frontend UI**
 - 🔄 Integrate Profile context into core app flow (History, Visualization)
+- 🔄 **Complete Dashboard Implementation** (Resolve rendering, add category status, refine styling, integrate Health Score)
 
 ### Milestone 5: Enhanced User Experience (In Progress - Renumbered)
 - 🔄 Implement guided tour for first-time users
