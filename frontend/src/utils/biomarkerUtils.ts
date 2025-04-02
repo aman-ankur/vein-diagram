@@ -168,10 +168,29 @@ export const processBiomarkersForFavorites = (
     const normalizedFavName = normalizeName(favName); 
     const history = biomarkersByName[normalizedFavName] || [];
 
-    // Sort by date descending (most recent first)
+    // Sort by date descending (most recent first), prioritizing reportDate
     const sortedHistory = history
-      .map(bm => ({ ...bm, dateObject: bm.date ? parseISO(bm.date) : null }))
-      .filter(bm => bm.dateObject !== null)
+      .map(bm => {
+          // Prioritize reportDate, fallback to date (created_at)
+          const dateString = bm.reportDate || bm.date; 
+          let dateObject: Date | null = null;
+          if (dateString) {
+              try {
+                  const parsed = parseISO(dateString);
+                  // Check if the parsed date is valid
+                  if (!isNaN(parsed.getTime())) { 
+                      dateObject = parsed;
+                  } else {
+                      console.warn(`Invalid date string encountered: ${dateString}`);
+                  }
+              } catch (e) {
+                  console.error(`Error parsing date string "${dateString}":`, e);
+              }
+          }
+          return { ...bm, dateObject };
+      })
+      // Filter out entries where date parsing failed or date was missing
+      .filter(bm => bm.dateObject !== null && !isNaN(bm.dateObject.getTime())) 
       .sort((a, b) => compareDesc(a.dateObject!, b.dateObject!));
 
     const latest = sortedHistory[0] || null;
@@ -194,10 +213,10 @@ export const processBiomarkersForFavorites = (
       status: status, // Status calculation might need update for Borderline
       trend: trend,
       category: latest?.category, // Add the category from the latest record
-      // Map sorted history to the required format for the sparkline
+      // Map sorted history (which now only contains valid dates)
       history: sortedHistory.map(bm => ({
-        date: bm.dateObject!, // Already filtered non-null dates
-        value: bm.value!,     // Assuming value is always present if date is
+        date: bm.dateObject!, 
+        value: bm.value, // Keep value even if null/undefined for chart? Or filter? Keeping for now.
       })).sort((a, b) => a.date.getTime() - b.date.getTime()), // Ensure history is sorted chronologically for sparkline
     });
   });

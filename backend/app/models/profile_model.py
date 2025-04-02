@@ -1,9 +1,9 @@
 """
 Profile data model for managing user profiles in the lab report analyzer application.
 """
-from sqlalchemy import Column, String, DateTime, ForeignKey
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON # Added JSON type
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY # Added ARRAY for potential alternative
 from datetime import datetime
 import uuid
 from app.db.database import Base
@@ -28,6 +28,11 @@ class Profile(Base):
     # Relationship with PDFs
     pdfs = relationship("PDF", back_populates="profile")
     
+    # Store favorite biomarkers as an ordered list (JSON array of strings)
+    favorite_biomarkers = Column(JSON, nullable=True, default=[]) 
+    # Alternative using PostgreSQL ARRAY type (if using PostgreSQL):
+    # favorite_biomarkers = Column(ARRAY(String), nullable=True, default=[])
+    
     def __repr__(self):
         """String representation of the profile."""
-        return f"<Profile {self.name} ({self.id})>" 
+        return f"<Profile {self.name} ({self.id})>"

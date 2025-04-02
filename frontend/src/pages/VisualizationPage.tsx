@@ -17,7 +17,13 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  SelectChangeEvent // Import SelectChangeEvent
+  SelectChangeEvent, // Import SelectChangeEvent
+  Dialog, // Added for confirmation
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Snackbar // Added for feedback
 } from '@mui/material';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -25,10 +31,10 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import HistoryIcon from '@mui/icons-material/History'; // Import HistoryIcon
 import TimelineIcon from '@mui/icons-material/Timeline';
 import CategoryIcon from '@mui/icons-material/Category';
-import SummarizeIcon from '@mui/icons-material/Summarize';
-import RefreshIcon from '@mui/icons-material/Refresh';
+import SummarizeIcon from '@mui/icons-material/Summarize'; // Re-added SummarizeIcon
+import RefreshIcon from '@mui/icons-material/Refresh'; // Keep RefreshIcon if used in error handling
 
-import { getBiomarkersByFileId, getAllBiomarkers, getBiomarkerExplanation } from '../services/api';
+import { getBiomarkersByFileId, getAllBiomarkers, getBiomarkerExplanation, deleteBiomarkerEntry } from '../services/api'; // Added deleteBiomarkerEntry
 import { getProfiles } from '../services/profileService'; // Import getProfiles
 import { Biomarker } from '../types/biomarker';
 import { Profile } from '../types/Profile'; // Import Profile type
@@ -41,14 +47,15 @@ import {
   processBiomarkersForFavorites,
   ProcessedFavoriteData,
 } from '../utils/biomarkerUtils'; // Import processing function and type
-import {
-  getFavoritesForProfile,
-  addFavorite,
-  removeFavorite,
-  isFavorite, // Import isFavorite checker
-} from '../utils/favoritesUtils'; // Import localStorage utils
+// Removed unused import for getFavoritesForProfile
 import { parseISO, compareDesc } from 'date-fns'; // Import date-fns functions
 import AddFavoriteModal from '../components/AddFavoriteModal'; // Import the modal
+import ReplaceFavoriteModal from '../components/ReplaceFavoriteModal'; // Import the new modal
+import { 
+  updateFavoriteOrder, 
+  addFavoriteBiomarker, // Import backend service functions
+  removeFavoriteBiomarker 
+} from '../services/profileService'; 
 
 // --- Constants ---
 const MAX_DISPLAY_TILES = 8; // Changed to 8 for a 2x4 grid layout
@@ -172,18 +179,32 @@ const VisualizationPage: React.FC = () => {
 
   // State for Add Favorite Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  
+  // State for Replace Favorite Modal
+  const [replaceModalOpen, setReplaceModalOpen] = useState<boolean>(false);
+  const [biomarkerToReplaceWith, setBiomarkerToReplaceWith] = useState<string | null>(null);
+
+  // State for Delete Confirmation Dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [biomarkerIdToDelete, setBiomarkerIdToDelete] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+
+  // State for Snackbar feedback
+  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
+  // Allow 'info' and 'warning' severities for the Snackbar Alert
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success'); 
 
 
   // --- Effects ---
 
-  // 1. Load initial favorite names from localStorage when profile changes
+  // 1. Load initial favorite names from backend profile data when profile changes
   useEffect(() => {
-    if (activeProfile?.id) {
-      console.log(`Profile changed to ${activeProfile.id}, loading favorites from localStorage.`);
-      const initialFavorites = getFavoritesForProfile(activeProfile.id);
-      setFavoriteNames(initialFavorites);
+    if (activeProfile?.favorite_biomarkers) { // Check the field added to the Profile type
+      console.log(`Profile changed to ${activeProfile.id}, loading favorites from profile data.`);
+      setFavoriteNames(activeProfile.favorite_biomarkers);
     } else {
-      // Clear favorites if profile is removed
+      // Clear favorites if profile is removed or has no favorites
       setFavoriteNames([]);
       setProcessedFavoritesData([]);
     }
@@ -541,22 +562,41 @@ const VisualizationPage: React.FC = () => {
     setExplanationModalOpen(false);
   };
 
-  // Handler for toggling a favorite biomarker
-  const handleToggleFavorite = (biomarkerName: string) => {
+  // Handler for toggling a favorite biomarker (now uses backend)
+  const handleToggleFavorite = async (biomarkerName: string) => {
     if (!activeProfile?.id) return;
 
-    const currentIsFavorite = isFavorite(activeProfile.id, biomarkerName);
-    let updatedFavorites: string[];
+    const currentIsFavorite = favoriteNames.includes(biomarkerName); // Check against state
 
-    if (currentIsFavorite) {
-      console.log(`Removing ${biomarkerName} from favorites for profile ${activeProfile.id}`);
-      updatedFavorites = removeFavorite(activeProfile.id, biomarkerName);
-    } else {
-      console.log(`Adding ${biomarkerName} to favorites for profile ${activeProfile.id}`);
-      updatedFavorites = addFavorite(activeProfile.id, biomarkerName);
+    try {
+      let updatedProfile: Profile;
+      if (currentIsFavorite) {
+        console.log(`[handleToggleFavorite] Removing ${biomarkerName} for profile ${activeProfile.id}`); // Log removal attempt
+        updatedProfile = await removeFavoriteBiomarker(activeProfile.id, biomarkerName);
+        console.log(`[handleToggleFavorite] Backend removal successful. New favorites:`, updatedProfile.favorite_biomarkers); // Log result
+      } else {
+        // Check limit before calling backend add
+        if (isFavoriteLimitReached) {
+           handleReplaceFavoriteRequest(biomarkerName); // Trigger replacement flow
+           return; // Don't proceed with direct add
+        }
+        console.log(`[handleToggleFavorite] Adding ${biomarkerName} for profile ${activeProfile.id}`); // Log add attempt
+        updatedProfile = await addFavoriteBiomarker(activeProfile.id, biomarkerName);
+        console.log(`[handleToggleFavorite] Backend add successful. New favorites:`, updatedProfile.favorite_biomarkers); // Log result
+      }
+      // Update the local state with the list returned from the backend
+      const newFavorites = updatedProfile.favorite_biomarkers || [];
+      console.log(`[handleToggleFavorite] Updating state with:`, newFavorites); // Log state update
+      setFavoriteNames(newFavorites);
+      setSnackbarMessage(`Favorite ${currentIsFavorite ? 'removed' : 'added'}.`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (err) {
+       console.error(`Error toggling favorite ${biomarkerName}:`, err);
+       setSnackbarMessage(`Failed to ${currentIsFavorite ? 'remove' : 'add'} favorite.`);
+       setSnackbarSeverity('error');
+       setSnackbarOpen(true);
     }
-    // Update the local state to trigger re-render of grid/tiles
-    setFavoriteNames(updatedFavorites);
   };
 
   // Handler for profile selection change from dropdown
@@ -580,18 +620,192 @@ const VisualizationPage: React.FC = () => {
     setIsAddModalOpen(false);
   };
 
-  // Handler to actually add the favorite from the modal
-  const handleAddFavoriteFromModal = (biomarkerName: string) => {
+  // Handler to actually add the favorite from the modal (now uses backend)
+  const handleAddFavoriteFromModal = async (biomarkerName: string) => {
     if (!activeProfile?.id) return;
-    console.log(`Adding ${biomarkerName} from modal for profile ${activeProfile.id}`);
-    const updatedFavorites = addFavorite(activeProfile.id, biomarkerName);
-    // Update the local state to trigger re-render of grid/tiles
-    // This will cause the popularity useEffect to rerun and potentially include the new favorite
-    setFavoriteNames(updatedFavorites);
+    console.log(`Adding ${biomarkerName} from modal (backend) for profile ${activeProfile.id}`);
+    
+    // Check limit first
+    if (isFavoriteLimitReached) {
+      handleReplaceFavoriteRequest(biomarkerName); // Trigger replacement flow
+      handleCloseAddModal(); // Close the add modal as replace modal will open
+      return; 
+    }
+    
+    try {
+      // Call backend service
+      const updatedProfile = await addFavoriteBiomarker(activeProfile.id, biomarkerName);
+      // Update state with the list returned from backend
+      setFavoriteNames(updatedProfile.favorite_biomarkers || []);
+      setSnackbarMessage(`${biomarkerName} added to favorites.`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      handleCloseAddModal(); // Close the modal on success
+    } catch (err) {
+      console.error(`Error adding favorite ${biomarkerName} from modal:`, err);
+      setSnackbarMessage(`Failed to add ${biomarkerName} to favorites.`);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      // Optionally keep modal open on error? Closing for now.
+      handleCloseAddModal();
+    }
     // Note: The grid might not update immediately if the new favorite doesn't make the top 10 score.
     // A more robust solution might involve directly manipulating processedFavoritesData state,
     // but let's stick to the score-based approach for now.
   };
+
+  // --- Delete Biomarker Handlers ---
+  const handleDeleteBiomarkerRequest = (biomarkerId: number) => {
+    console.log(`Request to delete biomarker entry ID: ${biomarkerId}`);
+    setBiomarkerIdToDelete(biomarkerId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setBiomarkerIdToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (biomarkerIdToDelete === null) return;
+
+    console.log(`Confirming deletion for biomarker entry ID: ${biomarkerIdToDelete}`);
+    setDeleteLoading(true);
+    try {
+      await deleteBiomarkerEntry(biomarkerIdToDelete);
+      console.log(`Successfully deleted biomarker entry ID: ${biomarkerIdToDelete}`);
+      
+      // Update local state
+      setBiomarkers(prevBiomarkers => 
+        prevBiomarkers.filter(bm => bm.id !== biomarkerIdToDelete)
+      );
+      
+      // Show success feedback
+      setSnackbarMessage('Biomarker entry deleted successfully.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      
+      // Close dialog and reset state
+      handleCloseDeleteDialog();
+      
+      // Optional: Refresh favorite data if the deleted item could affect it
+      // (This might already be handled by the useEffect dependency on `biomarkers`)
+      
+    } catch (err) {
+      console.error(`Error deleting biomarker entry ID ${biomarkerIdToDelete}:`, err);
+      // Show error feedback
+      setSnackbarMessage('Failed to delete biomarker entry. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+  // --- End Delete Biomarker Handlers ---
+
+  // --- Snackbar Handler ---
+  const handleCloseSnackbar = (event?: React.SyntheticEvent | Event, reason?: string) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+  // --- End Snackbar Handler ---
+
+  // --- Favorite Checkers/Handlers for Table ---
+  // Check against component state which is sourced from backend profile data
+  const isBiomarkerFavorite = (name: string): boolean => {
+    return favoriteNames.includes(name);
+  };
+
+  const isFavoriteLimitReached = favoriteNames.length >= MAX_DISPLAY_TILES;
+
+  const handleReplaceFavoriteRequest = (biomarkerName: string) => {
+    console.log(`Request to replace a favorite to add: ${biomarkerName}`);
+    setBiomarkerToReplaceWith(biomarkerName);
+    // TODO: Open the actual replacement modal here
+    setReplaceModalOpen(true); // Open the actual modal now
+  };
+
+  const handleCloseReplaceModal = () => {
+    setReplaceModalOpen(false);
+    setBiomarkerToReplaceWith(null); // Clear the biomarker name
+  };
+
+  // Make this async to allow await
+  const handleConfirmReplace = async (favoriteToRemove: string, favoriteToAdd: string) => { 
+    if (!activeProfile?.id) return;
+    
+    console.log(`Replacing favorite: Removing ${favoriteToRemove}, Adding ${favoriteToAdd}`);
+    // Perform the actions: remove old, add new via backend calls
+    try {
+      // Set loading state if you add one to the modal
+      // setIsLoading(true); 
+      console.log(`Backend remove: ${favoriteToRemove}`);
+      await removeFavoriteBiomarker(activeProfile.id, favoriteToRemove);
+      console.log(`Backend add: ${favoriteToAdd}`);
+      const updatedProfile = await addFavoriteBiomarker(activeProfile.id, favoriteToAdd);
+      
+      // Update state with the final list from the backend
+      setFavoriteNames(updatedProfile.favorite_biomarkers || []);
+      
+      // Close the modal
+      handleCloseReplaceModal();
+      
+      // Show success feedback
+      setSnackbarMessage(`Replaced ${favoriteToRemove} with ${favoriteToAdd} in favorites.`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      
+    } catch (err) {
+       console.error(`Error replacing favorite ${favoriteToRemove} with ${favoriteToAdd}:`, err);
+       setSnackbarMessage('Failed to replace favorite.');
+       setSnackbarSeverity('error');
+       setSnackbarOpen(true);
+       // Close modal even on error? Or keep it open? Closing for now.
+       handleCloseReplaceModal();
+    } finally {
+       // setIsLoading(false);
+    }
+    // NOTE: The closing brace below was incorrectly placed here in the previous step. 
+    // It belongs after the handleFavoriteOrderChange function.
+  }; 
+  
+  // Handler for when the favorite order changes via drag-and-drop
+  const handleFavoriteOrderChange = async (orderedNames: string[]) => {
+    if (!activeProfile?.id) return;
+    
+    console.log(`Favorite order changed, attempting to save new order for profile ${activeProfile.id}:`, orderedNames);
+    
+    // Optimistically update the local state for immediate UI feedback
+    setFavoriteNames(orderedNames); 
+    
+    try {
+      // Call the backend API to persist the new order
+      await updateFavoriteOrder(activeProfile.id, orderedNames);
+      console.log(`Successfully saved new favorite order for profile ${activeProfile.id}`);
+      // Show success feedback (optional, could be too noisy)
+      // setSnackbarMessage('Favorite order saved.');
+      // setSnackbarSeverity('success');
+      // setSnackbarOpen(true);
+      
+      // Note: We don't need to update favoriteNames state again here as it was updated optimistically.
+      // The useEffect for processing favorites will rerun due to favoriteNames changing.
+      
+    } catch (err) {
+      console.error(`Error saving favorite order for profile ${activeProfile.id}:`, err);
+      // Show error feedback
+      setSnackbarMessage('Failed to save favorite order. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      
+      // Revert optimistic update if save fails? 
+      // This is complex, might be better to just refetch profile data or rely on next refresh.
+      // For now, we'll leave the optimistic update in place.
+    }
+  }; // Correct closing brace for handleFavoriteOrderChange
+
+  // --- End Favorite Checkers/Handlers ---
 
 
   // --- Render Logic ---
@@ -798,8 +1012,10 @@ const VisualizationPage: React.FC = () => {
           <FavoriteBiomarkersGrid
             profileId={activeProfile.id}
             favoriteData={processedFavoritesData} // Pass current data (could be empty)
-            onToggleFavorite={handleToggleFavorite}
+            onToggleFavorite={handleToggleFavorite} // Used by star icon
+            onDeleteFavorite={handleToggleFavorite} // Used by delete icon (same logic: remove from favorites)
             onAddClick={handleOpenAddModal}
+            onOrderChange={handleFavoriteOrderChange} // Pass the order change handler
           />
           {/* Optional: Add text below the grid if it's completely empty */}
           {processedFavoritesData.length === 0 && (
@@ -868,8 +1084,16 @@ const VisualizationPage: React.FC = () => {
       <TabPanel value={activeTab} index={0}>
         <BiomarkerTable 
           biomarkers={biomarkers} 
+          isLoading={biomarkerLoading} // Pass loading state
+          error={error} // Pass error state
+          onRefresh={handleRetry} // Pass refresh handler
           onExplainWithAI={handleExplainBiomarker}
-          // Pass other necessary props like isLoading, error, onRefresh if needed by table
+          onDeleteBiomarker={handleDeleteBiomarkerRequest} // Pass delete handler
+          onToggleFavorite={handleToggleFavorite} // Pass favorite toggle handler
+          isFavoriteChecker={isBiomarkerFavorite} // Pass favorite checker function
+          isFavoriteLimitReached={isFavoriteLimitReached} // Pass limit flag
+          onReplaceFavoriteRequest={handleReplaceFavoriteRequest} // Pass replace request handler
+          showSource={!fileId} // Show source if viewing overview (not specific file)
         />
       </TabPanel>
 
@@ -1008,6 +1232,60 @@ const VisualizationPage: React.FC = () => {
           error={error} // Pass error state
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">Confirm Deletion</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to permanently delete this biomarker entry? This action cannot be undone.
+          </DialogContentText>
+          {deleteLoading && <CircularProgress size={24} sx={{ mt: 2 }} />}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog} disabled={deleteLoading}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmDelete} 
+            color="error" 
+            autoFocus 
+            disabled={deleteLoading}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Feedback Snackbar */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+      
+      {/* Replace Favorite Modal */}
+      {activeProfile && (
+        <ReplaceFavoriteModal
+          open={replaceModalOpen}
+          onClose={handleCloseReplaceModal}
+          biomarkerToAdd={biomarkerToReplaceWith}
+          currentFavorites={favoriteNames} // Pass the current list of favorite names
+          onConfirmReplace={handleConfirmReplace}
+          // Pass isLoading if you add loading state to the replace action
+        />
+      )}
+
     </Container>
   );
 };

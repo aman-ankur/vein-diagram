@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, status # Added status
 from sqlalchemy.orm import Session, joinedload # Import joinedload
 from sqlalchemy import func
 import json
@@ -537,3 +537,41 @@ async def add_to_biomarker_dictionary(
     except Exception as e:
         print(f"Error adding to biomarker dictionary: {str(e)}")
         db.rollback()
+
+
+@router.delete("/biomarkers/{biomarker_entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_biomarker_entry(biomarker_entry_id: int, db: Session = Depends(get_db)):
+    """
+    Delete a specific biomarker entry by its ID.
+
+    Args:
+        biomarker_entry_id: The primary key ID of the biomarker entry to delete.
+        db: Database session.
+
+    Returns:
+        None (HTTP 204 No Content on success).
+    """
+    # Find the biomarker entry
+    biomarker_entry = db.query(Biomarker).filter(Biomarker.id == biomarker_entry_id).first()
+
+    # If not found, raise 404
+    if not biomarker_entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Biomarker entry with ID {biomarker_entry_id} not found",
+        )
+
+    # Delete the entry
+    try:
+        db.delete(biomarker_entry)
+        db.commit()
+        print(f"Successfully deleted biomarker entry with ID {biomarker_entry_id}")
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting biomarker entry {biomarker_entry_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete biomarker entry: {str(e)}",
+        )
+
+    return None # FastAPI handles the 204 response

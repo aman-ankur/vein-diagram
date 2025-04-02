@@ -41,6 +41,51 @@ export const getProfiles = async (
 };
 
 /**
+ * Add a favorite biomarker to a profile
+ */
+export const addFavoriteBiomarker = async (profileId: string, biomarkerName: string): Promise<Profile> => {
+  try {
+    const response = await axios.post<Profile>(`${API_URL}/${profileId}/favorites`, {
+      biomarker_name: biomarkerName,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error adding favorite ${biomarkerName} for profile ${profileId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Remove a favorite biomarker from a profile
+ */
+export const removeFavoriteBiomarker = async (profileId: string, biomarkerName: string): Promise<Profile> => {
+  try {
+    // Note: Axios delete method doesn't typically send a body, 
+    // the biomarker name is part of the URL path as defined in the backend route.
+    const response = await axios.delete<Profile>(`${API_URL}/${profileId}/favorites/${encodeURIComponent(biomarkerName)}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error removing favorite ${biomarkerName} for profile ${profileId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Update the order of favorite biomarkers for a profile
+ */
+export const updateFavoriteOrder = async (profileId: string, orderedFavorites: string[]): Promise<Profile> => {
+  try {
+    const response = await axios.put<Profile>(`${API_URL}/${profileId}/favorites/order`, {
+      ordered_favorites: orderedFavorites,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating favorite order for profile ${profileId}:`, error);
+    throw error;
+  }
+};
+
+/**
  * Fetch a single profile by ID
  */
 export const getProfile = async (id: string): Promise<Profile> => {

@@ -11,6 +11,7 @@ export interface Profile {
   last_modified: string;
   biomarker_count?: number;
   pdf_count?: number;
+  favorite_biomarkers?: string[]; // Added optional list for favorites
 }
 
 /**
@@ -21,6 +22,7 @@ export interface ProfileCreate {
   date_of_birth?: string;
   gender?: string;
   patient_id?: string;
+  favorite_biomarkers?: string[]; // Added optional list for favorites
 }
 
 /**
@@ -67,4 +69,4 @@ export interface ProfileMetadata {
 export interface ProfileMatchingResponse {
   matches: ProfileMatch[];
   metadata: ProfileMetadata;
-} 
+}

@@ -26,11 +26,13 @@ import BloodtypeIcon from '@mui/icons-material/Bloodtype'; // Example: Hematolog
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart'; // Example: Cardiovascular
 import BubbleChartIcon from '@mui/icons-material/BubbleChart'; // Example: Hormones/Endocrine
 import WaterDropIcon from '@mui/icons-material/WaterDrop'; // Example: Lipids
+import CloseIcon from '@mui/icons-material/Close'; // Icon for delete button
 
 interface BiomarkerTileProps {
   biomarkerData: ProcessedFavoriteData;
-  isFavorite: boolean;
-  onToggleFavorite: (biomarkerName: string) => void;
+  isFavorite: boolean; // Still needed to show star state
+  onToggleFavorite: (biomarkerName: string) => void; // Can be used by star if needed, or removed if delete replaces it
+  onDeleteFavorite: (biomarkerName: string) => void; // Callback specifically for deletion
   onClickTile?: (biomarkerName: string) => void; // For expanding details
 }
 
@@ -95,8 +97,9 @@ const getBiomarkerIcon = (category: string | undefined) => {
 
 const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
   biomarkerData,
-  isFavorite,
-  onToggleFavorite,
+  isFavorite, // Keep isFavorite to show star status if desired, or remove if delete replaces toggle
+  onToggleFavorite, // Keep if star still toggles, or remove
+  onDeleteFavorite, // Add delete handler
   onClickTile = (name) => console.log(`Tile clicked: ${name}`),
 }) => {
   const theme = useTheme();
@@ -118,6 +121,11 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click when toggling favorite
     onToggleFavorite(name);
+  };
+  
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click when deleting
+    onDeleteFavorite(name);
   };
 
   const handleTileClick = () => {
@@ -160,6 +168,7 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
             : theme.shadows[4], // Elevate shadow on hover
         },
         // Glassy/Frosted Effect Overlay
+        // position: 'relative', // REMOVED DUPLICATE - Already set above
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -215,6 +224,29 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
             {isFavorite ? <StarIcon fontSize="inherit" /> : <StarBorderIcon fontSize="inherit" />}
           </IconButton>
         </Box>
+        
+        {/* Delete Button - Bottom Right Corner */}
+        <IconButton
+          size="small"
+          onClick={handleDeleteClick} // Ensure this calls the correct prop handler
+          aria-label={`Remove ${name} from favorites`}
+          sx={{
+            position: 'absolute', 
+            bottom: 4, // Position near bottom
+            right: 4,  // Position near right
+            zIndex: 10, 
+            color: alpha(theme.palette.text.secondary, 0.6), 
+            backgroundColor: alpha(theme.palette.background.paper, 0.6), 
+            padding: '2px', 
+            '&:hover': {
+              color: theme.palette.error.dark, // Darker red on hover
+              backgroundColor: alpha(theme.palette.error.light, 0.3), // Slightly more opaque hover background
+            },
+          }}
+        >
+          <CloseIcon sx={{ fontSize: '14px' }} /> 
+        </IconButton>
+
 
         {/* Body: Value, Units, Trend */}
         <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 1, minHeight: '32px' /* Ensure space even if no value */ }}>
@@ -268,7 +300,14 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
                   }}
                   itemStyle={{ color: theme.palette.text.primary }}
                   labelStyle={{ color: theme.palette.text.secondary, marginBottom: '4px' }}
-                  labelFormatter={(label) => `Date: ${format(new Date(label), DATE_FORMAT.DISPLAY)}`}
+                  labelFormatter={(label) => {
+                    // Check if label is a valid date representation before formatting
+                    const date = new Date(label);
+                    if (!isNaN(date.getTime())) { // Check if date is valid
+                      return `Date: ${format(date, DATE_FORMAT.DISPLAY)}`;
+                    }
+                    return 'Date: Invalid'; // Fallback for invalid dates
+                  }}
                   formatter={(value) => [`${value} ${latestUnit ?? ''}`, null]} // Value only, no name
                 />
                 <Line

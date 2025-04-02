@@ -37,9 +37,13 @@ import {
   Check as CheckIcon,
   Timeline as TimelineIcon,
   History as HistoryIcon,
-  Psychology as PsychologyIcon
+  Psychology as PsychologyIcon,
+  MoreVert as MoreVertIcon, // Added for 3-dot menu
+  Delete as DeleteIcon, // Added for delete action
+  StarBorder as StarBorderIcon, // Added for favorite toggle
+  Star as StarIcon // Added for favorite toggle
 } from '@mui/icons-material';
-import { SvgIcon } from '@mui/material';
+import { SvgIcon, Menu, MenuItem } from '@mui/material'; // Added Menu, MenuItem
 import type { Biomarker } from '../types/biomarker';
 
 // Re-export the Biomarker type
@@ -53,12 +57,17 @@ interface BiomarkerTableProps {
   onRefresh?: () => void;
   onViewHistory?: (biomarker: Biomarker) => void;
   onExplainWithAI?: (biomarker: Biomarker) => void;
+  onDeleteBiomarker?: (biomarkerId: number) => void; // Added delete callback
+  onToggleFavorite?: (biomarkerName: string) => void; // Added favorite toggle callback
+  isFavoriteChecker?: (biomarkerName: string) => boolean; // Function to check if a biomarker is favorite
+  isFavoriteLimitReached?: boolean; // Flag if max favorites reached
+  onReplaceFavoriteRequest?: (biomarkerName: string) => void; // Callback to trigger replacement modal
   showSource?: boolean; // Show source PDF information
 }
 
 // Interface for the column definition
 interface Column {
-  id: keyof Biomarker | 'status';
+  id: keyof Biomarker | 'status' | 'actions'; // Added 'actions'
   label: string;
   minWidth?: number;
   align?: 'right' | 'left' | 'center';
@@ -88,8 +97,8 @@ const isOutsideRange = (biomarker: Biomarker): boolean | undefined => {
     return biomarker.isAbnormal;
   }
   
-  // If we have numeric reference range bounds, use those
-  if (biomarker.reference_range_low !== null && biomarker.reference_range_high !== null) {
+  // If we have numeric reference range bounds, use those (check for null/undefined)
+  if (biomarker.reference_range_low != null && biomarker.reference_range_high != null) {
     return biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high;
   }
   
@@ -171,10 +180,66 @@ const BiomarkerRow: React.FC<{
   biomarker: Biomarker;
   onViewHistory?: (biomarker: Biomarker) => void;
   onExplainWithAI?: (biomarker: Biomarker) => void;
+  onDeleteBiomarker?: (biomarkerId: number) => void; // Added delete callback
+  onToggleFavorite?: (biomarkerName: string) => void; // Added favorite toggle callback
+  isFavoriteChecker?: (biomarkerName: string) => boolean; // Function to check if a biomarker is favorite
+  isFavoriteLimitReached?: boolean; // Flag if max favorites reached
+  onReplaceFavoriteRequest?: (biomarkerName: string) => void; // Callback to trigger replacement modal
   showSource?: boolean;
-}> = ({ biomarker, onViewHistory, onExplainWithAI, showSource = false }) => {
+}> = ({ 
+  biomarker, 
+  onViewHistory, 
+  onExplainWithAI, 
+  onDeleteBiomarker, 
+  onToggleFavorite,
+  isFavoriteChecker,
+  isFavoriteLimitReached,
+  onReplaceFavoriteRequest,
+  showSource = false 
+}) => {
   const [open, setOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null); // State for menu anchor
   const theme = useTheme();
+  
+  // Check if the current biomarker is a favorite
+  const isCurrentFavorite = isFavoriteChecker ? isFavoriteChecker(biomarker.name) : false;
+  
+  // --- Menu Handlers ---
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleDeleteClick = () => {
+    handleMenuClose();
+    if (onDeleteBiomarker && biomarker.id) {
+      onDeleteBiomarker(biomarker.id);
+    } else {
+      console.error("Delete handler or biomarker ID missing for:", biomarker);
+    }
+  };
+  
+  const handleFavoriteToggle = () => {
+    if (!onToggleFavorite || !biomarker.name) return;
+
+    if (isCurrentFavorite) {
+      // If it's already a favorite, just toggle (remove)
+      onToggleFavorite(biomarker.name);
+    } else {
+      // If it's not a favorite, check the limit
+      if (isFavoriteLimitReached && onReplaceFavoriteRequest) {
+        // Limit reached, trigger the replacement request flow
+        onReplaceFavoriteRequest(biomarker.name);
+      } else {
+        // Limit not reached, just toggle (add)
+        onToggleFavorite(biomarker.name);
+      }
+    }
+  };
+  // --- End Menu Handlers ---
   
   // Format date string helper
   const formatDate = (dateStr?: string) => {
@@ -331,7 +396,47 @@ const BiomarkerRow: React.FC<{
                 </IconButton>
               </Tooltip>
             )}
+            {/* 3-Dot Menu */}
+            {onDeleteBiomarker && (
+              <Tooltip title="More Actions">
+                <IconButton
+                  aria-label="more actions"
+                  aria-controls={`actions-menu-${biomarker.id}`}
+                  aria-haspopup="true"
+                  onClick={handleMenuClick}
+                  size="small"
+                >
+                  <MoreVertIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            {/* Favorite Toggle Button */}
+            {onToggleFavorite && isFavoriteChecker && onReplaceFavoriteRequest && (
+              <Tooltip title={isCurrentFavorite ? "Remove from Favorites" : "Add to Favorites"}>
+                <IconButton
+                  onClick={handleFavoriteToggle}
+                  size="small"
+                  color={isCurrentFavorite ? "warning" : "default"} // Use warning color for filled star
+                >
+                  {isCurrentFavorite ? <StarIcon /> : <StarBorderIcon />}
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
+          {/* Actions Menu */}
+          <Menu
+            id={`actions-menu-${biomarker.id}`}
+            anchorEl={anchorEl}
+            keepMounted
+            open={Boolean(anchorEl)}
+            onClose={handleMenuClose}
+          >
+            <MenuItem onClick={handleDeleteClick} sx={{ color: theme.palette.error.main }}>
+              <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+              Delete Entry
+            </MenuItem>
+            {/* Add other actions here if needed */}
+          </Menu>
         </TableCell>
       </TableRow>
       <TableRow>
@@ -378,6 +483,11 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   onRefresh,
   onViewHistory,
   onExplainWithAI,
+  onDeleteBiomarker, // Added delete prop
+  onToggleFavorite, // Added favorite toggle prop
+  isFavoriteChecker, // Added favorite checker prop
+  isFavoriteLimitReached, // Added limit flag prop
+  onReplaceFavoriteRequest, // Added replace request prop
   showSource = false
 }) => {
   const [filteredBiomarkers, setFilteredBiomarkers] = useState<Biomarker[]>([]);
@@ -678,6 +788,11 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
                     biomarker={biomarker} 
                     onViewHistory={onViewHistory}
                     onExplainWithAI={onExplainWithAI}
+                    onDeleteBiomarker={onDeleteBiomarker} // Pass delete handler down
+                    onToggleFavorite={onToggleFavorite} // Pass favorite toggle handler
+                    isFavoriteChecker={isFavoriteChecker} // Pass favorite checker
+                    isFavoriteLimitReached={isFavoriteLimitReached} // Pass limit flag
+                    onReplaceFavoriteRequest={onReplaceFavoriteRequest} // Pass replace request handler
                     showSource={showSource}
                   />
                 ))
@@ -700,4 +815,4 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   );
 };
 
-export default BiomarkerTable; 
+export default BiomarkerTable;
