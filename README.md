@@ -171,3 +171,47 @@ pytest
    3. **Confirm the Operation**: The script will prompt you for confirmation before proceeding with the deletion. Type `y` and press Enter to confirm.
 
    **Note**: This operation will permanently delete all data from the database, so ensure you have a backup if needed.
+
+## Health Analysis Dashboard Redesign
+
+Our health analysis dashboard has been redesigned with a modern, elegant dark mode aesthetic inspired by contemporary reading apps. The new design provides a calm, professional, and medically authoritative interface while being visually appealing and easy to understand.
+
+### Design Features
+
+#### Color Scheme
+- **Dark Mode Foundation**: Deep blue-black background (#0f172a) with subtle gradients for visual depth
+- **Muted Color Palette**: Soft indigo primary color (#6366f1) with pink accents (#ec4899)
+- **Intuitive Health Indicators**: Neutral colors for normal values, subtle red for concerning metrics, and green for healthy ranges
+
+#### Typography
+- **Clean Font Hierarchy**: Uses Inter as the primary font with clear visual hierarchy
+- **Improved Readability**: Optimized letter spacing and line heights for better text legibility
+- **Consistent Text Sizing**: Standardized font sizes across components
+
+#### Layout Improvements
+- **Card-Based Organization**: Biomarker data is organized in expandable/collapsible card sections by category
+- **Proper Whitespace**: Generous spacing between elements for better visual breathing room
+- **Category Filtering**: Easy filtering system with visual chips for different biomarker categories
+
+#### Visual Elements
+- **Data Visualizations**: Small charts and visual indicators for key metrics
+- **Subtle Animations**: Smooth transitions and hover effects for interactive elements
+- **Soft Shadows & Rounded Corners**: Cards and buttons with subtle elevation and rounded borders for a modern feel
+
+#### UI Components
+- **Redesigned Smart Summary**: More visually appealing "Generate Smart Summary" button
+- **Consistent Navigation**: Improved toggle between current report and history views
+- **Progress Indicators**: Subtle loading states and completion indicators
+
+### Components
+
+The redesign includes updates to the following components:
+- **BiomarkerPage**: Main dashboard layout with improved header and filtering
+- **BiomarkerTable**: Enhanced data table with better typography and visual indicators
+- **ExplanationModal**: Redesigned AI explanation modal with intuitive data visualization
+- **ViewToggle**: Updated toggle component for switching between current and history views
+- **Theme**: New dark mode theme with improved color scheme and typography
+
+### Screenshots
+
+[Screenshots will be added when available]

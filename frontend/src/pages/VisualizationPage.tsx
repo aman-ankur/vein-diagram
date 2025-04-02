@@ -1214,115 +1214,135 @@ const VisualizationPage: React.FC = () => {
         />
       </TabPanel>
 
-      {/* Smart Summary View */}
+      {/* Smart Summary View - Redesigned */}
       <TabPanel value={activeTab} index={1}>
-        <Paper sx={{ p: 3 }}>
+        <Box sx={{ p: 0 }}> {/* Removed outer Paper, using Box for padding control */}
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center', 
-            mb: 3 
+            mb: 3,
+            px: 1 // Add slight horizontal padding
           }}>
             <Typography variant="h5" fontWeight="500" sx={{ display: 'flex', alignItems: 'center' }}>
-              <SmartToyIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+              <SmartToyIcon sx={{ mr: 1.5, color: theme.palette.primary.main }} />
               AI-Powered Health Analysis
             </Typography>
             {activeProfile && (
               <Button
-                variant="contained"
+                variant="contained" // Keep contained for primary action
                 color="primary"
                 startIcon={<UpdateIcon />}
                 onClick={handleGenerateHealthSummary}
                 disabled={isSummaryGenerating}
-                size="small"
-                sx={{ borderRadius: 2 }}
+                size="medium" // Slightly larger button
+                sx={{ 
+                  borderRadius: '12px', // More rounded
+                  boxShadow: 'none', // Remove default shadow for cleaner look
+                  textTransform: 'none', // Keep text normal case
+                  fontWeight: 600,
+                  px: 2.5, // More padding
+                  py: 1,
+                  '&:hover': {
+                    boxShadow: 'none', // Keep shadow off on hover
+                  }
+                }}
               >
                 {isSummaryGenerating ? 'Generating...' : 'Generate Smart Summary'}
               </Button>
             )}
           </Box>
           
+          {/* Redesigned Top Cards */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid item xs={12} md={6}>
               <Paper 
-                elevation={2} 
+                variant="outlined" // Use outlined variant for subtle look
                 sx={{ 
-                  p: 2, 
-                  bgcolor: theme.palette.error.light,
-                  color: theme.palette.error.contrastText,
-                  borderRadius: 2,
+                  p: 3, // Increased padding
+                  // Use theme background paper color
+                  bgcolor: theme.palette.background.paper, 
+                  borderRadius: 3, // More rounded corners
                   height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  border: `1px solid ${theme.palette.divider}` // Subtle border
                 }}
               >
-                <Typography variant="h3" fontWeight="bold" gutterBottom>
+                <Typography 
+                  variant="h3" 
+                  fontWeight="bold" 
+                  gutterBottom 
+                  // Use subtle warning color for abnormal count
+                  color={theme.palette.warning.main} 
+                >
                   {biomarkers.filter(b => b.isAbnormal).length}
                 </Typography>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, color: 'text.secondary' }}>
                   Abnormal Values
                 </Typography>
-                <Typography variant="body2">
+                <Typography variant="body2" color="text.secondary">
                   out of {biomarkers.length} total biomarkers
                 </Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} md={6}>
               <Paper 
-                elevation={2} 
+                variant="outlined" // Use outlined variant
                 sx={{ 
-                  p: 2, 
-                  bgcolor: theme.palette.primary.light,
-                  color: theme.palette.primary.contrastText,
-                  borderRadius: 2,
+                  p: 3, // Increased padding
+                  bgcolor: theme.palette.background.paper,
+                  borderRadius: 3, // More rounded corners
                   height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  border: `1px solid ${theme.palette.divider}` // Subtle border
                 }}
               >
-                <Typography variant="h3" fontWeight="bold" gutterBottom>
+                <Typography variant="h3" fontWeight="bold" gutterBottom color="text.primary">
                   {new Set(biomarkers.map(b => b.category)).size}
                 </Typography>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, color: 'text.secondary' }}>
                   Categories
                 </Typography>
-                <Typography variant="body2">
+                <Typography variant="body2" color="text.secondary">
                   different types of biomarkers analyzed
                 </Typography>
               </Paper>
             </Grid>
           </Grid>
 
-          {/* AI Health Summary Section */}
+          {/* AI Health Summary Section - Redesigned */}
           {activeProfile && (
             <Paper
-              elevation={3}
+              variant="outlined" // Use outlined variant
               sx={{
-                p: 3, 
-                borderRadius: 2,
-                bgcolor: '#f8f9fa', // Light background
+                p: { xs: 2, md: 3 }, // Responsive padding
+                borderRadius: 3, // Match card rounding
+                bgcolor: theme.palette.background.default, // Slightly different background
                 border: `1px solid ${theme.palette.divider}`,
-                mb: 2
+                mb: 3 // Increased bottom margin
               }}
             >
               <Box sx={{ 
                 display: 'flex', 
                 flexDirection: 'column',
-                gap: 2
+                gap: 2.5 // Increased gap
               }}>
+                {/* Header */}
                 <Box sx={{
                   display: 'flex',
                   alignItems: 'center',
                   pb: 2,
                   borderBottom: `1px solid ${theme.palette.divider}`
                 }}>
-                  <PsychologyIcon fontSize="large" sx={{ mr: 2, color: theme.palette.primary.main }} />
+                  <PsychologyIcon fontSize="medium" sx={{ mr: 1.5, color: theme.palette.primary.main }} />
                   <Box>
                     <Typography variant="h6" fontWeight="500" color="text.primary">
                       Smart Health Summary
@@ -1335,87 +1355,91 @@ const VisualizationPage: React.FC = () => {
                   </Box>
                 </Box>
                 
+                {/* Summary Content or Placeholder */}
                 {activeProfile.health_summary ? (
                   <Box sx={{ 
-                    p: 2.5, 
-                    borderRadius: 1, 
-                    bgcolor: 'background.paper',
-                    border: `1px solid ${theme.palette.divider}`,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                    p: 0, // Remove extra padding/border from inner box
+                    borderRadius: 0, 
+                    bgcolor: 'transparent', // Make inner box transparent
+                    border: 'none',
+                    boxShadow: 'none'
                   }}>
                     <Typography 
                       variant="body1" 
-                      color={theme.palette.mode === 'dark' ? 'common.white' : 'text.primary'} 
+                      color="text.primary" // Use primary text color
                       sx={{ 
                         whiteSpace: 'pre-wrap',
-                        lineHeight: 1.8,
+                        lineHeight: 1.7, // Slightly adjusted line height
                         fontWeight: 400,
-                        fontSize: '1rem',
-                        letterSpacing: '0.00938em',
+                        fontSize: '0.95rem', // Slightly smaller font for reading
+                        letterSpacing: '0.01em',
                       }}
                     >
                       {activeProfile.health_summary} 
                     </Typography>
                   </Box>
                 ) : (
+                  // Placeholder styling
                   <Box sx={{ 
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    p: 4,
-                    borderRadius: 1,
-                    bgcolor: 'background.paper',
-                    border: `1px solid ${theme.palette.divider}`,
+                    p: { xs: 3, md: 4 }, // Responsive padding
+                    borderRadius: 2, // Slightly rounded placeholder
+                    bgcolor: theme.palette.background.paper, // Use paper background
+                    border: `1px dashed ${theme.palette.divider}`, // Dashed border
                     textAlign: 'center'
                   }}>
-                    <SmartToyIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                    <SmartToyIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="body1" color="text.primary" paragraph fontWeight="medium">
                       No AI health summary available yet.
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Click the "Generate Smart Summary" button to create one. Generation happens in the background and may take a moment to complete.
+                      Click the "Generate Smart Summary" button above to create one.
                     </Typography>
                   </Box>
                 )}
               </Box>
               
+              {/* Regenerate Button (only if summary exists) */}
               {activeProfile.health_summary && (
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                <Box sx={{ mt: 2.5, display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
                     size="small"
                     startIcon={<UpdateIcon />}
                     onClick={handleGenerateHealthSummary}
                     disabled={isSummaryGenerating}
-                    variant="outlined"
+                    variant="text" // Use text variant for less emphasis
+                    sx={{ textTransform: 'none', color: 'text.secondary' }}
                   >
-                    Regenerate Summary
+                    {isSummaryGenerating ? 'Regenerating...' : 'Regenerate Summary'}
                   </Button>
                 </Box>
               )}
             </Paper>
           )}
           
-          {/* Additional Information */}
+          {/* Additional Information / Disclaimer Box - Redesigned */}
           <Paper 
-            elevation={1}
+            variant="outlined" // Use outlined variant
             sx={{ 
-              p: 2, 
-              bgcolor: theme.palette.info.light, 
-              color: theme.palette.info.contrastText,
-              borderRadius: 2
+              p: 2.5, // Consistent padding
+              bgcolor: theme.palette.background.paper, // Use paper background
+              borderRadius: 3, // Match card rounding
+              border: `1px solid ${theme.palette.divider}` // Subtle border
             }}
           >
-            <Typography variant="subtitle2" fontWeight="500">
+            <Typography variant="subtitle2" fontWeight="500" color="text.secondary">
               About Smart Health Summary
             </Typography>
-            <Typography variant="body2" sx={{ mt: 1 }} color={theme.palette.mode === 'dark' ? 'common.white' : 'text.primary'}>
+            <Typography variant="body2" sx={{ mt: 1 }} color="text.secondary">
               This AI-powered analysis examines your biomarker data to identify patterns, trends, and notable values.
               The summary is generated based solely on your uploaded lab results and is not medical advice.
               Always consult with healthcare professionals for proper interpretation of your test results.
             </Typography>
           </Paper>
-        </Paper>
+        </Box>
       </TabPanel>
 
       {/* Chart View */}
@@ -1471,20 +1495,13 @@ const VisualizationPage: React.FC = () => {
       </TabPanel>
 
       {/* AI Explanation Modal - Re-enabled */}
+       {/* AI Explanation Modal - Pass the whole biomarker object */}
        {currentBiomarker && (
         <ExplanationModal
           open={explanationModalOpen}
           onClose={handleCloseExplanationModal}
-          biomarkerName={currentBiomarker.name}
-          biomarkerValue={currentBiomarker.value}
-          biomarkerUnit={currentBiomarker.unit}
-          referenceRange={
-            currentBiomarker.referenceRange ?? 
-            (typeof currentBiomarker.reference_range_low === 'number' && typeof currentBiomarker.reference_range_high === 'number'
-              ? `${currentBiomarker.reference_range_low}-${currentBiomarker.reference_range_high}`
-              : "Not available")
-          }
-          isLoading={explanationLoading}
+          biomarker={currentBiomarker} // Pass the entire object
+          loading={explanationLoading}
           error={explanationError}
           explanation={explanation}
         />
