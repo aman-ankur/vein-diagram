@@ -10,13 +10,13 @@ The project is in the **advanced development phase**, integrating core features 
 | PDF Processing        | Completed   | 100%     | Refactored for page filtering & sequential processing.                |
 | Profile Management    | Completed   | 100%     | Backend API and basic Frontend UI implemented.                        |
 | Favorite Biomarkers   | Completed   | 100%     | Backend API (add/remove/reorder), Frontend components (grid, tile, modals, table integration), D&D implemented. Migrated from localStorage. |
-| Frontend UI           | In Progress | 80%      | Integrating profiles & favorites. Added biomarker deletion.           |
+| Frontend UI           | In Progress | 85%      | Integrating profiles & favorites. Added biomarker deletion. Fixed table errors. Redesigned Vis Smart Summary tab. |
 | Data Visualization    | In Progress | 60%      | Time-series done, relationship mapping ongoing.                       |
 | Claude API Integration| Completed   | 100%     | Biomarker/Metadata extraction refactored. Insights integration ongoing. |
-| Testing               | In Progress | 75%      | Added tests for profiles & favorites. Updated PDF processing tests. Needs Health Score tests. |
+| Testing               | In Progress | 75%      | Added tests for profiles & favorites. Updated PDF processing tests. Needs Health Score tests. Needs Vis Smart Summary tests. |
 | Health Score Feature  | In Progress | 50%      | Backend routes & Frontend components created. Integration needed.       |
 | Dashboard Page        | In Progress | 40%      | New page created, route added, basic layout, placeholders, some data integrated. Blocked by rendering issue. |
-| Documentation         | In Progress | 75%      | Memory bank updated for PDF processing & dashboard attempt.           |
+| Documentation         | In Progress | 80%      | Memory bank updated for PDF processing, dashboard attempt, Vis fixes & redesign. |
 
 ## What Works
 
@@ -62,6 +62,8 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ **Dashboard routing added and sidebar link updated.**
 - ✅ **Old dashboard component removed from `HomePage.tsx`.**
 - ✅ **Dashboard integrates profile context, favorite names/values/trends, last report date (derived), collapsible AI summary, action buttons.**
+- ✅ **Fixed `BiomarkerTable` crash (missing Grid import) and related TypeScript errors.**
+- ✅ **Redesigned "Smart Summary" tab on Visualization page for improved aesthetics.**
 
 ### Infrastructure
 - ✅ Project directory structure
@@ -218,6 +220,8 @@ The project is in the **advanced development phase**, integrating core features 
 - Improved mobile and tablet responsiveness
 - Expanded test coverage to ~75% of codebase (needs Health Score tests)
 - Updated PDF processing unit tests and fixed errors.
+- **Fixed `BiomarkerTable` crash and TypeScript errors.**
+- **Redesigned Visualization page "Smart Summary" tab.**
 
 ## Next Immediate Tasks
 
