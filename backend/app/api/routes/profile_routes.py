@@ -24,13 +24,23 @@ from app.schemas.profile_schema import (
     ProfileMatchingResponse,
     ProfileMatchScore,
     ProfileExtractedMetadata,
-    ProfileAssociationRequest
+    ProfileAssociationRequest,
+    # Assuming a simple schema for the order update
+    # If not defined elsewhere, add it here or in profile_schema.py
+    # class FavoriteOrderUpdate(BaseModel):
+    #     ordered_favorites: List[str]
 )
 from app.services.profile_matcher import find_matching_profiles, create_profile_from_metadata
 from app.services.metadata_parser import extract_metadata_with_claude
+from pydantic import BaseModel, Field # Import BaseModel and Field if defining schema here
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# --- Schemas specific to favorite operations ---
+class AddFavoriteRequest(BaseModel):
+    biomarker_name: str = Field(..., description="Name of the biomarker to add to favorites")
+
 
 @router.post("/", response_model=ProfileResponse, status_code=201)
 async def create_profile(
@@ -682,4 +692,135 @@ async def associate_pdf_with_profile(
     except Exception as e:
         db.rollback()
         logger.error(f"Error associating PDF {request.pdf_id} with profile: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error associating PDF with profile: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error associating PDF with profile: {str(e)}")
+
+
+# Schema for updating favorite order
+class FavoriteOrderUpdate(BaseModel):
+    ordered_favorites: List[str]
+
+@router.put("/{profile_id}/favorites/order", response_model=ProfileResponse)
+async def update_favorite_biomarker_order(
+    profile_id: UUID,
+    order_update: FavoriteOrderUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update the order of favorite biomarkers for a specific profile.
+    """
+    logger.info(f"Updating favorite order for profile ID: {profile_id}")
+    
+    try:
+        # Find the profile
+        db_profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        
+        if not db_profile:
+            logger.error(f"Profile not found: {profile_id}")
+            raise HTTPException(status_code=404, detail="Profile not found")
+            
+        # Validate the input list (optional, e.g., check if names are valid biomarkers)
+        # For now, directly update the stored list
+        db_profile.favorite_biomarkers = order_update.ordered_favorites
+        db_profile.last_modified = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(db_profile)
+        
+        logger.info(f"Successfully updated favorite order for profile {profile_id}")
+        
+        # Return the updated profile response (including the new order)
+        biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == db_profile.id).scalar()
+        pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == db_profile.id).scalar()
+        
+        return ProfileResponse(
+            id=db_profile.id,
+            name=db_profile.name,
+            date_of_birth=db_profile.date_of_birth,
+            gender=db_profile.gender,
+            patient_id=db_profile.patient_id,
+            created_at=db_profile.created_at,
+            last_modified=db_profile.last_modified,
+            favorite_biomarkers=db_profile.favorite_biomarkers, # Include the updated list
+            biomarker_count=biomarker_count,
+            pdf_count=pdf_count
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating favorite order for profile {profile_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/{profile_id}/favorites", response_model=ProfileResponse)
+async def add_favorite_biomarker(
+    profile_id: UUID,
+    request: AddFavoriteRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Add a biomarker to the profile's favorites list.
+    """
+    logger.info(f"Adding favorite '{request.biomarker_name}' for profile ID: {profile_id}")
+    
+    db_profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    if not db_profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+        
+    # Ensure the list exists and is mutable
+    if db_profile.favorite_biomarkers is None:
+        db_profile.favorite_biomarkers = []
+    
+    # Add if not already present (convert to list if it's somehow not)
+    current_favorites = list(db_profile.favorite_biomarkers)
+    if request.biomarker_name not in current_favorites:
+        current_favorites.append(request.biomarker_name)
+        db_profile.favorite_biomarkers = current_favorites # Assign back the modified list
+        db_profile.last_modified = datetime.utcnow()
+        db.commit()
+        db.refresh(db_profile)
+        logger.info(f"Added '{request.biomarker_name}' to favorites for profile {profile_id}")
+    else:
+        logger.info(f"'{request.biomarker_name}' already in favorites for profile {profile_id}")
+
+    # Return the updated profile
+    biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == db_profile.id).scalar()
+    pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == db_profile.id).scalar()
+    return ProfileResponse.from_orm(db_profile) # Use from_orm for cleaner mapping
+
+
+@router.delete("/{profile_id}/favorites/{biomarker_name}", response_model=ProfileResponse)
+async def remove_favorite_biomarker(
+    profile_id: UUID,
+    biomarker_name: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Remove a biomarker from the profile's favorites list.
+    """
+    logger.info(f"Removing favorite '{biomarker_name}' for profile ID: {profile_id}")
+    
+    db_profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    if not db_profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Ensure the list exists and is mutable
+    if db_profile.favorite_biomarkers is None:
+        db_profile.favorite_biomarkers = []
+        
+    current_favorites = list(db_profile.favorite_biomarkers)
+    if biomarker_name in current_favorites:
+        current_favorites.remove(biomarker_name)
+        db_profile.favorite_biomarkers = current_favorites # Assign back the modified list
+        db_profile.last_modified = datetime.utcnow()
+        db.commit()
+        db.refresh(db_profile)
+        logger.info(f"Removed '{biomarker_name}' from favorites for profile {profile_id}")
+    else:
+         logger.info(f"'{biomarker_name}' not found in favorites for profile {profile_id}")
+
+    # Return the updated profile
+    biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == db_profile.id).scalar()
+    pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == db_profile.id).scalar()
+    return ProfileResponse.from_orm(db_profile) # Use from_orm for cleaner mapping
