@@ -31,6 +31,8 @@ class ProfileInDB(ProfileBase):
     created_at: datetime
     last_modified: datetime
     favorite_biomarkers: List[str] = Field(default_factory=list, description="Ordered list of favorite biomarker names")
+    health_summary: Optional[str] = Field(None, description="LLM-generated health summary")
+    summary_last_updated: Optional[datetime] = Field(None, description="Timestamp of the last summary generation")
 
     class Config:
         from_attributes = True # Pydantic V2 uses from_attributes instead of orm_mode
@@ -39,7 +41,8 @@ class ProfileResponse(ProfileInDB):
     """Schema for profile data returned in API responses."""
     biomarker_count: Optional[int] = Field(0, description="Number of biomarkers associated with this profile")
     pdf_count: Optional[int] = Field(0, description="Number of PDF reports associated with this profile")
-    favorite_biomarkers: List[str] = Field(default_factory=list, description="Ordered list of favorite biomarker names")
+    # favorite_biomarkers is inherited from ProfileInDB
+    # health_summary and summary_last_updated are commented out in parent, so not inherited here
 
 class ProfileList(BaseModel):
     """Schema for a list of profiles."""

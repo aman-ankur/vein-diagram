@@ -195,3 +195,16 @@ export const createProfileFromPdf = async (pdfId: string, metadata: ProfileMetad
     throw error;
   }
 };
+
+/**
+ * Generate health summary for a profile
+ */
+export const generateHealthSummary = async (profileId: string): Promise<Profile> => {
+  try {
+    const response = await axios.post<Profile>(`${API_URL}/${profileId}/generate-summary`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error generating health summary for profile ${profileId}:`, error);
+    throw error;
+  }
+};
