@@ -12,6 +12,8 @@ export interface Profile {
   biomarker_count?: number;
   pdf_count?: number;
   favorite_biomarkers?: string[]; // Added optional list for favorites
+  health_summary?: string; // LLM-generated health summary
+  summary_last_updated?: string; // Timestamp of last summary generation
 }
 
 /**

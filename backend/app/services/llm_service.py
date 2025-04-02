@@ -210,4 +210,77 @@ Use accessible language. Include a brief medical disclaimer at the end.
     return (
         f"Information about {biomarker_name} is temporarily unavailable.",
         f"Analysis of your result ({value} {unit}) is temporarily unavailable."
-    ) 
+    )
+
+# --- New Generic LLM Function ---
+
+async def get_llm_response(
+    prompt: str, 
+    model: str = "claude-3-haiku-20240307", 
+    max_tokens: int = 1500 # Increased max_tokens for potentially longer summaries
+) -> Optional[str]:
+    """
+    Sends a generic prompt to the Claude API and returns the text response.
+
+    Args:
+        prompt: The prompt string to send to the LLM.
+        model: The Claude model to use.
+        max_tokens: The maximum number of tokens to generate.
+
+    Returns:
+        The text content of the LLM's response, or None if an error occurs.
+    """
+    if not CLAUDE_API_KEY:
+        logger.warning("CLAUDE_API_KEY is not set. Cannot call LLM.")
+        # Optionally return a mock response for testing without API key
+        # return f"Mock response for prompt starting with: {prompt[:50]}..."
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client: # Increased timeout for potentially longer generation
+            headers = {
+                "x-api-key": CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            }
+            
+            payload = {
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            }
+            
+            logger.info(f"Sending prompt to Claude model {model}...")
+            response = await client.post(
+                CLAUDE_API_URL, 
+                headers=headers, 
+                json=payload
+            )
+            
+            response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+            
+            result = response.json()
+            content = result.get("content", [])
+            
+            if not content or not isinstance(content, list) or not content[0].get("text"):
+                logger.error(f"Unexpected Claude API response format: {result}")
+                return None
+            
+            response_text = content[0]["text"]
+            logger.info(f"Received response from Claude model {model}.")
+            return response_text.strip()
+                
+    except httpx.TimeoutException:
+        logger.error(f"Timeout when calling Claude API for model {model}")
+        return None
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Claude API HTTP error: {e.response.status_code} - {e.response.text}")
+        return None
+    except httpx.RequestError as e:
+        logger.error(f"HTTP request error when calling Claude API: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error when calling Claude API: {str(e)}", exc_info=True)
+        return None

@@ -33,6 +33,7 @@ from app.schemas.profile_schema import (
 from app.services.profile_matcher import find_matching_profiles, create_profile_from_metadata
 from app.services.metadata_parser import extract_metadata_with_claude
 from pydantic import BaseModel, Field # Import BaseModel and Field if defining schema here
+from app.services.health_summary_service import generate_and_update_health_summary
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -99,39 +100,69 @@ async def get_profiles(
     Get all profiles with optional search and pagination.
     """
     try:
-        # Base query
-        query = db.query(Profile)
-        
-        # Apply search filter if provided
+        # Base query - Select only known/stable columns explicitly
+        query = db.query(
+            Profile.id,
+            Profile.name,
+            Profile.date_of_birth,
+            Profile.gender,
+            Profile.patient_id,
+            Profile.created_at,
+            Profile.last_modified,
+            Profile.favorite_biomarkers
+        )
+
+        # Apply search filter if provided (filtering on columns we selected)
         if search:
             search_term = f"%{search}%"
             query = query.filter(Profile.name.ilike(search_term) | Profile.patient_id.ilike(search_term))
-        
-        # Get total count
-        total = query.count()
-        
-        # Apply pagination
-        profiles = query.offset(skip).limit(limit).all()
-        
+
+        # --- Calculate Total Count Separately ---
+        # Construct a separate query specifically for counting, only filtering on necessary columns.
+        count_query = db.query(func.count(Profile.id))
+        if search:
+            # Apply the same filter criteria used in the main query
+            count_query = count_query.filter(Profile.name.ilike(search_term) | Profile.patient_id.ilike(search_term))
+        total = count_query.scalar()
+        # --- End Count Calculation ---
+
+        # Apply pagination and explicitly select only known columns *before* executing .all()
+        profile_tuples = query.with_entities(
+            Profile.id,
+            Profile.name,
+            Profile.date_of_birth,
+            Profile.gender,
+            Profile.patient_id,
+            Profile.created_at,
+            Profile.last_modified,
+            Profile.favorite_biomarkers
+        ).offset(skip).limit(limit).all()
+
         # Prepare response with counts for each profile
         profile_responses = []
-        for profile in profiles:
-            biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
-            pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
-            
-            profile_responses.append(
-                ProfileResponse(
-                    id=profile.id,
-                    name=profile.name,
-                    date_of_birth=profile.date_of_birth,
-                    gender=profile.gender,
-                    patient_id=profile.patient_id,
-                    created_at=profile.created_at,
-                    last_modified=profile.last_modified,
-                    biomarker_count=biomarker_count,
-                    pdf_count=pdf_count
-                )
-            )
+        for p_id, p_name, p_dob, p_gender, p_patient_id, p_created_at, p_last_modified, p_favs in profile_tuples:
+            biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == p_id).scalar()
+            pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == p_id).scalar()
+
+            # Manually construct the response dictionary from the tuple
+            # We don't include health_summary here as it wasn't selected
+            profile_data = {
+                "id": p_id,
+                "name": p_name,
+                "date_of_birth": p_dob,
+                "gender": p_gender,
+                "patient_id": p_patient_id,
+                "created_at": p_created_at,
+                "last_modified": p_last_modified,
+                "favorite_biomarkers": p_favs if p_favs else [],
+                "biomarker_count": biomarker_count,
+                "pdf_count": pdf_count,
+                "health_summary": None, # Explicitly set to None as it wasn't queried
+                "summary_last_updated": None, # Explicitly set to None
+            }
+            # Validate data against the schema before appending
+            response_item = ProfileResponse(**profile_data)
+            profile_responses.append(response_item)
         
         return ProfileList(profiles=profile_responses, total=total)
     except Exception as e:
@@ -172,18 +203,15 @@ async def get_profile(
         # Get counts
         biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
         pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
+
+        # Use from_orm to map fields automatically, including the new summary fields
+        response = ProfileResponse.from_orm(profile)
         
-        return ProfileResponse(
-            id=profile.id,
-            name=profile.name,
-            date_of_birth=profile.date_of_birth,
-            gender=profile.gender,
-            patient_id=profile.patient_id,
-            created_at=profile.created_at,
-            last_modified=profile.last_modified,
-            biomarker_count=biomarker_count,
-            pdf_count=pdf_count
-        )
+        # Add the counts to the response object
+        response.biomarker_count = biomarker_count
+        response.pdf_count = pdf_count
+        
+        return response
     except HTTPException:
         raise
     except Exception as e:
@@ -824,3 +852,36 @@ async def remove_favorite_biomarker(
     biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == db_profile.id).scalar()
     pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == db_profile.id).scalar()
     return ProfileResponse.from_orm(db_profile) # Use from_orm for cleaner mapping
+
+@router.post("/{profile_id}/generate-summary", response_model=ProfileResponse)
+async def generate_profile_summary(
+    profile_id: UUID, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate an AI health summary for a profile in the background.
+    """
+    try:
+        # First check if profile exists
+        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        # Add the task to the background tasks
+        background_tasks.add_task(generate_and_update_health_summary, profile_id, db)
+        
+        # Return the profile object (without waiting for summary generation)
+        biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
+        pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
+        
+        response = ProfileResponse.from_orm(profile)
+        response.biomarker_count = biomarker_count
+        response.pdf_count = pdf_count
+        
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating summary for profile {profile_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

@@ -1,7 +1,7 @@
 """
 Profile data model for managing user profiles in the lab report analyzer application.
 """
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON # Added JSON type
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text # Added JSON type, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, ARRAY # Added ARRAY for potential alternative
 from datetime import datetime
@@ -32,6 +32,10 @@ class Profile(Base):
     favorite_biomarkers = Column(JSON, nullable=True, default=[]) 
     # Alternative using PostgreSQL ARRAY type (if using PostgreSQL):
     # favorite_biomarkers = Column(ARRAY(String), nullable=True, default=[])
+
+    # Store the LLM-generated health summary (Temporarily commented out due to schema mismatch)
+    health_summary = Column(Text, nullable=True)
+    summary_last_updated = Column(DateTime, nullable=True)
     
     def __repr__(self):
         """String representation of the profile."""

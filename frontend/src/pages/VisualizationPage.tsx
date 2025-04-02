@@ -33,9 +33,12 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import CategoryIcon from '@mui/icons-material/Category';
 import SummarizeIcon from '@mui/icons-material/Summarize'; // Re-added SummarizeIcon
 import RefreshIcon from '@mui/icons-material/Refresh'; // Keep RefreshIcon if used in error handling
+import UpdateIcon from '@mui/icons-material/Update'; // Add UpdateIcon for the generate button
+import PsychologyIcon from '@mui/icons-material/Psychology'; // AI brain icon
+import SmartToyIcon from '@mui/icons-material/SmartToy'; // Another AI icon option
 
 import { getBiomarkersByFileId, getAllBiomarkers, getBiomarkerExplanation, deleteBiomarkerEntry } from '../services/api'; // Added deleteBiomarkerEntry
-import { getProfiles } from '../services/profileService'; // Import getProfiles
+import { getProfiles, generateHealthSummary } from '../services/profileService'; // Import generateHealthSummary
 import { Biomarker } from '../types/biomarker';
 import { Profile } from '../types/Profile'; // Import Profile type
 import BiomarkerTable from '../components/BiomarkerTable';
@@ -195,6 +198,8 @@ const VisualizationPage: React.FC = () => {
   // Allow 'info' and 'warning' severities for the Snackbar Alert
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success'); 
 
+  // State for health summary generation
+  const [isSummaryGenerating, setIsSummaryGenerating] = useState<boolean>(false);
 
   // --- Helper Function ---
 
@@ -829,6 +834,39 @@ const VisualizationPage: React.FC = () => {
 
   // --- End Favorite Checkers/Handlers ---
 
+  // Handle generate health summary
+  const handleGenerateHealthSummary = async () => {
+    if (!activeProfile?.id) return;
+    
+    // Show snackbar
+    setSnackbarMessage('Generating AI health summary...');
+    setSnackbarSeverity('info');
+    setSnackbarOpen(true);
+    
+    setIsSummaryGenerating(true);
+    
+    try {
+      // Call the generate summary API
+      const updatedProfile = await generateHealthSummary(activeProfile.id);
+      
+      // Update the active profile with the new summary
+      setActiveProfileById(activeProfile.id); // This will fetch the updated profile
+      
+      // Show success message
+      setSnackbarMessage('AI health summary generation started! Check back in a minute to see your personalized summary.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error generating health summary:', error);
+      
+      // Show error message
+      setSnackbarMessage('Failed to generate AI health summary. Please try again later.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsSummaryGenerating(false);
+    }
+  };
 
   // --- Render Logic ---
 
@@ -1125,18 +1163,37 @@ const VisualizationPage: React.FC = () => {
       )}
 
       {/* Chart Controls */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs 
           value={activeTab} 
           onChange={handleTabChange} 
           aria-label="biomarker visualization tabs"
           variant="scrollable"
           scrollButtons="auto"
+          sx={{
+            '& .MuiTab-root': { 
+              minHeight: '72px',
+              fontWeight: 500,
+              transition: 'all 0.2s ease-in-out',
+              opacity: 0.7,
+            },
+            '& .Mui-selected': {
+              fontWeight: 700,
+              opacity: 1,
+              background: 'linear-gradient(to bottom, rgba(25, 118, 210, 0.1), transparent)',
+              borderBottom: '3px solid',
+              borderColor: 'primary.main',
+            },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              borderRadius: '3px 3px 0 0',
+            }
+          }}
         >
           <Tab icon={<TableChartIcon />} label="Table View" />
+          <Tab icon={<SmartToyIcon />} label="Smart Summary" />
           <Tab icon={<TimelineIcon />} label="Chart View" />
           <Tab icon={<CategoryIcon />} label="Categories" />
-          <Tab icon={<SummarizeIcon />} label="Summary" />
         </Tabs>
       </Box>
 
@@ -1157,8 +1214,212 @@ const VisualizationPage: React.FC = () => {
         />
       </TabPanel>
 
-      {/* Chart View */}
+      {/* Smart Summary View */}
       <TabPanel value={activeTab} index={1}>
+        <Paper sx={{ p: 3 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 3 
+          }}>
+            <Typography variant="h5" fontWeight="500" sx={{ display: 'flex', alignItems: 'center' }}>
+              <SmartToyIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+              AI-Powered Health Analysis
+            </Typography>
+            {activeProfile && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<UpdateIcon />}
+                onClick={handleGenerateHealthSummary}
+                disabled={isSummaryGenerating}
+                size="small"
+                sx={{ borderRadius: 2 }}
+              >
+                {isSummaryGenerating ? 'Generating...' : 'Generate Smart Summary'}
+              </Button>
+            )}
+          </Box>
+          
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} md={6}>
+              <Paper 
+                elevation={2} 
+                sx={{ 
+                  p: 2, 
+                  bgcolor: theme.palette.error.light,
+                  color: theme.palette.error.contrastText,
+                  borderRadius: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  textAlign: 'center'
+                }}
+              >
+                <Typography variant="h3" fontWeight="bold" gutterBottom>
+                  {biomarkers.filter(b => b.isAbnormal).length}
+                </Typography>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  Abnormal Values
+                </Typography>
+                <Typography variant="body2">
+                  out of {biomarkers.length} total biomarkers
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Paper 
+                elevation={2} 
+                sx={{ 
+                  p: 2, 
+                  bgcolor: theme.palette.primary.light,
+                  color: theme.palette.primary.contrastText,
+                  borderRadius: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  textAlign: 'center'
+                }}
+              >
+                <Typography variant="h3" fontWeight="bold" gutterBottom>
+                  {new Set(biomarkers.map(b => b.category)).size}
+                </Typography>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  Categories
+                </Typography>
+                <Typography variant="body2">
+                  different types of biomarkers analyzed
+                </Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          {/* AI Health Summary Section */}
+          {activeProfile && (
+            <Paper
+              elevation={3}
+              sx={{
+                p: 3, 
+                borderRadius: 2,
+                bgcolor: '#f8f9fa', // Light background
+                border: `1px solid ${theme.palette.divider}`,
+                mb: 2
+              }}
+            >
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: 2
+              }}>
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  pb: 2,
+                  borderBottom: `1px solid ${theme.palette.divider}`
+                }}>
+                  <PsychologyIcon fontSize="large" sx={{ mr: 2, color: theme.palette.primary.main }} />
+                  <Box>
+                    <Typography variant="h6" fontWeight="500" color="text.primary">
+                      Smart Health Summary
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {activeProfile.summary_last_updated 
+                        ? `Last updated: ${new Date(activeProfile.summary_last_updated).toLocaleString()}` 
+                        : 'Not generated yet'}
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                {activeProfile.health_summary ? (
+                  <Box sx={{ 
+                    p: 2.5, 
+                    borderRadius: 1, 
+                    bgcolor: 'background.paper',
+                    border: `1px solid ${theme.palette.divider}`,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                  }}>
+                    <Typography 
+                      variant="body1" 
+                      color={theme.palette.mode === 'dark' ? 'common.white' : 'text.primary'} 
+                      sx={{ 
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: 1.8,
+                        fontWeight: 400,
+                        fontSize: '1rem',
+                        letterSpacing: '0.00938em',
+                      }}
+                    >
+                      {activeProfile.health_summary} 
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ 
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 4,
+                    borderRadius: 1,
+                    bgcolor: 'background.paper',
+                    border: `1px solid ${theme.palette.divider}`,
+                    textAlign: 'center'
+                  }}>
+                    <SmartToyIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                    <Typography variant="body1" color="text.primary" paragraph fontWeight="medium">
+                      No AI health summary available yet.
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Click the "Generate Smart Summary" button to create one. Generation happens in the background and may take a moment to complete.
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+              
+              {activeProfile.health_summary && (
+                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    size="small"
+                    startIcon={<UpdateIcon />}
+                    onClick={handleGenerateHealthSummary}
+                    disabled={isSummaryGenerating}
+                    variant="outlined"
+                  >
+                    Regenerate Summary
+                  </Button>
+                </Box>
+              )}
+            </Paper>
+          )}
+          
+          {/* Additional Information */}
+          <Paper 
+            elevation={1}
+            sx={{ 
+              p: 2, 
+              bgcolor: theme.palette.info.light, 
+              color: theme.palette.info.contrastText,
+              borderRadius: 2
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight="500">
+              About Smart Health Summary
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1 }} color={theme.palette.mode === 'dark' ? 'common.white' : 'text.primary'}>
+              This AI-powered analysis examines your biomarker data to identify patterns, trends, and notable values.
+              The summary is generated based solely on your uploaded lab results and is not medical advice.
+              Always consult with healthcare professionals for proper interpretation of your test results.
+            </Typography>
+          </Paper>
+        </Paper>
+      </TabPanel>
+
+      {/* Chart View */}
+      <TabPanel value={activeTab} index={2}>
         <Paper sx={{ p: 3 }}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
@@ -1198,7 +1459,7 @@ const VisualizationPage: React.FC = () => {
       </TabPanel>
 
       {/* Categories View */}
-      <TabPanel value={activeTab} index={2}>
+      <TabPanel value={activeTab} index={3}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Biomarkers by Category
@@ -1206,57 +1467,6 @@ const VisualizationPage: React.FC = () => {
           <Typography variant="body1" color="text.secondary">
             Category view will be implemented here
           </Typography>
-        </Paper>
-      </TabPanel>
-
-      {/* Summary View */}
-      <TabPanel value={activeTab} index={3}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Biomarker Summary
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Paper 
-                elevation={0} 
-                sx={{ 
-                  p: 2, 
-                  bgcolor: theme.palette.background.default,
-                  border: `1px solid ${theme.palette.divider}`
-                }}
-              >
-                <Typography variant="subtitle1" gutterBottom>
-                  Abnormal Values
-                </Typography>
-                <Typography variant="h4" color="error.main">
-                  {biomarkers.filter(b => b.isAbnormal).length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  out of {biomarkers.length} total biomarkers
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Paper 
-                elevation={0} 
-                sx={{ 
-                  p: 2, 
-                  bgcolor: theme.palette.background.default,
-                  border: `1px solid ${theme.palette.divider}`
-                }}
-              >
-                <Typography variant="subtitle1" gutterBottom>
-                  Categories
-                </Typography>
-                <Typography variant="h4">
-                  {new Set(biomarkers.map(b => b.category)).size}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  different categories of biomarkers
-                </Typography>
-              </Paper>
-            </Grid>
-          </Grid>
         </Paper>
       </TabPanel>
 
