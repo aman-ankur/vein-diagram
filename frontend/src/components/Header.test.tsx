@@ -2,32 +2,34 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Header from './Header';
+import { AuthProvider } from '../contexts/AuthContext';
 
 describe('Header Component', () => {
-  test('renders the logo', () => {
+  it('renders navigation links correctly', () => {
     render(
       <BrowserRouter>
-        <Header />
+        <AuthProvider>
+          <Header />
+        </AuthProvider>
       </BrowserRouter>
     );
-    
-    const logoElement = screen.getByText('Vein Diagram');
-    expect(logoElement).toBeInTheDocument();
+
+    // Check for navigation links
+    expect(screen.getByText('Upload')).toBeInTheDocument();
+    expect(screen.getByText('Biomarkers')).toBeInTheDocument();
   });
-  
-  test('renders navigation links', () => {
+
+  it('renders logo correctly', () => {
     render(
       <BrowserRouter>
-        <Header />
+        <AuthProvider>
+          <Header />
+        </AuthProvider>
       </BrowserRouter>
     );
-    
-    const homeLink = screen.getByText('Home');
-    const uploadLink = screen.getByText('Upload');
-    const visualizationsLink = screen.getByText('Visualizations');
-    
-    expect(homeLink).toBeInTheDocument();
-    expect(uploadLink).toBeInTheDocument();
-    expect(visualizationsLink).toBeInTheDocument();
+
+    // Check for logo text
+    expect(screen.getByText('VD')).toBeInTheDocument();
+    expect(screen.getByText('Vein Diagram')).toBeInTheDocument();
   });
 }); 
