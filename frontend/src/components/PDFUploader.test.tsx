@@ -1,154 +1,121 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import PDFUploader from './PDFUploader';
-import { pdfService } from '../services/api';
+import { render, screen, fireEvent } from '@testing-library/react';
+import PDFUploader from '../PDFUploader';
+import { message } from 'antd';
+import axios from 'axios';
 
-// Mock the API service
-jest.mock('../services/api', () => ({
-  pdfService: {
-    uploadPdf: jest.fn()
+// Mock axios
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+// Mock antd message
+jest.mock('antd', () => ({
+  ...jest.requireActual('antd'),
+  message: {
+    error: jest.fn(),
+    success: jest.fn()
   }
 }));
 
+// Helper function to create a drop event
+const createDropEvent = (files: File[]) => ({
+  preventDefault: jest.fn(),
+  stopPropagation: jest.fn(),
+  dataTransfer: {
+    files,
+    items: files.map(file => ({
+      kind: 'file',
+      type: file.type,
+      getAsFile: () => file
+    })),
+    types: ['Files']
+  }
+});
+
 describe('PDFUploader Component', () => {
-  const mockOnSuccess = jest.fn();
-  const mockOnError = jest.fn();
-  
+  const mockOnUploadSuccess = jest.fn();
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
-  
-  it('renders the upload area', () => {
-    render(
-      <PDFUploader 
-        onUploadSuccess={mockOnSuccess} 
-        onUploadError={mockOnError} 
-      />
-    );
+
+  it('renders upload area correctly', () => {
+    render(<PDFUploader onUploadSuccess={mockOnUploadSuccess} />);
     
-    expect(screen.getByText(/drag and drop your lab report pdf here/i)).toBeInTheDocument();
-    expect(screen.getByText(/or click to select a file/i)).toBeInTheDocument();
+    expect(screen.getByText('Click or drag PDF file to this area to upload')).toBeInTheDocument();
+    expect(screen.getByText(/support for a single pdf file upload/i)).toBeInTheDocument();
   });
-  
-  it('shows an error when a non-PDF file is dropped', async () => {
-    render(
-      <PDFUploader 
-        onUploadSuccess={mockOnSuccess} 
-        onUploadError={mockOnError} 
-      />
-    );
+
+  it('shows an error when a non-PDF file is dropped', () => {
+    render(<PDFUploader onUploadSuccess={mockOnUploadSuccess} />);
     
     const file = new File(['test'], 'test.txt', { type: 'text/plain' });
-    const dropzone = screen.getByText(/drag and drop your lab report pdf here/i).parentElement?.parentElement;
+    const dropzone = screen.getByRole('button', { name: /upload/i });
     
     if (dropzone) {
       // Create a custom event
       const dropEvent = createDropEvent([file]);
       fireEvent.drop(dropzone, dropEvent);
       
-      await waitFor(() => {
-        expect(mockOnError).toHaveBeenCalledWith('Only PDF files are accepted');
-      });
+      expect(message.error).toHaveBeenCalledWith('You can only upload PDF files!');
     }
   });
-  
-  it('shows an error when file is too large', async () => {
-    render(
-      <PDFUploader 
-        onUploadSuccess={mockOnSuccess} 
-        onUploadError={mockOnError} 
-      />
-    );
+
+  it('shows an error when file is too large', () => {
+    render(<PDFUploader onUploadSuccess={mockOnUploadSuccess} />);
     
-    // Create a mock PDF file that exceeds size limit
-    // Note: We can't actually create a 30MB+ file in a test, so we'll mock the size check
     const mockFile = new File(['test'], 'test.pdf', { type: 'application/pdf' });
     Object.defineProperty(mockFile, 'size', { value: 31 * 1024 * 1024 }); // 31MB
     
-    const dropzone = screen.getByText(/drag and drop your lab report pdf here/i).parentElement?.parentElement;
+    const dropzone = screen.getByRole('button', { name: /upload/i });
     
     if (dropzone) {
       const dropEvent = createDropEvent([mockFile]);
       fireEvent.drop(dropzone, dropEvent);
       
-      await waitFor(() => {
-        expect(mockOnError).toHaveBeenCalledWith('File size exceeds the 30MB limit');
-      });
+      expect(message.error).toHaveBeenCalledWith('File must be smaller than 30MB!');
     }
   });
-  
-  it('uploads a valid PDF file successfully', async () => {
-    // Mock successful upload
-    (pdfService.uploadPdf as jest.Mock).mockResolvedValue({
-      data: {
-        file_id: '123-456',
-        filename: 'test.pdf'
-      },
-      status: 200
-    });
-    
-    render(
-      <PDFUploader 
-        onUploadSuccess={mockOnSuccess} 
-        onUploadError={mockOnError} 
-      />
-    );
-    
-    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
-    const dropzone = screen.getByText(/drag and drop your lab report pdf here/i).parentElement?.parentElement;
-    
-    if (dropzone) {
-      const dropEvent = createDropEvent([file]);
-      fireEvent.drop(dropzone, dropEvent);
-      
-      await waitFor(() => {
-        expect(pdfService.uploadPdf).toHaveBeenCalledWith(file);
-        expect(mockOnSuccess).toHaveBeenCalledWith('123-456', 'test.pdf');
-      });
-    }
-  });
-  
-  it('handles upload errors', async () => {
-    // Mock failed upload
-    (pdfService.uploadPdf as jest.Mock).mockRejectedValue({
-      message: 'Server error'
-    });
-    
-    render(
-      <PDFUploader 
-        onUploadSuccess={mockOnSuccess} 
-        onUploadError={mockOnError} 
-      />
-    );
-    
-    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
-    const dropzone = screen.getByText(/drag and drop your lab report pdf here/i).parentElement?.parentElement;
-    
-    if (dropzone) {
-      const dropEvent = createDropEvent([file]);
-      fireEvent.drop(dropzone, dropEvent);
-      
-      await waitFor(() => {
-        expect(pdfService.uploadPdf).toHaveBeenCalledWith(file);
-        expect(mockOnError).toHaveBeenCalledWith('Server error');
-      });
-    }
-  });
-});
 
-// Helper function to create a drop event
-function createDropEvent(files: File[]) {
-  return {
-    dataTransfer: {
-      files,
-      items: files.map(file => ({
-        kind: 'file',
-        type: file.type,
-        getAsFile: () => file
-      })),
-      types: ['Files']
-    },
-    preventDefault: jest.fn(),
-    stopPropagation: jest.fn()
-  };
-} 
+  it('uploads a valid PDF file successfully', async () => {
+    const mockResponse = { data: { file_id: '123' } };
+    mockedAxios.post.mockResolvedValueOnce(mockResponse);
+    
+    render(<PDFUploader onUploadSuccess={mockOnUploadSuccess} />);
+    
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
+    const dropzone = screen.getByRole('button', { name: /upload/i });
+    
+    if (dropzone) {
+      const dropEvent = createDropEvent([file]);
+      fireEvent.drop(dropzone, dropEvent);
+      
+      // Wait for the upload to complete
+      await screen.findByText(/uploaded successfully/i);
+      
+      expect(mockedAxios.post).toHaveBeenCalled();
+      expect(mockOnUploadSuccess).toHaveBeenCalledWith('123');
+      expect(message.success).toHaveBeenCalledWith('test.pdf uploaded successfully');
+    }
+  });
+
+  it('handles upload errors', async () => {
+    const mockError = new Error('Upload failed');
+    mockedAxios.post.mockRejectedValueOnce(mockError);
+    
+    render(<PDFUploader onUploadSuccess={mockOnUploadSuccess} />);
+    
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
+    const dropzone = screen.getByRole('button', { name: /upload/i });
+    
+    if (dropzone) {
+      const dropEvent = createDropEvent([file]);
+      fireEvent.drop(dropzone, dropEvent);
+      
+      // Wait for the error message
+      await screen.findByText(/upload failed/i);
+      
+      expect(message.error).toHaveBeenCalledWith('test.pdf upload failed');
+    }
+  });
+}); 
