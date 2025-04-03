@@ -10,13 +10,13 @@ The project is in the **advanced development phase**, integrating core features 
 | PDF Processing        | Completed   | 100%     | Refactored for page filtering & sequential processing.                |
 | Profile Management    | Completed   | 100%     | Backend API and basic Frontend UI implemented.                        |
 | Favorite Biomarkers   | Completed   | 100%     | Backend API (add/remove/reorder), Frontend components (grid, tile, modals, table integration), D&D implemented. Migrated from localStorage. |
-| Frontend UI           | In Progress | 85%      | Integrating profiles & favorites. Added biomarker deletion. Fixed table errors. Redesigned Vis Smart Summary tab. |
-| Data Visualization    | In Progress | 60%      | Time-series done, relationship mapping ongoing.                       |
+| Frontend UI           | In Progress | 85%      | Integrating profiles & favorites. Added biomarker deletion. Fixed table errors. Completed Vis Smart Summary redesign. Dashboard implemented (blocked). |
+| Data Visualization    | In Progress | 70%      | Time-series done, relationship mapping ongoing. Smart Summary redesigned. |
 | Claude API Integration| Completed   | 100%     | Biomarker/Metadata extraction refactored. Insights integration ongoing. |
-| Testing               | In Progress | 75%      | Added tests for profiles & favorites. Updated PDF processing tests. Needs Health Score tests. Needs Vis Smart Summary tests. |
-| Health Score Feature  | In Progress | 50%      | Backend routes & Frontend components created. Integration needed.       |
-| Dashboard Page        | In Progress | 40%      | New page created, route added, basic layout, placeholders, some data integrated. Blocked by rendering issue. |
-| Documentation         | In Progress | 80%      | Memory bank updated for PDF processing, dashboard attempt, Vis fixes & redesign. |
+| Testing               | In Progress | 75%      | Added tests for profiles & favorites. Updated PDF processing tests. Needs Health Score tests. Needs Vis Smart Summary tests. Needs Dashboard tests. |
+| Health Score Feature  | In Progress | 50%      | Backend routes & Frontend components created. Integration needed (blocked by Dashboard). |
+| Dashboard Page        | Blocked     | 40%      | New page created, route added, basic layout, placeholders, some data integrated. **Blocked by rendering issue.** |
+| Documentation         | In Progress | 90%      | Memory bank updated for PDF processing, dashboard attempt, Vis fixes & redesign. |
 
 ## What Works
 
@@ -57,13 +57,13 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ **Functionality to add/remove/reorder favorite biomarkers (via backend)**
 - ✅ **Replace Favorite modal** when adding to full grid.
 - ✅ **Biomarker entry deletion** from table view.
-- ✅ **Basic Health Score display components (frontend)** (Though integration is blocked/removed temporarily)
+- ✅ **Basic Health Score display components (frontend)** (Integration blocked by Dashboard issue)
 - ✅ **New Dashboard Page (`DashboardPage.tsx`) created with basic layout.**
 - ✅ **Dashboard routing added and sidebar link updated.**
 - ✅ **Old dashboard component removed from `HomePage.tsx`.**
 - ✅ **Dashboard integrates profile context, favorite names/values/trends, last report date (derived), collapsible AI summary, action buttons.**
 - ✅ **Fixed `BiomarkerTable` crash (missing Grid import) and related TypeScript errors.**
-- ✅ **Redesigned "Smart Summary" tab on Visualization page for improved aesthetics.**
+- ✅ **Completed redesign of "Smart Summary" tab on Visualization page for improved aesthetics.**
 
 ### Infrastructure
 - ✅ Project directory structure
@@ -84,10 +84,10 @@ The project is in the **advanced development phase**, integrating core features 
 ### Frontend
 - 🔄 Implement biomarker relationship visualization
 - 🔄 Develop UI for displaying Claude-generated insights
-- 🔄 **Resolve Dashboard Rendering Issue**: Figure out why `/dashboard` route doesn't show the new page visually.
-- 🔄 **Implement Dashboard Category Status**: Add the category overview section.
-- 🔄 **Refine Dashboard Styling**: Improve visual appearance based on designs.
-- 🔄 **Integrate Health Score Components**: Fix component access/type issues and integrate properly into Dashboard.
+- ❗ **Resolve Dashboard Rendering Blocker**: Investigate and fix why `/dashboard` route doesn't show the new page visually.
+- 🔄 **Implement Dashboard Category Status**: Add the category overview section (after blocker resolved).
+- 🔄 **Refine Dashboard Styling**: Improve visual appearance based on designs (after blocker resolved).
+- 🔄 **Integrate Health Score Components**: Fix component access/type issues and integrate properly into Dashboard (after blocker resolved).
 - 🔄 Implement filtering and search functionality (potentially filter by profile)
 - 🔄 Add responsive design for mobile devices (including Dashboard)
 - 🔄 Enhance error handling and user feedback across new features
@@ -218,20 +218,24 @@ The project is in the **advanced development phase**, integrating core features 
 - **Set up Alembic and migrated database schema**
 - Created user dashboard for managing uploaded reports
 - Improved mobile and tablet responsiveness
-- Expanded test coverage to ~75% of codebase (needs Health Score tests)
+- Expanded test coverage to ~75% of codebase (needs Health Score, Vis Smart Summary, and Dashboard tests)
 - Updated PDF processing unit tests and fixed errors.
 - **Fixed `BiomarkerTable` crash and TypeScript errors.**
-- **Redesigned Visualization page "Smart Summary" tab.**
+- **Completed redesign of Visualization page "Smart Summary" tab.**
+- **Implemented initial Dashboard page (`DashboardPage.tsx`) with routing and basic data integration (currently blocked).**
 
 ## Next Immediate Tasks
 
-1. Integrate Profile selection/context into Visualization and History pages.
-2. **Integrate Health Score display into relevant UI sections.**
-3. Complete UI components for displaying Claude-generated insights.
-4. Finalize biomarker relationship visualization with interactive features.
-5. Implement advanced filtering and search functionality (including profile filters).
-6. Complete responsive design for mobile phones.
-7. Conduct first round of user testing focusing on the complete flow with profiles/favorites **and Health Score**.
-8. **Add tests for the Health Score feature (backend & frontend).**
-9. Prepare for beta release.
-10. Enhance documentation for API endpoints and UI components related to new features (incl. Health Score).
+1.  **Resolve Dashboard Rendering Blocker**: Investigate and fix the issue preventing the new `DashboardPage.tsx` from rendering.
+2.  Integrate Profile selection/context into Visualization and History pages.
+3.  **Integrate Health Score display into Dashboard** (after blocker resolved).
+4.  Complete UI components for displaying Claude-generated insights.
+5.  Finalize biomarker relationship visualization with interactive features.
+6.  Implement advanced filtering and search functionality (including profile filters).
+7.  Complete responsive design for mobile phones (including Dashboard).
+8.  Conduct first round of user testing focusing on the complete flow with profiles/favorites **and Health Score**.
+9.  **Add tests for the Health Score feature (backend & frontend).**
+10. **Add tests for the redesigned Visualization "Smart Summary" tab.**
+11. **Add tests for the Dashboard page (after blocker resolved).**
+12. Prepare for beta release.
+13. Enhance documentation for API endpoints and UI components related to new features (incl. Health Score, Dashboard).
