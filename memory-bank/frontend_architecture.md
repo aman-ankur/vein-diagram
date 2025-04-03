@@ -33,6 +33,7 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
     *   `healthScoreService.ts`: Functions for fetching the calculated health score.
     *   `biomarkerService.ts` (or similar): Likely handles biomarker fetching, deletion, and explanation requests (may be partially integrated into `profileService` or `VisualizationPage`).
 -   **`contexts/`**: Provides global state management using React Context API.
+    -   `AuthContext.tsx`: Manages authentication state (user, loading), provides auth methods (`signUp`, `signIn`, `signOut`, etc.). See `authentication_details.md`.
     -   `ProfileContext.tsx`: Manages the currently active user profile and provides it to consuming components.
 -   **`hooks/`**: *(Currently empty)* Intended for custom reusable hooks encapsulating stateful logic (e.g., `useProfile`, `useFavorites`).
 -   **`utils/`**: Contains utility functions used across the application.
@@ -63,7 +64,9 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 ## State Management Approach
 
 -   **Local Component State**: `useState` and `useReducer` are used for state confined to individual components or closely related ones.
--   **Global State (Profile)**: React's Context API (`ProfileContext.tsx`) is used to manage and distribute the currently selected user profile across the application. This avoids prop drilling for this essential piece of global state.
+-   **Global State**: React's Context API is used for broader state concerns:
+    -   `AuthContext.tsx`: Manages authentication status, user object, and provides auth methods.
+    -   `ProfileContext.tsx`: Manages the currently selected user profile.
 -   **Server Cache/Data Fetching State**: While not explicitly listed, libraries like React Query or SWR *could* be used to manage the state related to data fetching (caching, loading/error states, re-fetching), but currently, it seems likely handled manually within components using `useState`/`useEffect` and service calls.
 
 ## Styling
