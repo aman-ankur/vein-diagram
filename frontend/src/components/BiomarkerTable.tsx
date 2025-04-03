@@ -374,29 +374,84 @@ const BiomarkerRow: React.FC<{
         </TableCell>
         
         <TableCell align="center">
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            {onViewHistory && (
-              <ActionIconButton
-                icon={<HistoryIcon fontSize="small" />}
-                tooltip="View History"
-                onClick={() => {
-                  // Removed stopPropagation
-                  onViewHistory(biomarker);
-                }}
-                color={theme.palette.info.main}
-              />
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            {/* Favorite Toggle Button */}
+            {onToggleFavorite && isFavoriteChecker && (
+              <Tooltip title={isFavorite ? "Remove from favorites" : "Add to favorites"}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent row collapse/expand
+                    handleFavoriteToggle();
+                  }}
+                  sx={{ 
+                    color: isFavorite ? theme.palette.warning.main : theme.palette.text.disabled,
+                    mr: 0.5 
+                  }}
+                >
+                  {isFavorite ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
             )}
             
+            {/* AI Explain Button */}
             {onExplainWithAI && (
               <ActionIconButton
-                icon={<PsychologyIcon fontSize="small" />}
-                tooltip="Explain with AI"
-                onClick={() => {
-                  // Removed stopPropagation
-                  onExplainWithAI(biomarker);
+                icon={<PsychologyIcon fontSize="small" />} // Keep only one icon prop
+                tooltip="Explain with AI" // Keep only one tooltip prop
+                onClick={() => { // Remove event parameter 'e'
+                  // e.stopPropagation(); // No event to stop propagation on
+                  onExplainWithAI(biomarker); 
                 }}
                 color={theme.palette.secondary.main}
               />
+            )}
+
+            {/* More Actions Menu (including Delete) */}
+            {(onDeleteBiomarker || onViewHistory) && ( // Show if delete or history action exists
+              <>
+                <Tooltip title="More actions">
+                  <IconButton
+                    aria-label="more actions"
+                    id={`actions-button-${biomarker.id}`}
+                    aria-controls={menuOpen ? `actions-menu-${biomarker.id}` : undefined}
+                    aria-expanded={menuOpen ? 'true' : undefined}
+                    aria-haspopup="true"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent row collapse/expand
+                      handleMenuClick(e);
+                    }}
+                    size="small"
+                    sx={{ color: theme.palette.text.secondary }}
+                  >
+                    <MoreVertIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Menu
+                  id={`actions-menu-${biomarker.id}`}
+                  MenuListProps={{ 'aria-labelledby': `actions-button-${biomarker.id}` }}
+                  anchorEl={anchorEl}
+                  open={menuOpen}
+                  onClose={(e: React.MouseEvent<HTMLElement>) => {
+                     e.stopPropagation(); // Prevent row collapse/expand
+                     handleMenuClose();
+                  }}
+                  onClick={(e) => e.stopPropagation()} // Prevent row collapse/expand when clicking menu
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                >
+                  {onViewHistory && (
+                     <MenuItem onClick={() => { /* Remove event parameter 'e' */ handleMenuClose(); onViewHistory(biomarker); }}>
+                       <HistoryIcon fontSize="small" sx={{ mr: 1 }} /> View History
+                     </MenuItem>
+                  )}
+                  {onDeleteBiomarker && biomarker.id && (
+                    <MenuItem onClick={handleDeleteClick} sx={{ color: 'error.main' }}>
+                      <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete Entry
+                    </MenuItem>
+                  )}
+                </Menu>
+              </>
             )}
           </Box>
         </TableCell>

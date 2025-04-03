@@ -433,9 +433,11 @@ const VisualizationPage: React.FC = () => {
       } else {
         // Fetch all biomarkers only if a profile is active
         if (profileIdStr) {
-          console.log(`Calling getAllBiomarkers with profile_id=${profileIdStr}`);
-          data = await getAllBiomarkers({
-            profile_id: profileIdStr
+          console.log(`Calling getAllBiomarkers with profile_id=${profileIdStr} and max limit`);
+          // Request the maximum allowed number of biomarkers
+          data = await getAllBiomarkers({ 
+            profile_id: profileIdStr,
+            limit: 1000 // Use the maximum allowed limit (1000)
           });
           console.log(`Received ${data.length} biomarkers in total for profile ${profileIdStr}`);
         } else {
