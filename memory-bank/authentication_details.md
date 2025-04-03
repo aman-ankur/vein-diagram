@@ -24,7 +24,23 @@ Vein Diagram implements a secure authentication system using Supabase Auth, prov
 - **NewSignupPage.tsx**: Split-panel container with styled left side and form (using Tailwind CSS as per latest implementation).
 - **LoginPage.tsx**: Login form container with similar split-panel design.
 - **ResetPasswordPage.tsx**: Password recovery form container.
-- **AccountPage.tsx**: User profile settings (requires authentication).
+- **AccountPage.tsx**: User profile and security settings page.
+  - **Updated Implementation**: Now uses Material UI with custom styled components
+  - **Design Features**:
+    - Clean, spacious layout with animated transitions
+    - Gradient text headings and hover effects on cards
+    - User avatar with email initials 
+    - Card-based information grouping with consistent spacing
+    - Custom styled Material UI components (StyledCard, InfoListItem, etc.)
+    - Responsive design that adapts to mobile and desktop views
+  - **Organization**: 
+    - User Information card with email, ID, authentication method, creation date
+    - Security & Privacy card with password management and data protection info
+    - Visually distinct sign-out button with hover animation
+  - **Interaction Enhancements**:
+    - Interactive hover states for all elements
+    - Smooth transitions and subtle animations
+    - Clear visual hierarchy with proper spacing between elements
 - **AuthCallbackPage.tsx**: Handles OAuth redirects.
 
 ### Form Components
@@ -66,6 +82,7 @@ Vein Diagram implements a secure authentication system using Supabase Auth, prov
   - Left panel: Decorative (e.g., abstract vascular pattern placeholder).
   - Right panel: Form container.
   - Responsive: Collapses to single panel on mobile.
+  - **Account Page**: Single-column card layout with responsive adaptation for mobile.
 
 - **Typography**:
   - Font family: `Inter, SF Pro`

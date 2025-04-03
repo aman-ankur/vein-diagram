@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { CssBaseline, ThemeProvider, createTheme, responsiveFontSizes, alpha } from '@mui/material';
 import App from './App';
+import './styles/index.css';
 import './styles/global.css';
 import { ProfileProvider } from './contexts/ProfileContext';
 
