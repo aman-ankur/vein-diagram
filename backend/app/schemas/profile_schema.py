@@ -14,7 +14,7 @@ class ProfileBase(BaseModel):
 
 class ProfileCreate(ProfileBase):
     """Schema for creating a new profile."""
-    pass
+    user_id: Optional[str] = Field(None, description="Supabase user ID for authentication")
 
 class ProfileUpdate(BaseModel):
     """Schema for updating an existing profile."""
@@ -22,8 +22,8 @@ class ProfileUpdate(BaseModel):
     date_of_birth: Optional[datetime] = Field(None, description="Date of birth")
     gender: Optional[str] = Field(None, description="Gender")
     patient_id: Optional[str] = Field(None, description="Patient ID used in lab reports")
-    # Add favorite biomarkers to update schema
     favorite_biomarkers: Optional[List[str]] = Field(None, description="Ordered list of favorite biomarker names")
+    user_id: Optional[str] = Field(None, description="Supabase user ID for authentication")
 
 class ProfileInDB(ProfileBase):
     """Schema for profile data as stored in the database."""
@@ -33,6 +33,7 @@ class ProfileInDB(ProfileBase):
     favorite_biomarkers: List[str] = Field(default_factory=list, description="Ordered list of favorite biomarker names")
     health_summary: Optional[str] = Field(None, description="LLM-generated health summary")
     summary_last_updated: Optional[datetime] = Field(None, description="Timestamp of the last summary generation")
+    user_id: Optional[str] = Field(None, description="Supabase user ID for authentication")
 
     class Config:
         from_attributes = True # Pydantic V2 uses from_attributes instead of orm_mode
@@ -68,6 +69,7 @@ class ProfileExtractedMetadata(BaseModel):
 class ProfileMatchingRequest(BaseModel):
     """Schema for requesting profile matching for a PDF."""
     pdf_id: str = Field(..., description="ID of the uploaded PDF to extract metadata from")
+    user_id: Optional[str] = Field(None, description="Supabase user ID to filter profiles by")
     
 class ProfileMatchingResponse(BaseModel):
     """Schema for profile matching results."""
@@ -80,6 +82,7 @@ class ProfileAssociationRequest(BaseModel):
     pdf_id: str = Field(..., description="ID of the PDF to associate")
     create_new_profile: bool = Field(False, description="Whether to create a new profile instead of using an existing one")
     metadata_updates: Optional[Dict[str, Any]] = Field(None, description="Updates to make to the extracted metadata when creating a profile")
+    user_id: Optional[str] = Field(None, description="Supabase user ID for authentication and profile association")
 
 
 # Schema for the profile merging feature
@@ -87,3 +90,4 @@ class ProfileMergeRequest(BaseModel):
     """Schema for requesting to merge profiles."""
     source_profile_ids: List[UUID4] = Field(..., description="List of profile IDs to merge from")
     target_profile_id: UUID4 = Field(..., description="The profile ID to merge into and keep")
+    user_id: Optional[str] = Field(None, description="Supabase user ID for authentication")
