@@ -2,7 +2,6 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoginForm from '../components/auth/LoginForm';
-import AuthLayout from '../components/auth/AuthLayout';
 
 const LoginPage: React.FC = () => {
   const { user, loading } = useAuth();
@@ -15,17 +14,39 @@ const LoginPage: React.FC = () => {
   // Show loading state while auth state is initializing
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[#0F1A2E]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4A7AFF]"></div>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        background: 'linear-gradient(to bottom, #0A1525, #132238)',
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ 
+            width: '40px', 
+            height: '40px', 
+            borderRadius: '50%', 
+            border: '2px solid transparent',
+            borderTopColor: '#6366f1',
+            borderBottomColor: '#6366f1',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <p style={{ color: '#94a3b8', marginTop: '16px', fontSize: '14px', fontWeight: 500 }}>
+            Loading your account...
+          </p>
+        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#0F1A2E]">
-      <LoginForm />
-    </div>
-  );
+  // Render the login form without any container from App.tsx
+  return <LoginForm />;
 };
 
 export default LoginPage; 

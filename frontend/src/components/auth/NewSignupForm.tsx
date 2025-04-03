@@ -1,11 +1,26 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-// Assuming you have icons available, e.g., from react-icons or similar
-import { FaEye, FaEyeSlash, FaGoogle } from 'react-icons/fa'; 
+import { 
+  Box, 
+  TextField, 
+  Button, 
+  Typography, 
+  Checkbox,
+  FormControlLabel,
+  InputAdornment, 
+  IconButton,
+  Grid,
+  Divider,
+  CircularProgress
+} from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 const NewSignupForm: React.FC = () => {
   const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -13,29 +28,29 @@ const NewSignupForm: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
   const { signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-
+    
     if (password !== confirmPassword) {
       setError('Passwords do not match');
-      setLoading(false);
       return;
     }
+    
     if (!agreedToTerms) {
       setError('You must agree to the Terms of Service and Privacy Policy');
-      setLoading(false);
       return;
     }
-
+    
     try {
+      setLoading(true);
       await signUp(email, password);
-      // Consider adding a success message before redirecting
-      navigate('/login'); // Redirect to login after successful signup
+      // Redirect to login after successful signup
+      navigate('/login'); 
     } catch (err: any) {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
@@ -50,204 +65,279 @@ const NewSignupForm: React.FC = () => {
       await signInWithGoogle();
       // Google sign-in handles redirection via callback
     } catch (err: any) {
-       setError(err.message || 'Failed to sign in with Google. Please try again.');
-       setLoading(false);
+      setError(err.message || 'Failed to sign in with Google. Please try again.');
+      setLoading(false);
     }
-    // No finally setLoading(false) here as Google redirect might happen
   };
 
   return (
-    // Add shadow to the form container
-    <div className="w-full bg-[#0A2342]/10 p-8 rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.2)]"> 
-      {/* Logo */}
-      <div className="text-center mb-4">
-        <span className="text-3xl font-bold text-[#2D7D90]">VD</span>
-      </div>
-
-      {/* Heading: 28px, 600 weight */}
-      <h1 className="text-[28px] font-semibold text-center mb-2 text-white">
-        Create an account
-      </h1>
-      {/* Body text: 16px, 400 weight */}
-      <p className="text-base font-normal text-center text-[#E0E6ED] mb-6">
-        Advanced Vascular Diagnostics starts here.
-      </p>
-      {/* Optional Value Prop - max 20 words */}
-      {/* <p className="text-xs text-center text-[#E0E6ED]/80 mb-6">
-        Track, visualize and understand your blood test results with our revolutionary platform. Take control of your health journey.
-      </p> */}
-
-
+    <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
       {error && (
-        <div className="bg-red-500/20 text-red-300 p-3 rounded-lg mb-4 text-sm">
-          {error}
-        </div>
+        <Box 
+          sx={{
+            p: 2,
+            mb: 3,
+            bgcolor: 'rgba(220, 38, 38, 0.1)',
+            color: '#fca5a5',
+            borderRadius: 1,
+            border: '1px solid rgba(220, 38, 38, 0.3)',
+          }}
+        >
+          <Typography variant="body2">{error}</Typography>
+        </Box>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Email Input with Floating Label */}
-        <div className="relative">
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="peer block w-full px-3 py-3 bg-[#FFFFFF20] border border-transparent rounded-lg text-sm text-white placeholder-transparent 
-                       focus:outline-none focus:ring-2 focus:ring-[#2D7D90] focus:border-transparent"
-            placeholder="Email address"
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+            First name
+          </Typography>
+          <TextField
+            fullWidth
+            id="firstName"
+            placeholder="Enter your first name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            sx={{
+              '.MuiOutlinedInput-root': {
+                bgcolor: 'rgba(15, 23, 42, 0.6)',
+                borderRadius: 1,
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'primary.main',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'primary.main',
+                  borderWidth: 2,
+                }
+              }
+            }}
           />
-          <label
-            htmlFor="email"
-            // Label: 14px (placeholder state), 500 weight
-            className="absolute left-3 -top-2.5 text-[#E0E6ED] text-xs transition-all 
-                       peer-placeholder-shown:text-sm peer-placeholder-shown:font-medium peer-placeholder-shown:text-[#E0E6ED]/70 peer-placeholder-shown:top-3.5 
-                       peer-focus:-top-2.5 peer-focus:text-[#E0E6ED] peer-focus:text-xs pointer-events-none"
-          >
-            Email address
-          </label>
-        </div>
-
-        {/* Password Input with Floating Label & Toggle */}
-        <div className="relative">
-          <input
-            id="password"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="peer block w-full px-3 py-3 bg-[#FFFFFF20] border border-transparent rounded-lg text-sm text-white placeholder-transparent 
-                       focus:outline-none focus:ring-2 focus:ring-[#2D7D90] focus:border-transparent"
-            placeholder="Password"
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+            Last name
+          </Typography>
+          <TextField
+            fullWidth
+            id="lastName"
+            placeholder="Enter your last name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            sx={{
+              '.MuiOutlinedInput-root': {
+                bgcolor: 'rgba(15, 23, 42, 0.6)',
+                borderRadius: 1,
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'primary.main',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'primary.main',
+                  borderWidth: 2,
+                }
+              }
+            }}
           />
-          <label
-            htmlFor="password"
-            // Label: 14px (placeholder state), 500 weight
-            className="absolute left-3 -top-2.5 text-[#E0E6ED] text-xs transition-all 
-                       peer-placeholder-shown:text-sm peer-placeholder-shown:font-medium peer-placeholder-shown:text-[#E0E6ED]/70 peer-placeholder-shown:top-3.5 
-                       peer-focus:-top-2.5 peer-focus:text-[#E0E6ED] peer-focus:text-xs pointer-events-none"
-          >
-            Password
-          </label>
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 px-3 flex items-center text-[#E0E6ED]/70 hover:text-[#E0E6ED]"
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-          >
-            {showPassword ? <FaEyeSlash /> : <FaEye />}
-          </button>
-        </div>
+        </Grid>
+      </Grid>
 
-        {/* Confirm Password Input with Floating Label & Toggle */}
-        <div className="relative">
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type={showConfirmPassword ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={6}
-            className="peer block w-full px-3 py-3 bg-[#FFFFFF20] border border-transparent rounded-lg text-sm text-white placeholder-transparent 
-                       focus:outline-none focus:ring-2 focus:ring-[#2D7D90] focus:border-transparent"
-            placeholder="Confirm Password"
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+        Email
+      </Typography>
+      <TextField
+        fullWidth
+        id="email"
+        type="email"
+        placeholder="Enter your email address"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+        sx={{
+          mb: 3,
+          '.MuiOutlinedInput-root': {
+            bgcolor: 'rgba(15, 23, 42, 0.6)',
+            borderRadius: 1,
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'primary.main',
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'primary.main',
+              borderWidth: 2,
+            }
+          }
+        }}
+      />
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+        Password
+      </Typography>
+      <TextField
+        fullWidth
+        id="password"
+        type={showPassword ? 'text' : 'password'}
+        placeholder="Create a password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+        sx={{
+          mb: 3,
+          '.MuiOutlinedInput-root': {
+            bgcolor: 'rgba(15, 23, 42, 0.6)',
+            borderRadius: 1,
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'primary.main',
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'primary.main',
+              borderWidth: 2,
+            }
+          }
+        }}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword(!showPassword)}
+                edge="end"
+                sx={{ color: 'text.secondary' }}
+              >
+                {showPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </InputAdornment>
+          )
+        }}
+      />
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+        Confirm password
+      </Typography>
+      <TextField
+        fullWidth
+        id="confirmPassword"
+        type={showConfirmPassword ? 'text' : 'password'}
+        placeholder="Confirm your password"
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+        required
+        sx={{
+          mb: 3,
+          '.MuiOutlinedInput-root': {
+            bgcolor: 'rgba(15, 23, 42, 0.6)',
+            borderRadius: 1,
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'primary.main',
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'primary.main',
+              borderWidth: 2,
+            }
+          }
+        }}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                edge="end"
+                sx={{ color: 'text.secondary' }}
+              >
+                {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </InputAdornment>
+          )
+        }}
+      />
+      
+      <FormControlLabel
+        control={
+          <Checkbox 
+            checked={agreedToTerms}
+            onChange={(e) => setAgreedToTerms(e.target.checked)}
+            sx={{ 
+              color: 'text.secondary',
+              '&.Mui-checked': {
+                color: 'primary.main',
+              }
+            }}
           />
-          <label
-            htmlFor="confirmPassword"
-            // Label: 14px (placeholder state), 500 weight
-            className="absolute left-3 -top-2.5 text-[#E0E6ED] text-xs transition-all 
-                       peer-placeholder-shown:text-sm peer-placeholder-shown:font-medium peer-placeholder-shown:text-[#E0E6ED]/70 peer-placeholder-shown:top-3.5 
-                       peer-focus:-top-2.5 peer-focus:text-[#E0E6ED] peer-focus:text-xs pointer-events-none"
-          >
-            Confirm Password
-          </label>
-           <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute inset-y-0 right-0 px-3 flex items-center text-[#E0E6ED]/70 hover:text-[#E0E6ED]"
-            aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-          >
-            {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-          </button>
-        </div>
+        }
+        label={
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+            I agree to the{' '}
+            <Link to="/terms" style={{ color: '#6366f1', textDecoration: 'none' }}>
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" style={{ color: '#6366f1', textDecoration: 'none' }}>
+              Privacy Policy
+            </Link>
+          </Typography>
+        }
+        sx={{ mb: 3 }}
+      />
 
-        {/* Terms Checkbox */}
-        <div className="flex items-start">
-          <div className="flex items-center h-5">
-            <input
-              id="terms"
-              name="terms"
-              type="checkbox"
-              checked={agreedToTerms}
-              onChange={(e) => setAgreedToTerms(e.target.checked)}
-              className="focus:ring-[#2D7D90] h-4 w-4 text-[#2D7D90] bg-[#FFFFFF20] border-transparent rounded"
-            />
-          </div>
-          <div className="ml-3 text-sm">
-            <label htmlFor="terms" className="font-medium text-[#E0E6ED]">
-              I agree to the{' '}
-              <Link to="/terms" className="text-[#2D7D90] hover:underline">
-                Terms of Service
-              </Link>{' '}
-              and{' '}
-              <Link to="/privacy" className="text-[#2D7D90] hover:underline">
-                Privacy Policy
-              </Link>
-            </label>
-          </div>
-        </div>
+      <Button
+        type="submit"
+        fullWidth
+        variant="contained"
+        disabled={loading}
+        sx={{
+          py: 1.4,
+          mb: 3,
+          bgcolor: 'primary.main',
+          borderRadius: 1,
+          fontWeight: 600,
+          '&:hover': {
+            bgcolor: 'primary.dark',
+            transform: 'translateY(-1px)',
+            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+          },
+          transition: 'all 0.2s ease-in-out'
+        }}
+      >
+        {loading ? (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
+            Creating Account...
+          </Box>
+        ) : 'Create Account'}
+      </Button>
 
-        {/* Submit Button */}
-        {/* Button text: 16px, 600 weight */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-semibold text-white 
-                     bg-gradient-to-r from-[#2D7D90] to-[#1A5F7A] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2D7D90]
-                     disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 ease-in-out transform hover:-translate-y-0.5"
-        >
-          {loading ? 'Creating Account...' : 'Create Account'}
-        </button>
-      </form>
+      <Divider sx={{ mb: 3 }}>
+        <Typography variant="caption" color="text.secondary">
+          Or continue with
+        </Typography>
+      </Divider>
+      
+      <Button
+        fullWidth
+        variant="outlined"
+        startIcon={<GoogleIcon sx={{ height: 18 }} />}
+        onClick={handleGoogleSignIn}
+        disabled={loading}
+        sx={{
+          py: 1.2,
+          borderColor: 'rgba(99, 102, 241, 0.3)',
+          color: 'white',
+          borderRadius: 1,
+          '&:hover': {
+            borderColor: 'primary.main',
+            bgcolor: 'rgba(99, 102, 241, 0.1)',
+          },
+          mb: 3
+        }}
+      >
+        Sign up with Google
+      </Button>
 
-      {/* Divider */}
-      <div className="my-6 flex items-center justify-center">
-        <span className="px-2 text-sm text-[#E0E6ED]/70">Or continue with</span>
-      </div>
-
-      {/* Social Logins */}
-      <div className="space-y-4">
-         <button
-          type="button"
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-          className="w-full flex items-center justify-center py-2.5 px-4 border border-[#FFFFFF20] rounded-lg shadow-sm bg-[#FFFFFF10] 
-                     text-sm font-medium text-[#E0E6ED] hover:bg-[#FFFFFF20] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2D7D90]
-                     disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 ease-in-out transform hover:-translate-y-0.5"
-        >
-          <FaGoogle className="w-5 h-5 mr-2" />
-          Sign up with Google
-        </button>
-        {/* Add other social logins here if needed */}
-      </div>
-
-      {/* Sign In Link */}
-      <p className="mt-8 text-center text-sm text-[#E0E6ED]/80">
+      <Typography variant="body2" color="text.secondary" textAlign="center">
         Already have an account?{' '}
-        <Link to="/login" className="font-medium text-[#2D7D90] hover:underline">
+        <Link to="/login" style={{ color: '#6366f1', textDecoration: 'none' }}>
           Sign in
         </Link>
-      </p>
-
-      {/* Footer */}
-       <div className="mt-6 text-center text-xs text-[#E0E6ED]/50">
-         © {new Date().getFullYear()} Vein Diagram. All rights reserved.
-       </div>
-    </div>
+      </Typography>
+    </Box>
   );
 };
 
