@@ -1,7 +1,7 @@
 """
 API routes for profile management.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import String  # Add this import
 from typing import List, Optional, Dict, Any
@@ -37,6 +37,9 @@ from pydantic import BaseModel, Field # Import BaseModel and Field if defining s
 from app.services.health_summary_service import generate_and_update_health_summary
 from app.services.profile_service import merge_profiles # Import the new service function
 
+# Import authentication dependencies
+from app.core.auth import get_current_user, get_optional_current_user
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -48,17 +51,22 @@ class AddFavoriteRequest(BaseModel):
 @router.post("/", response_model=ProfileResponse, status_code=201)
 async def create_profile(
     profile: ProfileCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Create a new profile.
     """
     try:
+        # Associate the profile with the authenticated user
+        user_id = current_user.get("user_id")
+        
         db_profile = Profile(
             name=profile.name,
             date_of_birth=profile.date_of_birth,
             gender=profile.gender,
-            patient_id=profile.patient_id
+            patient_id=profile.patient_id,
+            user_id=user_id  # Set the user_id from authentication
         )
         db.add(db_profile)
         db.commit()
@@ -78,7 +86,8 @@ async def create_profile(
             created_at=db_profile.created_at,
             last_modified=db_profile.last_modified,
             biomarker_count=biomarker_count,
-            pdf_count=pdf_count
+            pdf_count=pdf_count,
+            user_id=user_id
         )
         
         return response
@@ -96,12 +105,18 @@ async def get_profiles(
     skip: int = 0,
     limit: int = 100,
     search: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Get all profiles with optional search and pagination.
+    Only returns profiles associated with the authenticated user.
     """
     try:
+        # Get user_id from authentication
+        user_id = current_user.get("user_id")
+        logger.info(f"Fetching profiles for user_id: {user_id}")
+        
         # Base query - Select only known/stable columns explicitly
         query = db.query(
             Profile.id,
@@ -111,43 +126,34 @@ async def get_profiles(
             Profile.patient_id,
             Profile.created_at,
             Profile.last_modified,
-            Profile.favorite_biomarkers
-        )
+            Profile.favorite_biomarkers,
+            Profile.user_id
+        ).filter(Profile.user_id == user_id)  # Filter by user_id
 
         # Apply search filter if provided (filtering on columns we selected)
         if search:
             search_term = f"%{search}%"
             query = query.filter(Profile.name.ilike(search_term) | Profile.patient_id.ilike(search_term))
 
-        # --- Calculate Total Count Separately ---
-        # Construct a separate query specifically for counting, only filtering on necessary columns.
-        count_query = db.query(func.count(Profile.id))
+        # Calculate Total Count Separately
+        count_query = db.query(func.count(Profile.id)).filter(Profile.user_id == user_id)
         if search:
-            # Apply the same filter criteria used in the main query
             count_query = count_query.filter(Profile.name.ilike(search_term) | Profile.patient_id.ilike(search_term))
         total = count_query.scalar()
-        # --- End Count Calculation ---
+        
+        logger.info(f"Found {total} total profiles for user_id: {user_id}")
 
-        # Apply pagination and explicitly select only known columns *before* executing .all()
-        profile_tuples = query.with_entities(
-            Profile.id,
-            Profile.name,
-            Profile.date_of_birth,
-            Profile.gender,
-            Profile.patient_id,
-            Profile.created_at,
-            Profile.last_modified,
-            Profile.favorite_biomarkers
-        ).offset(skip).limit(limit).all()
+        # Apply pagination and select columns
+        profile_tuples = query.offset(skip).limit(limit).all()
+        logger.info(f"Retrieved {len(profile_tuples)} profiles after pagination")
 
         # Prepare response with counts for each profile
         profile_responses = []
-        for p_id, p_name, p_dob, p_gender, p_patient_id, p_created_at, p_last_modified, p_favs in profile_tuples:
+        for p_id, p_name, p_dob, p_gender, p_patient_id, p_created_at, p_last_modified, p_favs, p_user_id in profile_tuples:
             biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == p_id).scalar()
             pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == p_id).scalar()
 
             # Manually construct the response dictionary from the tuple
-            # We don't include health_summary here as it wasn't selected
             profile_data = {
                 "id": p_id,
                 "name": p_name,
@@ -159,8 +165,9 @@ async def get_profiles(
                 "favorite_biomarkers": p_favs if p_favs else [],
                 "biomarker_count": biomarker_count,
                 "pdf_count": pdf_count,
-                "health_summary": None, # Explicitly set to None as it wasn't queried
-                "summary_last_updated": None, # Explicitly set to None
+                "health_summary": None,
+                "summary_last_updated": None,
+                "user_id": p_user_id
             }
             # Validate data against the schema before appending
             response_item = ProfileResponse(**profile_data)
@@ -174,31 +181,28 @@ async def get_profiles(
 @router.get("/{profile_id}", response_model=ProfileResponse)
 async def get_profile(
     profile_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Get details of a specific profile by ID.
+    Only allows access to profiles owned by the authenticated user.
     """
     logger.info(f"GET endpoint called for profile ID: {profile_id}")
+    user_id = current_user.get("user_id")
 
     try:
-        # Simplest approach: convert string to UUID and query directly
+        # Convert string to UUID
         try:
             profile_id_uuid = UUID(profile_id)
-            profile = db.query(Profile).filter(Profile.id == profile_id_uuid).first()
+            profile = db.query(Profile).filter(
+                Profile.id == profile_id_uuid,
+                Profile.user_id == user_id  # Filter by user_id for security
+            ).first()
         except ValueError as e:
             logger.error(f"Invalid UUID format: {profile_id}")
             raise HTTPException(status_code=400, detail="Invalid profile ID format")
         
-        if not profile:
-            # Manually check all profiles as a fallback
-            all_profiles = db.query(Profile).all()
-            for p in all_profiles:
-                if str(p.id).lower() == profile_id.lower():
-                    profile = p
-                    logger.info(f"Found profile through manual comparison")
-                    break
-                    
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
         
@@ -224,30 +228,27 @@ async def get_profile(
 async def update_profile(
     profile_id: UUID,
     profile_update: ProfileUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Update an existing profile.
+    Only allows updating profiles owned by the authenticated user.
     """
     logger.info(f"PUT endpoint called for profile ID: {profile_id}")
+    user_id = current_user.get("user_id")
     
     try:
-        # Simplest approach: convert string to UUID and query directly
+        # Convert string to UUID and query with user_id filter
         try:
             profile_id_uuid = UUID(profile_id)
-            db_profile = db.query(Profile).filter(Profile.id == profile_id_uuid).first()
+            db_profile = db.query(Profile).filter(
+                Profile.id == profile_id_uuid,
+                Profile.user_id == user_id  # Filter by user_id for security
+            ).first()
         except ValueError as e:
             logger.error(f"Invalid UUID format: {profile_id}")
             raise HTTPException(status_code=400, detail="Invalid profile ID format")
-        
-        if not db_profile:
-            # Manually check all profiles as a fallback
-            all_profiles = db.query(Profile).all()
-            for p in all_profiles:
-                if str(p.id).lower() == profile_id.lower():
-                    db_profile = p
-                    logger.info(f"Found profile through manual comparison")
-                    break
                     
         if not db_profile:
             raise HTTPException(status_code=404, detail="Profile not found")
@@ -261,6 +262,8 @@ async def update_profile(
             db_profile.gender = profile_update.gender
         if profile_update.patient_id is not None:
             db_profile.patient_id = profile_update.patient_id
+        if profile_update.favorite_biomarkers is not None:
+            db_profile.favorite_biomarkers = profile_update.favorite_biomarkers
         
         # Update last_modified timestamp
         db_profile.last_modified = datetime.utcnow()
@@ -281,7 +284,11 @@ async def update_profile(
             created_at=db_profile.created_at,
             last_modified=db_profile.last_modified,
             biomarker_count=biomarker_count,
-            pdf_count=pdf_count
+            pdf_count=pdf_count,
+            favorite_biomarkers=db_profile.favorite_biomarkers,
+            health_summary=db_profile.health_summary,
+            summary_last_updated=db_profile.summary_last_updated,
+            user_id=db_profile.user_id
         )
     except HTTPException:
         raise
@@ -297,22 +304,19 @@ async def update_profile(
 @router.delete("/{profile_id}", status_code=204)
 async def delete_profile(
     profile_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Delete a profile. 
     Note: This will not delete associated biomarkers or PDFs but will unlink them.
+    Only allows deleting profiles owned by the authenticated user.
     """
-    # Strip any whitespace that might be in the ID
     profile_id = profile_id.strip()
     logger.info(f"DELETE endpoint called for profile ID: '{profile_id}'")
+    user_id = current_user.get("user_id")
     
     try:
-        # Get all profiles before deletion for debugging
-        all_profiles_before = db.query(Profile).all()
-        logger.info(f"Total profiles before deletion: {len(all_profiles_before)}")
-        logger.info(f"Profile IDs before deletion: {[str(p.id) for p in all_profiles_before]}")
-        
         # Convert string to UUID
         try:
             profile_id_uuid = UUID(profile_id)
@@ -321,11 +325,14 @@ async def delete_profile(
             logger.error(f"Invalid UUID format: '{profile_id}'")
             raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {str(e)}")
         
-        # Find the profile
-        db_profile = db.query(Profile).filter(Profile.id == profile_id_uuid).first()
+        # Find the profile with user_id filter
+        db_profile = db.query(Profile).filter(
+            Profile.id == profile_id_uuid,
+            Profile.user_id == user_id  # Filter by user_id for security
+        ).first()
         
         if not db_profile:
-            logger.warning(f"Profile with ID '{profile_id}' not found")
+            logger.warning(f"Profile with ID '{profile_id}' not found or not owned by the current user")
             raise HTTPException(status_code=404, detail="Profile not found")
         
         logger.info(f"Found profile to delete: {db_profile.name} (ID: {db_profile.id})")
@@ -346,38 +353,9 @@ async def delete_profile(
         logger.info(f"Executing db.delete on profile {db_profile.id}")
         db.delete(db_profile)
         
-        # Flush changes to DB before commit to catch any issues
-        logger.info("Flushing database session...")
-        db.flush()
-        
         # Commit the transaction
         logger.info("Committing transaction...")
         db.commit()
-        
-        # Verify deletion by checking if profile still exists
-        logger.info(f"Verifying deletion of profile {profile_id_to_check}...")
-        verification_check = db.query(Profile).filter(Profile.id == profile_id_to_check).first()
-        
-        if verification_check:
-            logger.error(f"DELETION FAILED! Profile {profile_id_to_check} still exists after deletion and commit!")
-            # Force another deletion attempt
-            logger.info("Attempting forced deletion...")
-            db.delete(verification_check)
-            db.commit()
-            
-            # Check again
-            second_verification = db.query(Profile).filter(Profile.id == profile_id_to_check).first()
-            if second_verification:
-                logger.error("CRITICAL: Second deletion attempt failed!")
-            else:
-                logger.info("Second deletion attempt successful")
-        else:
-            logger.info(f"Verification successful - Profile {profile_id_to_check} no longer exists in database")
-        
-        # Get all profiles after deletion for debugging
-        all_profiles_after = db.query(Profile).all()
-        logger.info(f"Total profiles after deletion: {len(all_profiles_after)}")
-        logger.info(f"Profile IDs after deletion: {[str(p.id) for p in all_profiles_after]}")
         
         logger.info(f"Successfully completed delete operation for profile {profile_id}")
         return None
@@ -467,242 +445,134 @@ async def extract_profile_from_pdf(
 @router.post("/match", response_model=ProfileMatchingResponse)
 async def match_profile_from_pdf(
     request: ProfileMatchingRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Extract metadata from a PDF and find matching profiles.
-    Returns matching profiles sorted by confidence score along with the extracted metadata.
+    Only matches against profiles owned by the authenticated user.
     """
-    logger.info(f"Processing profile matching request for PDF ID: {request.pdf_id}")
-    
-    # Retrieve the PDF
-    pdf = db.query(PDF).filter(PDF.file_id == request.pdf_id).first()
-    if not pdf:
-        logger.error(f"PDF not found: {request.pdf_id}")
-        raise HTTPException(status_code=404, detail="PDF not found")
-    
-    # Check if PDF has been processed
-    if pdf.status != "processed" and pdf.status != "processing":
-        logger.error(f"PDF {request.pdf_id} cannot be matched, status: {pdf.status}")
-        raise HTTPException(status_code=400, detail=f"PDF is not ready for matching, current status: {pdf.status}")
-    
+    user_id = current_user.get("user_id")
     try:
-        # Create metadata dictionary from PDF fields
-        metadata: Dict[str, Any] = {
-            "patient_name": pdf.patient_name,
-            "patient_gender": pdf.patient_gender,
-            "patient_id": pdf.patient_id,
-            "lab_name": pdf.lab_name,
-            "report_date": pdf.report_date
-        }
+        # If user_id isn't provided in the request, use the authenticated user's ID
+        if not request.user_id:
+            request.user_id = user_id
+        # Security check: ensure user can only search their own profiles
+        elif request.user_id != user_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="You can only match against your own profiles"
+            )
         
-        # If metadata is incomplete, try to extract it using Claude
-        if not pdf.patient_name or not pdf.patient_gender:
-            logger.info(f"Incomplete metadata for PDF {request.pdf_id}, attempting extraction with Claude")
-            
-            if pdf.extracted_text:
-                extracted_metadata = extract_metadata_with_claude(pdf.extracted_text, pdf.filename)
-                
-                # Update PDF with extracted metadata
-                if extracted_metadata:
-                    # Update PDF record with extracted metadata
-                    if extracted_metadata.get("patient_name") and not pdf.patient_name:
-                        pdf.patient_name = extracted_metadata.get("patient_name")
-                    if extracted_metadata.get("patient_gender") and not pdf.patient_gender:
-                        pdf.patient_gender = extracted_metadata.get("patient_gender")
-                    if extracted_metadata.get("patient_id") and not pdf.patient_id:
-                        pdf.patient_id = extracted_metadata.get("patient_id")
-                    if extracted_metadata.get("lab_name") and not pdf.lab_name:
-                        pdf.lab_name = extracted_metadata.get("lab_name")
-                    if extracted_metadata.get("report_date") and not pdf.report_date:
-                        # Convert string date to datetime object
-                        report_date_str = extracted_metadata.get("report_date")
-                        try:
-                            # Try multiple date formats
-                            for date_format in ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]:
-                                try:
-                                    pdf.report_date = datetime.strptime(report_date_str, date_format)
-                                    logger.info(f"Converted report date '{report_date_str}' to datetime using format {date_format}")
-                                    break
-                                except ValueError:
-                                    continue
-                            # If none of the formats worked, log it
-                            if isinstance(pdf.report_date, str):
-                                logger.warning(f"Could not convert report date '{report_date_str}' to datetime")
-                        except Exception as e:
-                            logger.warning(f"Error converting report date: {str(e)}")
-                    if extracted_metadata.get("patient_dob"):
-                        # Convert patient_dob to datetime if it's a string
-                        dob_str = extracted_metadata.get("patient_dob")
-                        if isinstance(dob_str, str):
-                            try:
-                                # Try multiple date formats
-                                for date_format in ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]:
-                                    try:
-                                        metadata["patient_dob"] = datetime.strptime(dob_str, date_format)
-                                        logger.info(f"Converted patient DOB '{dob_str}' to datetime using format {date_format}")
-                                        break
-                                    except ValueError:
-                                        continue
-                            except Exception as e:
-                                logger.warning(f"Error converting patient DOB: {str(e)}")
-                        else:
-                            metadata["patient_dob"] = dob_str
-                    
-                    # Save changes
-                    db.commit()
-                    
-                    # Update metadata dictionary with extracted data
-                    metadata = {
-                        "patient_name": pdf.patient_name,
-                        "patient_gender": pdf.patient_gender,
-                        "patient_id": pdf.patient_id,
-                        "patient_dob": metadata.get("patient_dob"),
-                        "lab_name": pdf.lab_name,
-                        "report_date": pdf.report_date
-                    }
+        # Find the PDF by file_id
+        pdf = db.query(PDF).filter(PDF.file_id == request.pdf_id).first()
+        if not pdf:
+            raise HTTPException(status_code=404, detail=f"PDF with ID {request.pdf_id} not found")
+        
+        # Extract metadata with Claude
+        metadata = await extract_metadata_with_claude(pdf, db)
         
         # Find matching profiles
-        profile_matches = find_matching_profiles(db, metadata)
+        matches = await find_matching_profiles(metadata, db, user_id=user_id)
         
-        # Create response
-        profile_match_scores = []
-        for profile, score in profile_matches:
-            # Get biomarker and PDF counts
-            biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
-            pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
-            
-            profile_response = ProfileResponse(
-                id=profile.id,
-                name=profile.name,
-                date_of_birth=profile.date_of_birth,
-                gender=profile.gender,
-                patient_id=profile.patient_id,
-                created_at=profile.created_at,
-                last_modified=profile.last_modified,
-                biomarker_count=biomarker_count,
-                pdf_count=pdf_count
-            )
-            
-            profile_match_scores.append(ProfileMatchScore(
-                profile=profile_response,
-                confidence=score
-            ))
-        
-        # Create metadata response
-        extracted_metadata = ProfileExtractedMetadata(
-            patient_name=metadata.get("patient_name"),
-            patient_dob=metadata.get("patient_dob"),
-            patient_gender=metadata.get("patient_gender"),
-            patient_id=metadata.get("patient_id"),
-            lab_name=metadata.get("lab_name"),
-            report_date=metadata.get("report_date")
+        # Return the response
+        return ProfileMatchingResponse(
+            metadata=metadata,
+            matches=matches
         )
-        
-        response = ProfileMatchingResponse(
-            matches=profile_match_scores,
-            metadata=extracted_metadata
-        )
-        
-        logger.info(f"Completed profile matching for PDF {request.pdf_id}, found {len(profile_match_scores)} matches")
-        return response
-    
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error matching profile for PDF {request.pdf_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error matching profile: {str(e)}")
+        logger.error(f"Error matching profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post("/associate", response_model=ProfileResponse)
 async def associate_pdf_with_profile(
     request: ProfileAssociationRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
-    Associate a PDF with an existing profile or create a new profile from the PDF metadata.
+    Associate a PDF with an existing profile or create a new profile.
+    Only allows associating with profiles owned by the authenticated user.
     """
-    logger.info(f"Processing profile association request: {request}")
-    
-    # Retrieve the PDF
-    pdf = db.query(PDF).filter(PDF.file_id == request.pdf_id).first()
-    if not pdf:
-        logger.error(f"PDF not found: {request.pdf_id}")
-        raise HTTPException(status_code=404, detail="PDF not found")
+    user_id = current_user.get("user_id")
     
     try:
+        # If user_id isn't provided in the request, use the authenticated user's ID
+        if not request.user_id:
+            request.user_id = user_id
+        # Security check: ensure user can only access their own profiles
+        elif request.user_id != user_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="You can only associate with your own profiles"
+            )
+            
+        # Find PDF
+        pdf = db.query(PDF).filter(PDF.file_id == request.pdf_id).first()
+        if not pdf:
+            raise HTTPException(status_code=404, detail=f"PDF with ID {request.pdf_id} not found")
+            
         profile = None
         
-        # Case 1: Create a new profile from metadata
-        if request.create_new_profile:
-            logger.info(f"Creating new profile from PDF {request.pdf_id} metadata")
-            
-            # Create metadata dictionary from PDF fields with any updates
-            metadata = {
-                "patient_name": pdf.patient_name,
-                "patient_gender": pdf.patient_gender,
-                "patient_id": pdf.patient_id,
-                "lab_name": pdf.lab_name,
-                "report_date": pdf.report_date
-            }
-            
-            # Apply any metadata updates
-            if request.metadata_updates:
-                logger.info(f"Applying metadata updates: {request.metadata_updates}")
-                metadata.update(request.metadata_updates)
-            
-            # Create the profile
-            logger.info(f"Creating profile with metadata: {metadata}")
-            profile = create_profile_from_metadata(db, metadata)
-            
-            if not profile:
-                logger.error(f"Failed to create profile from PDF {request.pdf_id} metadata")
-                raise HTTPException(status_code=500, detail="Failed to create profile from metadata")
-            
-            logger.info(f"Successfully created new profile: {profile.id} ({profile.name})")
+        # Handle the three options: 
+        # 1) Use existing profile
+        # 2) Create new profile
+        # 3) Auto-create profile from metadata
         
-        # Case 2: Use an existing profile
-        elif request.profile_id:
-            logger.info(f"Associating PDF {request.pdf_id} with existing profile {request.profile_id}")
-            
-            # Find the profile
+        if request.profile_id:
+            # Option 1: Use existing profile
             try:
-                profile_uuid = UUID(request.profile_id)
-                profile = db.query(Profile).filter(Profile.id == profile_uuid).first()
+                profile_id_uuid = UUID(request.profile_id)
+                profile = db.query(Profile).filter(
+                    Profile.id == profile_id_uuid,
+                    Profile.user_id == user_id  # Filter by user_id for security
+                ).first()
+                
+                if not profile:
+                    raise HTTPException(status_code=404, detail="Profile not found or not accessible")
             except ValueError:
-                logger.error(f"Invalid profile ID format: {request.profile_id}")
                 raise HTTPException(status_code=400, detail="Invalid profile ID format")
+                
+        elif request.create_new_profile:
+            # Option 2: Create new profile from request
+            # Extract metadata from PDF if available
+            metadata = await extract_metadata_with_claude(pdf, db)
             
-            if not profile:
-                logger.error(f"Profile not found: {request.profile_id}")
-                raise HTTPException(status_code=404, detail="Profile not found")
+            # Apply any updates from request
+            if request.metadata_updates:
+                for key, value in request.metadata_updates.items():
+                    if key in metadata.__dict__:
+                        setattr(metadata, key, value)
             
-            logger.info(f"Found existing profile: {profile.id} ({profile.name})")
+            # Create profile from metadata
+            profile = create_profile_from_metadata(metadata, db, user_id)
         
-        # Case 3: No profile specified and not creating a new one
-        else:
-            logger.error("No profile specified and not creating a new profile")
-            raise HTTPException(status_code=400, detail="Must specify either a profile_id or set create_new_profile to true")
-        
-        # Associate the PDF with the profile
+        # If neither option was specified or successful, raise an error
+        if not profile:
+            raise HTTPException(
+                status_code=400, 
+                detail="Must specify either profile_id or create_new_profile=true"
+            )
+            
+        # Associate PDF with profile
         pdf.profile_id = profile.id
         db.commit()
-        logger.info(f"Associated PDF {pdf.id} with profile {profile.id}")
-        
-        # Associate biomarkers with profile
-        biomarkers = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id).all()
-        biomarker_count = len(biomarkers)
-        logger.info(f"Found {biomarker_count} biomarkers to associate with profile {profile.id}")
-        
-        for biomarker in biomarkers:
-            biomarker.profile_id = profile.id
-        
-        db.commit()
-        logger.info(f"Associated {biomarker_count} biomarkers with profile {profile.id}")
         
         # Get updated counts
-        updated_biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
+        biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == profile.id).scalar()
         pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == profile.id).scalar()
         
-        # Create response
-        response = ProfileResponse(
+        # Associate all biomarkers from this PDF with the profile
+        db.query(Biomarker).filter(
+            Biomarker.pdf_id == pdf.id,
+            Biomarker.profile_id.is_(None)
+        ).update({"profile_id": profile.id})
+        
+        db.commit()
+        
+        return ProfileResponse(
             id=profile.id,
             name=profile.name,
             date_of_birth=profile.date_of_birth,
@@ -710,19 +580,19 @@ async def associate_pdf_with_profile(
             patient_id=profile.patient_id,
             created_at=profile.created_at,
             last_modified=profile.last_modified,
-            biomarker_count=updated_biomarker_count,
-            pdf_count=pdf_count
+            biomarker_count=biomarker_count,
+            pdf_count=pdf_count,
+            favorite_biomarkers=profile.favorite_biomarkers,
+            health_summary=profile.health_summary,
+            summary_last_updated=profile.summary_last_updated,
+            user_id=profile.user_id
         )
-        
-        logger.info(f"Successfully associated PDF {request.pdf_id} with profile {profile.id}")
-        return response
-    
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        logger.error(f"Error associating PDF {request.pdf_id} with profile: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error associating PDF with profile: {str(e)}")
+        logger.error(f"Error associating PDF with profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 # Schema for updating favorite order
@@ -915,3 +785,49 @@ async def merge_profiles_endpoint(
         # Catch any other unexpected errors
         logger.error(f"Unexpected error during profile merge endpoint: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error during merge: {str(e)}")
+
+@router.post("/migrate", response_model=Dict[str, Any])
+async def migrate_profiles_to_current_user(
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Migrate all unassigned profiles to the currently authenticated user.
+    This is particularly useful after implementing auth to ensure users maintain
+    access to their previously created profiles.
+    """
+    try:
+        user_id = current_user.get("user_id")
+        logger.info(f"Migrating profiles to user: {user_id}")
+        
+        # Find profiles with no user_id or NULL user_id
+        unassigned_profiles = db.query(Profile).filter(
+            (Profile.user_id == None) | 
+            (Profile.user_id == "") |
+            (Profile.user_id == "null")
+        ).all()
+        
+        logger.info(f"Found {len(unassigned_profiles)} unassigned profiles")
+        
+        # Update these profiles to belong to the current user
+        for profile in unassigned_profiles:
+            profile.user_id = user_id
+            profile.last_modified = datetime.utcnow()
+            logger.info(f"Assigning profile {profile.id} ({profile.name}) to user {user_id}")
+        
+        # Commit all updates
+        db.commit()
+        
+        # Also query for profiles already belonging to the user for the response
+        user_profiles = db.query(Profile).filter(Profile.user_id == user_id).all()
+        
+        return {
+            "success": True,
+            "message": f"Successfully migrated {len(unassigned_profiles)} profiles to your account",
+            "migrated_count": len(unassigned_profiles),
+            "total_profiles": len(user_profiles)
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error during profile migration: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to migrate profiles: {str(e)}")

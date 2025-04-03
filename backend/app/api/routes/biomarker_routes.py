@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, status # Added status
 from sqlalchemy.orm import Session, joinedload # Import joinedload
 from sqlalchemy import func
@@ -10,8 +10,12 @@ from uuid import UUID
 from app.db.session import get_db
 from app.models.biomarker_model import Biomarker, BiomarkerDictionary
 from app.models.pdf_model import PDF
+from app.models.profile_model import Profile
 from app.schemas.biomarker_schema import BiomarkerResponse, BiomarkerExplanationRequest, BiomarkerExplanationResponse
 from app.services.llm_service import explain_biomarker, ExplanationCache
+
+# Import authentication dependencies
+from app.core.auth import get_current_user, get_optional_current_user
 
 router = APIRouter()
 # Initialize the explanation cache
@@ -21,7 +25,8 @@ explanation_cache = ExplanationCache()
 def get_biomarkers_by_file_id(
     file_id: str, 
     profile_id: Optional[str] = Query(None, description="Filter biomarkers by profile ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Get all biomarkers for a specific PDF file.
@@ -30,12 +35,13 @@ def get_biomarkers_by_file_id(
         file_id: The ID of the PDF file
         profile_id: Optional profile ID to filter by
         db: Database session
+        current_user: Current authenticated user
         
     Returns:
         List of biomarkers
     """
-    # Log the request parameters
-    print(f"GET /pdf/{file_id}/biomarkers with profile_id={profile_id}")
+    # Get the user_id from the authenticated user
+    user_id = current_user.get("user_id")
     
     # Check if the PDF exists
     pdf = db.query(PDF).filter(PDF.file_id == file_id).first()
@@ -47,18 +53,25 @@ def get_biomarkers_by_file_id(
     
     # Apply profile filter if provided
     if profile_id:
-        print(f"Filtering biomarkers by profile_id={profile_id}")
         try:
             # Convert string to UUID
             profile_uuid = UUID(profile_id)
+            
+            # Check if profile belongs to the current user
+            profile = db.query(Profile).filter(
+                Profile.id == profile_uuid,
+                Profile.user_id == user_id
+            ).first()
+            
+            if not profile:
+                raise HTTPException(status_code=404, detail="Profile not found or not accessible")
+            
             query = query.filter(Biomarker.profile_id == profile_uuid)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
     
     # Execute the query
     biomarkers = query.all()
-    print(f"Found {len(biomarkers)} biomarkers for file_id={file_id}" + 
-          (f" and profile_id={profile_id}" if profile_id else ""))
     
     # Process the biomarker objects to properly handle PDF relationship
     result = []

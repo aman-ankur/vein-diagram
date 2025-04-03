@@ -52,7 +52,8 @@ import {
   createProfile, 
   updateProfile, 
   deleteProfile,
-  mergeProfiles // Import the new service function
+  mergeProfiles, // Import the new service function
+  migrateProfilesToCurrentUser
 } from '../services/profileService';
 import { Profile, ProfileCreate, ProfileUpdate } from '../types/Profile';
 
@@ -94,6 +95,9 @@ const ProfileManagement: React.FC = () => {
   const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(new Set());
   const [mergeDialogOpen, setMergeDialogOpen] = useState<boolean>(false);
   const [targetProfileId, setTargetProfileId] = useState<string | null>(null); // State for target selection in dialog
+
+  // New state for migration
+  const [isMigrating, setIsMigrating] = useState<boolean>(false);
 
   // Fetch profiles on component mount and when pagination/search changes
   useEffect(() => {
@@ -284,6 +288,20 @@ const ProfileManagement: React.FC = () => {
     }
   };
 
+  // Add handler for migrating profiles
+  const handleMigrateProfiles = async () => {
+    try {
+      setIsMigrating(true);
+      const result = await migrateProfilesToCurrentUser();
+      showAlert(`${result.message}`, 'success');
+      fetchProfiles(); // Refresh the profiles list
+    } catch (error) {
+      console.error('Error migrating profiles:', error);
+      showAlert('Failed to migrate profiles', 'error');
+    } finally {
+      setIsMigrating(false);
+    }
+  };
 
   const confirmDelete = (profile: Profile) => {
     if (window.confirm(`Are you sure you want to delete the profile "${profile.name}"? This will unlink all biomarkers and PDFs from this profile.`)) {
@@ -317,6 +335,17 @@ const ProfileManagement: React.FC = () => {
               sx={{ width: 300 }}
             />
             <Box>
+              {profiles.length === 0 && (
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleMigrateProfiles}
+                  disabled={isMigrating}
+                  sx={{ mr: 1 }}
+                >
+                  {isMigrating ? 'Migrating...' : 'Migrate Existing Profiles'}
+                </Button>
+              )}
               <Button
                 variant="contained"
                 color="secondary"
@@ -337,6 +366,34 @@ const ProfileManagement: React.FC = () => {
               </Button>
             </Box>
           </Box>
+          
+          {/* Show a notice when no profiles are found */}
+          {profiles.length === 0 && !loading && (
+            <Paper sx={{ p: 3, mb: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>No profiles found</Typography>
+              <Typography variant="body1" paragraph>
+                You don't have any profiles yet. You can create a new profile or migrate existing profiles to your account.
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleMigrateProfiles}
+                  disabled={isMigrating}
+                >
+                  {isMigrating ? <CircularProgress size={24} /> : 'Migrate Existing Profiles'}
+                </Button>
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  startIcon={<PersonAddIcon />}
+                  onClick={showCreateDialog}
+                >
+                  Create New Profile
+                </Button>
+              </Box>
+            </Paper>
+          )}
           
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
