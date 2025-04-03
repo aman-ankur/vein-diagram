@@ -8,7 +8,7 @@ All API endpoints are relative to `/api`. (e.g., `http://localhost:8000/api/...`
 
 ## Authentication
 
-*Currently, there is no authentication implemented (MVP stage).*
+Authentication is handled via Supabase Auth. The backend API expects a Supabase JWT in the `Authorization: Bearer <token>` header for protected routes. Validation is performed by middleware/dependencies (likely in `app/core/auth.py`). See `authentication_details.md` for more details.
 
 ## Profiles (`/api/profiles`)
 

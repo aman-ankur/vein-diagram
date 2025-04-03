@@ -104,7 +104,7 @@ The project is in the **advanced development phase**, integrating core features 
 - 🔄 Cross-browser compatibility testing
 
 ### Future Enhancements (Post-MVP)
-- 🔜 User authentication and accounts (Profiles are a step towards this)
+- ✅ User authentication and accounts (Implemented via Supabase Auth, see `authentication_details.md`)
 - 🔜 Saved visualizations and custom views per profile
 - 🔜 Sharing capabilities for visualizations
 - 🔜 Export functionality for processed data per profile

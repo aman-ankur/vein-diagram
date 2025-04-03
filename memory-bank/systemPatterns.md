@@ -25,6 +25,10 @@ graph TD
         Models --> DB[(Database)]
         Services --> Claude[Claude AI API]
     end
+
+    %% Authentication Note: User authentication is handled via Supabase Auth, 
+    %% integrating with both frontend (AuthContext) and backend (JWT validation).
+    %% See authentication_details.md for full flows (Signup, Login, OAuth, Reset).
 ```
 
 ### Frontend Architecture
