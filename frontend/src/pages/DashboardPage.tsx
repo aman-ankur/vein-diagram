@@ -12,7 +12,8 @@ import {
   Stack,
   Collapse, // Import Collapse
   IconButton, // Import IconButton
-  styled // Import styled for rotating icon
+  styled, // Import styled for rotating icon
+  alpha // Import alpha for opacity
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'; // Import ExpandMore icon
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -264,44 +265,131 @@ const DashboardPage: React.FC = () => {
         </Grid>
         <Grid item xs={12} md={6}>
            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-             <Typography variant="h6" color="primary" gutterBottom>
-               AI Health Summary
-             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-               AI Health Summary
-              <ExpandMore
-                expand={summaryExpanded}
-                onClick={() => setSummaryExpanded(!summaryExpanded)}
-                aria-expanded={summaryExpanded}
-                aria-label="show summary"
-              >
-                <ExpandMoreIcon />
-              </ExpandMore>
-            </Box>
-             <Collapse in={summaryExpanded} timeout="auto" unmountOnExit>
-               <Box sx={{ mt: 2 }}>
-                 {activeProfile?.health_summary ? (
-                   <>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                       {activeProfile.health_summary}
-                     </Typography>
-                     {activeProfile.summary_last_updated && (
-                       <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
-                         Summary generated: {new Date(activeProfile.summary_last_updated).toLocaleString()}
-                       </Typography>
-                     )}
-                   </>
-                 ) : (
-                   <Typography variant="body2">
-                     No AI summary available for this profile. It can be generated from the profile management page.
+             <Box sx={{ 
+               display: 'flex', 
+               alignItems: 'center',
+               justifyContent: 'space-between',
+               mb: 2
+             }}>
+               <Typography variant="h6" color="primary">
+                 AI Health Summary
+               </Typography>
+               <Button 
+                 component={RouterLink}
+                 to="/visualization?tab=1"
+                 size="small"
+                 endIcon={<ArrowForwardIcon fontSize="small" />}
+                 sx={{ textTransform: 'none' }}
+               >
+                 Full View
+               </Button>
+             </Box>
+             
+             {activeProfile?.health_summary ? (
+               <>
+                 {/* Summary preview - always visible */}
+                 <Box sx={{ 
+                   mb: 1,
+                   p: 1.5,
+                   bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05),
+                   borderRadius: 2,
+                   border: (theme) => `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+                 }}>
+                   {/* Extract and display the first paragraph or sentence as a preview */}
+                   <Typography 
+                     variant="body2" 
+                     color="text.primary"
+                     sx={{ 
+                       fontWeight: 500,
+                       lineHeight: 1.6,
+                       display: '-webkit-box',
+                       WebkitLineClamp: summaryExpanded ? 'unset' : 3,
+                       WebkitBoxOrient: 'vertical',
+                       overflow: 'hidden',
+                       textOverflow: 'ellipsis',
+                       position: 'relative',
+                       pr: summaryExpanded ? 0 : 2
+                     }}
+                   >
+                     {activeProfile.health_summary.split('\n\n')[0]}
                    </Typography>
-                 )}
+                 </Box>
+                 
+                 {/* Expandable content for more details */}
+                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                   <Typography 
+                     variant="body2" 
+                     color="text.secondary" 
+                     sx={{ fontSize: '0.8rem' }}
+                   >
+                     {activeProfile.summary_last_updated && 
+                       `Updated: ${new Date(activeProfile.summary_last_updated).toLocaleDateString()}`}
+                   </Typography>
+                   <Button
+                     onClick={() => setSummaryExpanded(!summaryExpanded)}
+                     size="small"
+                     endIcon={
+                       <ExpandMoreIcon 
+                         sx={{ 
+                           transform: summaryExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                           transition: 'transform 0.3s'
+                         }} 
+                       />
+                     }
+                     sx={{ textTransform: 'none' }}
+                   >
+                     {summaryExpanded ? 'Show Less' : 'Read More'}
+                   </Button>
+                 </Box>
+                 
+                 <Collapse in={summaryExpanded} timeout="auto" unmountOnExit>
+                   <Box sx={{ mt: 2 }}>
+                     {/* Display the rest of the paragraphs */}
+                     {activeProfile.health_summary.split('\n\n')
+                       .slice(1) // Skip the first paragraph which is already shown
+                       .map((paragraph, index) => (
+                         <Typography 
+                           key={index} 
+                           variant="body2" 
+                           paragraph 
+                           sx={{ 
+                             whiteSpace: 'pre-wrap',
+                             mt: 1,
+                             color: 'text.primary'
+                           }}
+                         >
+                           {paragraph}
+                         </Typography>
+                       ))}
+                   </Box>
+                 </Collapse>
+               </>
+             ) : (
+               <Box sx={{ 
+                 display: 'flex', 
+                 flexDirection: 'column', 
+                 alignItems: 'center',
+                 justifyContent: 'center',
+                 p: 2,
+                 minHeight: 100,
+                 bgcolor: (theme) => alpha(theme.palette.background.default, 0.6),
+                 borderRadius: 2,
+                 border: '1px dashed',
+                 borderColor: 'divider'
+               }}>
+                 <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 1.5 }}>
+                   No AI summary available yet
+                 </Typography>
+                 <Button
+                   component={RouterLink}
+                   to="/visualization?tab=1"
+                   size="small"
+                   variant="outlined"
+                   sx={{ textTransform: 'none' }}
+                 >
+                   Generate Summary
+                 </Button>
                </Box>
-             </Collapse>
-             {!summaryExpanded && (
-                <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}>
-                    Click to expand AI summary...
-                </Typography>
              )}
            </Paper>
         </Grid>

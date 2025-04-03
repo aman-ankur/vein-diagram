@@ -10,6 +10,7 @@
 - **Jest**: JavaScript testing framework for unit and component testing
 - **React Testing Library**: Testing utilities for React components
 - **Axios**: Promise-based HTTP client for API communication
+- **dnd-kit**: Library for drag-and-drop interactions (used for favorite reordering)
 
 ### Backend Stack
 - **Python**: Core programming language for the backend
@@ -18,10 +19,12 @@
 - **Pydantic**: Data validation and settings management using Python type annotations
 - **Pytest**: Testing framework for Python code
 - **PDF Processing Libraries**:
-  - **PyMuPDF (fitz)**: Core library for PDF parsing and text extraction (`pymupdf` in requirements).
-  - **pdfplumber**: Used for detailed PDF content extraction, especially tables.
-  - **pytesseract**: OCR capabilities via the Tesseract engine for image-based text.
+- **PyMuPDF (fitz)**: Core library for PDF parsing and text extraction (`pymupdf` in requirements).
+- **pdfplumber**: Used for detailed PDF content extraction, especially tables.
+- **pytesseract**: OCR capabilities via the Tesseract engine for image-based text.
+- **pdf2image**: Converts PDF pages to images for OCR.
 - **HTTPX**: Asynchronous HTTP client for communicating with external APIs (like Claude).
+- **Alembic**: Database migration tool for SQLAlchemy.
 
 ### Data Visualization
 - **D3.js**: Primary library for custom, dynamic, interactive data visualizations.
@@ -44,10 +47,10 @@
 vein-diagram/
 ├── frontend/           # React frontend application
 │   ├── src/
-│   │   ├── components/ # UI Components (incl. Profile/Favorite/HealthScore related: FavoriteBiomarkersGrid, HealthScoreOverview, ScoreDisplay, etc.)
-│   │   ├── pages/      # Page Components (ProfileManagement, VisualizationPage, BiomarkerHistoryPage)
+│   │   ├── components/ # UI Components (incl. Profile/Favorite/HealthScore/Dashboard related: FavoriteBiomarkersGrid, HealthScoreOverview, ScoreDisplay, etc.)
+│   │   ├── pages/      # Page Components (ProfileManagement, VisualizationPage, BiomarkerHistoryPage, DashboardPage)
 │   │   ├── services/   # API Services (profileService.ts, healthScoreService.ts, etc.)
-│   │   ├── utils/      # Utility functions (favoritesUtils.ts, biomarkerUtils.ts)
+│   │   ├── utils/      # Utility functions (favoritesUtils.ts - deprecated, biomarkerUtils.ts)
 │   │   ├── contexts/   # React Contexts (e.g., for Profile state)
 │   │   └── types/      # TypeScript types (Profile, Favorite, Biomarker, HealthScore, etc.)
 │   ├── public/
@@ -60,11 +63,13 @@ vein-diagram/
 │   │   │   └── routes/ # API Routes (biomarker_routes.py, profile_routes.py, pdf_routes.py, health_score_routes.py)
 │   │   ├── models/     # DB Models (biomarker_model.py, profile_model.py, pdf_model.py)
 │   │   ├── schemas/    # Pydantic Schemas (biomarker_schema.py, profile_schema.py, pdf_schema.py, health_score_schema.py)
-│   │   ├── services/   # Business Logic (pdf_service.py, llm_service.py, biomarker_parser.py, profile_matcher.py, health_score_service.py - implicit)
+│   │   ├── services/   # Business Logic (pdf_service.py, llm_service.py, biomarker_parser.py, metadata_parser.py, profile_matcher.py, health_score_service.py - implicit, profile_service.py - implicit)
 │   │   └── config/     # Configuration files (optimal_ranges.json)
 │   ├── tests/          # Test suite (incl. tests for profiles/favorites/health_score)
 │   │   ├── api/        # API route tests (test_profile_routes.py, test_biomarker_routes.py, test_health_score_routes.py - potential)
-│   │   └── services/   # Service layer tests (test_health_score_service.py - potential)
+│   │   └── services/   # Service layer tests (test_health_score_service.py - potential, test_pdf_service.py, test_biomarker_parser.py)
+│   ├── alembic/        # Alembic migration scripts
+│   ├── alembic.ini     # Alembic configuration
 │   └── requirements.txt # Python dependencies
 │
 ├── memory-bank/        # Project documentation & context
@@ -75,14 +80,14 @@ vein-diagram/
 1. **Backend Development**:
    - Python virtual environment (`vein-d/`) setup with dependencies from `requirements.txt`.
    - FastAPI server (`uvicorn`) with hot-reloading for development.
-   - Database migrations potentially needed for schema changes (e.g., adding profile tables).
-   - Automated tests (`pytest`) for API endpoints and services, including profile/favorite logic.
+   - Database migrations using Alembic needed for schema changes (e.g., adding profile tables, favorite column).
+   - Automated tests (`pytest`) for API endpoints and services, including profile/favorite/health score logic.
 
 2. **Frontend Development**:
    - Vite development server (`npm run dev`) with hot module replacement.
    - Component-driven development approach.
    - TypeScript for type checking during development.
-   - Jest (`npm test`) for running unit and component tests, including profile/favorite components.
+   - Jest (`npm test`) for running unit and component tests, including profile/favorite/health score/dashboard components.
 
 3. **Integration**:
    - Frontend configured (`src/config.ts`) to communicate with backend API (default: `http://localhost:8000`).
@@ -162,7 +167,7 @@ python-multipart==0.0.x
 - RESTful API endpoints defined in FastAPI (`/api/...`).
 - JSON data format for request/response payloads.
 - Type-safe contracts using TypeScript interfaces (frontend) and Pydantic models (backend).
-- Key endpoints for Profiles (`/api/profiles/...`), Favorites (`/api/profiles/{profile_id}/favorites/...`), Biomarkers (`/api/profiles/{profile_id}/biomarkers/...`), PDFs (`/api/pdfs/...`), Health Score (`/api/health-score/{profile_id}`).
+- Key endpoints for Profiles (`/api/profiles/...`), Favorites (`/api/profiles/{profile_id}/favorites/...`), Biomarkers (`/api/biomarkers?profile_id=...`, `/api/biomarkers/{id}`), PDFs (`/api/pdfs/...`), Health Score (`/api/health-score/{profile_id}`).
 
 ### External API Integration
 - **Claude API**: Via `llm_service.py` (for insights) and `biomarker_parser.py`/`metadata_parser.py` (for extraction) using `anthropic` SDK or `httpx`. Requires API key management.
