@@ -17,8 +17,8 @@ This project exists to transform these static, often confusing documents into dy
 - **Manual Data Entry**: Eliminates tedious and error-prone manual entry of biomarker values.
 - **Trend Blindness**: Reveals patterns and trends **specific to each profile** that would be invisible when looking at individual test results.
 - **Context Deficit**: Provides research-backed explanations about what biomarker values actually mean.
-- **Information Overload**: Offers a summarized **Health Score** to provide an at-a-glance understanding of overall wellness based on key biomarkers.
-- **Personalized Focus**: Allows users to **mark favorite biomarkers** for quick access and monitoring per profile.
+- **Information Overload**: Offers a summarized **Health Score** and a **Dashboard** view to provide an at-a-glance understanding of overall wellness based on key biomarkers.
+- **Personalized Focus**: Allows users to **mark favorite biomarkers** for quick access and monitoring per profile, displayed prominently on the Dashboard.
 
 ### For Biohackers
 - **Experiment Tracking**: Enables precise tracking of how interventions affect specific biomarkers **within their personal profile**.
@@ -38,16 +38,18 @@ This project exists to transform these static, often confusing documents into dy
 1. **Profile Management**: User creates and manages distinct health profiles (e.g., self, family members).
 2. **Upload**: User selects a profile and uploads PDF blood test results.
 3. **Extraction**: System automatically extracts biomarker data, dates, and reference ranges, **associating them with the selected profile**.
-4. **Visualization**: Data is transformed into intuitive visualizations showing trends over time **for the active profile**.
-5. **Favorite Tracking**: User marks key biomarkers as favorites **per profile**.
-6. **Relationship Mapping**: Connections between related biomarkers are displayed.
-7. **Health Score**: System calculates and displays an overall health score based on the profile's latest biomarker data against optimal ranges.
-8. **Contextual Insights**: AI-powered explanations provide meaning and context for the data.
-9. **Continued Use**: As users upload more test results to profiles, the system builds comprehensive health pictures for each individual, including score trends.
+4. **Dashboard**: User views a summary dashboard showing key information like favorite biomarkers, last report date, AI summary, and the Health Score **for the active profile**.
+5. **Visualization**: Data is transformed into intuitive visualizations showing trends over time **for the active profile**.
+6. **Favorite Tracking**: User marks key biomarkers as favorites **per profile**.
+7. **Relationship Mapping**: Connections between related biomarkers are displayed.
+8. **Health Score**: System calculates and displays an overall health score based on the profile's latest biomarker data against optimal ranges.
+9. **Contextual Insights**: AI-powered explanations provide meaning and context for the data.
+10. **Continued Use**: As users upload more test results to profiles, the system builds comprehensive health pictures for each individual, including score trends.
 
 ### Key Functionality
 - PDF parsing with high accuracy across different lab formats.
 - **Profile management** for organizing data for multiple individuals.
+- **Dashboard view** summarizing key profile information (favorites, last report, AI summary, Health Score).
 - Time-series visualization of biomarker trends **per profile**.
 - **Favorite biomarker tracking** for personalized monitoring.
 - Relationship mapping between correlated biomarkers.

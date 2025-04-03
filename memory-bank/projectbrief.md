@@ -19,7 +19,7 @@ Vein Diagram's unique value proposition is its ability to:
 2. **Visualize Trends**: Present time-series data in aesthetically pleasing visualizations
 3. **Show Relationships**: Map connections between different biomarkers
 4. **Provide Context**: Leverage Claude API to deliver research-backed explanations about biomarker relationships and meanings
-5. **Summarize Health**: Calculate and display an overall Health Score based on biomarker data within optimal ranges.
+5. **Summarize Health**: Calculate and display an overall Health Score and provide a **Dashboard** for an at-a-glance view.
 6. **Focus on Design**: Create a premium visual experience that makes health data more approachable and meaningful
 
 ## Target Users
@@ -41,5 +41,5 @@ Vein Diagram's unique value proposition is its ability to:
 - Clear presentation of biomarker relationships
 - Contextual explanations of biomarker meanings and correlations
 - **Correct association of uploaded PDFs and favorites with specific user profiles**
-- **Accurate calculation and clear presentation of the Health Score**
-- Positive user feedback on visualization quality, insight value, and profile/health score usability
+- **Accurate calculation and clear presentation of the Health Score on the Dashboard**
+- Positive user feedback on visualization quality, insight value, and profile/health score/dashboard usability

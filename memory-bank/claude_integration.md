@@ -7,8 +7,9 @@ This document outlines how the Vein Diagram application integrates with the Anth
 The Claude API is leveraged for three primary tasks:
 
 1.  **Biomarker Explanations**: Generating user-friendly explanations for specific biomarker results, including general information about the biomarker and context based on the user's specific value and reference range. (Handled by `app/services/llm_service.py`)
-2.  **Metadata Extraction**: Extracting structured patient and report metadata (like name, DOB, gender, patient ID, lab name, report date) from the unstructured text content of the *initial pages* of uploaded PDF lab reports. This aids in profile matching and data organization. (Handled by `app/services/metadata_parser.py`)
-3.  **Biomarker Extraction**: Extracting structured biomarker data (name, value, unit, range, etc.) from the text of *relevant, filtered pages* of uploaded PDF lab reports. (Handled by `app/services/biomarker_parser.py`)
+2.  **Metadata Extraction**: Extracting structured patient and report metadata (like name, DOB, gender, patient ID, lab name, report date) from the unstructured text content of the ***initial pages*** of uploaded PDF lab reports. This aids in profile matching and data organization. (Handled by `app/services/metadata_parser.py`)
+3.  **Biomarker Extraction**: Extracting structured biomarker data (name, value, unit, range, etc.) from the text of ***relevant, filtered pages*** of uploaded PDF lab reports, processed sequentially. (Handled by `app/services/biomarker_parser.py`)
+4.  **Health Summary Generation**: Generating a structured, personalized health summary based on profile and biomarker history. (Handled by `app/services/health_summary_service.py`)
 
 ## Configuration
 
@@ -19,8 +20,8 @@ The Claude API is leveraged for three primary tasks:
 ## Models Used
 
 -   **Biomarker Explanations**: `claude-3-haiku-20240307` (Chosen for speed and cost-effectiveness for explanation tasks).
--   **Metadata Extraction**: `claude-3-sonnet-20240229` (Chosen for potentially better accuracy in structured data extraction from the initial pages).
--   **Biomarker Extraction**: `claude-3-sonnet-20240229` (Chosen for balance of accuracy and capability in extracting structured biomarker data from individual relevant pages).
+-   **Metadata Extraction**: `claude-3-sonnet-20240229` (Chosen for accuracy in structured data extraction from the initial pages).
+-   **Biomarker Extraction (Sequential per page)**: `claude-3-sonnet-20240229` (Chosen for balance of accuracy and capability in extracting structured biomarker data from individual relevant pages).
 
 ## Prompting Strategy
 
@@ -36,7 +37,7 @@ The Claude API is leveraged for three primary tasks:
 ### 2. Metadata Extraction (`metadata_parser.py`)
 
 -   **Goal**: Extract specific, predefined metadata fields only.
--   **Input**: Preprocessed text content from a PDF page.
+-   **Input**: Preprocessed text content from the *initial pages* of a PDF.
 -   **Structure**:
     -   System Prompt: Instructs Claude to act as a metadata extraction expert, focusing *only* on specific fields (lab_name, report_date, patient_name, patient_dob, patient_gender, patient_id, patient_age) and outputting *only* valid JSON in a predefined format (`{"metadata": {...}}`). Explicitly tells Claude to ignore biomarker results.
     -   User Prompt: Provides the preprocessed text fragment from the *initial pages*.
@@ -52,6 +53,20 @@ The Claude API is leveraged for three primary tasks:
 -   **Parsing**: The service uses regex to find the JSON block in the response and `json.loads` to parse it. Includes extensive logic (`_repair_json`, `_fix_truncated_json`) to attempt fixing JSON formatting issues.
 -   **Sequential Processing**: This extraction is called sequentially for each relevant page identified by the filtering process in `pdf_service.py`.
 
+### 4. Health Summary Generation (`health_summary_service.py`)
+
+- **Goal**: Generate a structured, personalized health summary based on profile and biomarker history.
+- **Input**: User profile details (name, age, gender, favorites), formatted biomarker history (recent values, trends, full history).
+- **Structure**:
+    - System Prompt: Instructs Claude to act as an empathetic health monitoring assistant.
+    - User Prompt: Provides user info, biomarker data, and strict formatting rules.
+    - **Format Requirements**: Emphasizes exact output structure:
+        - Start each section *directly* with its emoji (💡, 📈, 👀) on a new line. NO text headers (e.g., "KEY INSIGHTS:") allowed after the emoji.
+        - Each point *within* a section starts on a new line with "• " (bullet and space).
+        - Strict adherence to `EMOJI\n• Point\n• Point\nEMOJI\n• Point...` format.
+        - No greetings or conclusions.
+- **Parsing (Frontend)**: The frontend (`VisualizationPage.tsx`) is responsible for parsing this string based on the emoji delimiters and bullet points to render the structured UI components.
+
 ## Caching (Biomarker Explanations Only)
 
 -   An in-memory cache (`ExplanationCache` in `llm_service.py`) is used to store generated explanations and reduce redundant API calls.
@@ -66,14 +81,14 @@ The Claude API is leveraged for three primary tasks:
 -   **Timeout**:
     -   Metadata extraction uses a `with_timeout` decorator (45 seconds) and returns an empty dictionary on timeout.
     -   Biomarker explanation uses `httpx` client timeout (30 seconds) and returns "unavailable" messages on timeout.
-    -   Biomarker extraction uses a `with_timeout` decorator (600 seconds / 10 minutes *per page*) and falls back to the regex parser (`parse_biomarkers_from_text`) for that specific page on timeout.
+    -   Biomarker extraction (per page) uses a `with_timeout` decorator (600 seconds / 10 minutes *per page*) and falls back to the regex parser (`parse_biomarkers_from_text`) for that specific page on timeout.
 -   **Request Errors (`httpx.RequestError`)**: Logs the error and returns "unavailable" messages or an empty dictionary/list.
 -   **Response Parsing Errors**:
     -   Explanation: Logs the error and attempts fallback splitting or returns generic messages.
     -   Metadata: Logs the error, attempts JSON repair, and returns an empty dictionary if parsing/repair fails.
-    -   Biomarker Extraction: Logs the error, attempts extensive JSON repair, and falls back to the regex parser for that specific page if parsing/repair fails.
+    -   Biomarker Extraction (per page): Logs the error, attempts extensive JSON repair, and falls back to the regex parser for that specific page if parsing/repair fails.
 -   **Unexpected Errors**: Catches general exceptions, logs them, and returns generic error messages/empty dictionaries/lists.
--   **Fallback Parser**: If Claude API calls fail for biomarker extraction (timeout, errors, invalid JSON), the system falls back to a regex-based parser (`parse_biomarkers_from_text`) for the affected page(s).
+-   **Fallback Parser (Biomarker Extraction)**: If Claude API calls fail for biomarker extraction on a specific page (timeout, errors, invalid JSON), the system falls back to a regex-based parser (`parse_biomarkers_from_text`) for *that page only*.
 
 ## Key Considerations
 

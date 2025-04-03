@@ -13,7 +13,7 @@ graph TD
     subgraph Frontend
         direction LR
         UI[React UI Components] --> State[State Management (Profile Context)]
-        UI --> Services[API Services]
+        UI --> Services[API Services (profile, healthScore, etc.)]
     end
 
     subgraph Backend
@@ -21,9 +21,9 @@ graph TD
         Routes[API Routes] --> Services[Business Logic Services (incl. Profile/Favorite/HealthScore Logic)]
         Services --> Models[Data Models (Profile incl. favorite_biomarkers)]
         Services --> PDFProcessing[PDF Processing Engine]
-        Services --> Config[Configuration (e.g., optimal_ranges.json)]
-        Models --> DB
-        Services --> Claude
+        Services --> Config[Configuration (optimal_ranges.json)]
+        Models --> DB[(Database)]
+        Services --> Claude[Claude AI API]
     end
 ```
 
@@ -97,12 +97,20 @@ graph TD
         ProfileMgmtPage[Profile Management Page]
     end
 
+    MainContent --> DashboardPage[Dashboard Page (Profile Context)]
+
     ProfileMgmtPage --> ProfileList
     ProfileMgmtPage --> ProfileForm
 
     VisualizationPage --> FavoriteBiomarkersGrid
     VisualizationPage --> BiomarkerVisualization(Biomarker Visualization)
     VisualizationPage --> BiomarkerTable(Biomarker Table - Add/Remove Fav)
+    VisualizationPage --> SmartSummaryTab[Smart Summary Tab (Redesigned)]
+
+    DashboardPage --> FavoriteBiomarkersGrid
+    DashboardPage --> HealthScoreOverview(Health Score Overview)
+    DashboardPage --> AI_Summary[AI Summary]
+    DashboardPage --> CategoryStatus[Category Status]
 
     FavoriteBiomarkersGrid --> BiomarkerTile(Biomarker Tile - Add/Remove Fav)
     FavoriteBiomarkersGrid --> AddBiomarkerTile --> AddFavoriteModal
@@ -126,8 +134,10 @@ graph TD
         PDFService[pdf_service.py]
         BiomarkerService[biomarker_service.py (implicit)]
         ProfileService[profile_service.py (implicit)]
-        HealthScoreService[health_score_service.py (implicit)]
+        HealthScoreService[health_score_service.py]
         LLMService[llm_service.py]
+        MetadataParser[metadata_parser.py]
+        BiomarkerParser[biomarker_parser.py]
     end
 
     subgraph Parsers
@@ -144,25 +154,22 @@ graph TD
     end
 
     API_Routes --> Services
-    Services --> Parsers
     Services --> LLMService
     Services --> Models
-    Parsers --> Models
     Models --> Database[(Database)]
 
     PDFRoutes --> PDFService
     BiomarkerRoutes --> BiomarkerService
     ProfileRoutes --> ProfileService
+    HealthScoreRoutes --> HealthScoreService
 
-    PDFService --> BiomarkerParser
     PDFService --> MetadataParser
+    PDFService --> BiomarkerParser
     PDFService --> ProfileService # To link PDF to profile
     BiomarkerService --> LLMService # For insights
-    ProfileService --> Models # Profile CRUD
-    BiomarkerService --> Models # Favorite management
-    HealthScoreRoutes --> HealthScoreService
+    ProfileService --> Models # Profile CRUD & Favorite management
     HealthScoreService --> Models # Needs biomarker data
-    HealthScoreService --> Config # Needs optimal ranges
+    HealthScoreService --> Config # Needs optimal_ranges.json
 ```
 
 ## Data Flow
