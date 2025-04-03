@@ -47,6 +47,9 @@ Handles management of user profiles.
     *   Path Param: `profile_id` (UUID string).
     *   Request Body: `FavoriteOrderUpdate` schema (`{"ordered_favorites": ["string", ...]}`).
     *   Response: `ProfileResponse` schema (updated profile).
+*   **`POST /merge`**: Merge multiple source profiles into a single target profile. Re-associates biomarkers/PDFs, deduplicates biomarkers, and deletes source profiles.
+    *   Request Body: `ProfileMergeRequest` schema (`{"source_profile_ids": ["uuid", ...], "target_profile_id": "uuid"}`).
+    *   Response: `{"message": "Profiles merged successfully"}` (on success).
 
 ## PDFs (`/api/pdfs`)
 

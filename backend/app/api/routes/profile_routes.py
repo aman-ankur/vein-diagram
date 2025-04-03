@@ -25,6 +25,7 @@ from app.schemas.profile_schema import (
     ProfileMatchScore,
     ProfileExtractedMetadata,
     ProfileAssociationRequest,
+    ProfileMergeRequest, # Import the new schema
     # Assuming a simple schema for the order update
     # If not defined elsewhere, add it here or in profile_schema.py
     # class FavoriteOrderUpdate(BaseModel):
@@ -34,6 +35,7 @@ from app.services.profile_matcher import find_matching_profiles, create_profile_
 from app.services.metadata_parser import extract_metadata_with_claude
 from pydantic import BaseModel, Field # Import BaseModel and Field if defining schema here
 from app.services.health_summary_service import generate_and_update_health_summary
+from app.services.profile_service import merge_profiles # Import the new service function
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -885,3 +887,31 @@ async def generate_profile_summary(
     except Exception as e:
         logger.error(f"Error generating summary for profile {profile_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+# --- Profile Merging Endpoint ---
+
+@router.post("/merge", status_code=200, response_model=Dict[str, str])
+async def merge_profiles_endpoint(
+    request: ProfileMergeRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Merge multiple source profiles into a single target profile.
+    Re-associates biomarkers and PDFs, handles deduplication, and deletes source profiles.
+    """
+    logger.info(f"Received request to merge profiles {request.source_profile_ids} into {request.target_profile_id}")
+    
+    try:
+        # Call the service function to perform the merge
+        merge_profiles(db=db, merge_request=request)
+        logger.info(f"Successfully merged profiles {request.source_profile_ids} into {request.target_profile_id}")
+        return {"message": "Profiles merged successfully"}
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions (like 400, 404) from the service layer
+        logger.warning(f"HTTP Exception during merge: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        # Catch any other unexpected errors
+        logger.error(f"Unexpected error during profile merge endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error during merge: {str(e)}")
