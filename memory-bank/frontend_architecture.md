@@ -21,22 +21,22 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 -   **`main.tsx`**: Entry point of the application, renders the root `App` component.
 -   **`App.tsx`**: Root component, likely sets up routing and global layout/context providers.
 -   **`components/`**: Contains reusable UI components used across different pages.
-    -   Examples: `Header.tsx`, `Footer.tsx`, `Layout.tsx`, `PDFUploader.tsx`, `BiomarkerTable.tsx`, `BiomarkerVisualization.tsx`, `FavoriteBiomarkersGrid.tsx`, `ProfileSelector.tsx`, `LoadingIndicator.tsx`, `ErrorHandler.tsx`, **`HealthScoreOverview.tsx`**, **`ScoreDisplay.tsx`**, **`ScoreExplanation.tsx`**, **`InfluencingFactors.tsx`**, **`TrendIndicator.tsx`**.
+    -   Examples: `Header.tsx`, `Footer.tsx`, `Layout.tsx`, `PDFUploader.tsx`, `BiomarkerTable.tsx`, `BiomarkerVisualization.tsx`, `FavoriteBiomarkersGrid.tsx`, `ProfileSelector.tsx`, `LoadingIndicator.tsx`, `ErrorHandler.tsx`, `HealthScoreOverview.tsx`, `ScoreDisplay.tsx`, `ScoreExplanation.tsx`, `InfluencingFactors.tsx`, `TrendIndicator.tsx`, `AddBiomarkerTile.tsx`, `AddFavoriteModal.tsx`, `ReplaceFavoriteModal.tsx`.
 -   **`pages/`**: Contains top-level components representing distinct application views/routes.
-    -   Examples: `HomePage.tsx`, `UploadPage.tsx`, `VisualizationPage.tsx`, `BiomarkerHistoryPage.tsx`, `ProfileManagement.tsx`, `DashboardPage.tsx`. *(Note: Health Score intended for DashboardPage, currently placeholder due to rendering/component issues)*.
+    -   Examples: `HomePage.tsx`, `UploadPage.tsx`, `VisualizationPage.tsx`, `BiomarkerHistoryPage.tsx`, `ProfileManagement.tsx`, `DashboardPage.tsx`.
 -   **`services/`**: Handles communication with the backend API.
     -   `api.ts`: Base Axios instance configuration (sets base URL, potentially headers).
     *   `pdfService.ts`: Functions for uploading PDFs, checking status.
-    *   `profileService.ts`: Functions for CRUD operations on profiles, matching, association.
-    *   **`healthScoreService.ts`**: Functions for fetching the calculated health score.
-    *   *(Note: Biomarker fetching/explanation service might be missing or integrated elsewhere)*.
+    *   `profileService.ts`: Functions for CRUD operations on profiles, matching, association, favorites management.
+    *   `healthScoreService.ts`: Functions for fetching the calculated health score.
+    *   `biomarkerService.ts` (or similar): Likely handles biomarker fetching, deletion, and explanation requests (may be partially integrated into `profileService` or `VisualizationPage`).
 -   **`contexts/`**: Provides global state management using React Context API.
     -   `ProfileContext.tsx`: Manages the currently active user profile and provides it to consuming components.
--   **`hooks/`**: *(Currently empty)* Intended for custom reusable hooks encapsulating stateful logic.
+-   **`hooks/`**: *(Currently empty)* Intended for custom reusable hooks encapsulating stateful logic (e.g., `useProfile`, `useFavorites`).
 -   **`utils/`**: Contains utility functions used across the application.
     -   `biomarkerUtils.ts`: Helper functions related to biomarker data manipulation or display.
-    *   `favoritesUtils.ts`: Helper functions for managing favorite biomarkers logic.
--   **`types/`**: TypeScript type definitions and interfaces (e.g., for API responses, data models like `Profile`, `Biomarker`, `PDF`, **`HealthScore`**).
+    *   `favoritesUtils.ts`: Helper functions for managing favorite biomarkers logic (mostly deprecated after backend migration).
+-   **`types/`**: TypeScript type definitions and interfaces (e.g., for API responses, data models like `Profile`, `Biomarker`, `PDF`, `HealthScore`).
 -   **`assets/`**: Static assets like images, fonts, or JSON data (`facts.json`).
 -   **`styles/`**: Global styles or base Tailwind configuration.
 -   **`config.ts`**: Application configuration, likely includes the backend API base URL.
@@ -46,8 +46,8 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 -   **Component-Based Architecture**: UI is built by composing smaller, reusable components.
 -   **Container/Presentational Pattern (Implicit)**: Page components (`pages/`) often act as containers, fetching data via services and managing state, while components in `components/` focus on rendering UI based on props.
 -   **Service Layer**: API interactions are encapsulated within service files (`services/`), promoting separation of concerns. Components call service functions rather than making direct API calls.
--   **Context API for Global State**: `ProfileContext` is used to manage and provide the active profile state throughout the component tree, avoiding prop drilling for this global concern.
--   **Utility Functions**: Common, reusable logic (e.g., formatting, calculations specific to biomarkers or favorites) is extracted into utility files (`utils/`).
+-   **Context API for Global State**: `ProfileContext` is used to manage and provide the active profile state throughout the component tree, avoiding prop drilling for this essential global concern.
+-   **Utility Functions**: Common, reusable logic (e.g., formatting, calculations specific to biomarkers) is extracted into utility files (`utils/`). Favorite-specific utils are less relevant now.
 
 ## Data Flow (Typical Page)
 
