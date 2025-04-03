@@ -72,7 +72,16 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 ## Styling
 
 -   **Tailwind CSS**: Utility-first CSS framework is the primary method for styling. Class names are applied directly in the JSX.
+-   **Material UI**: Also used for components and styling in parts of the application. This creates a mixed styling approach.
 -   **Global Styles**: A base stylesheet (`styles/`) might define global resets, base styles, or custom Tailwind configurations.
+
+### Important Styling Gotchas
+
+-   **Material UI and Tailwind CSS Integration**: The application uses both Material UI and Tailwind CSS. This can lead to styling conflicts and unexpected behavior in some components. When customizing or creating components:
+    -   Material UI components use their own styling system (with `sx` prop and theme) and will override many Tailwind classes
+    -   For standalone components like login/signup pages, consider using only one styling approach consistently
+    -   When working with existing components, check if they use Material UI's styling system before applying Tailwind classes
+    -   For completely new UI elements that need to match the existing design system, prefer using the dominant styling approach of the parent container
 
 ## Testing
 

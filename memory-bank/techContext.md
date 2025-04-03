@@ -7,6 +7,7 @@
 - **TypeScript**: Typed superset of JavaScript for improved developer experience
 - **Vite**: Modern frontend build tool and development server
 - **Tailwind CSS**: Utility-first CSS framework for rapid UI development
+- **Material UI**: React component library implementing Google's Material Design (used alongside Tailwind CSS)
 - **Jest**: JavaScript testing framework for unit and component testing
 - **React Testing Library**: Testing utilities for React components
 - **Axios**: Promise-based HTTP client for API communication
