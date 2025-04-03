@@ -80,3 +80,10 @@ class ProfileAssociationRequest(BaseModel):
     pdf_id: str = Field(..., description="ID of the PDF to associate")
     create_new_profile: bool = Field(False, description="Whether to create a new profile instead of using an existing one")
     metadata_updates: Optional[Dict[str, Any]] = Field(None, description="Updates to make to the extracted metadata when creating a profile")
+
+
+# Schema for the profile merging feature
+class ProfileMergeRequest(BaseModel):
+    """Schema for requesting to merge profiles."""
+    source_profile_ids: List[UUID4] = Field(..., description="List of profile IDs to merge from")
+    target_profile_id: UUID4 = Field(..., description="The profile ID to merge into and keep")

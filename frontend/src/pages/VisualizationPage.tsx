@@ -433,9 +433,11 @@ const VisualizationPage: React.FC = () => {
       } else {
         // Fetch all biomarkers only if a profile is active
         if (profileIdStr) {
-          console.log(`Calling getAllBiomarkers with profile_id=${profileIdStr}`);
-          data = await getAllBiomarkers({
-            profile_id: profileIdStr
+          console.log(`Calling getAllBiomarkers with profile_id=${profileIdStr} and max limit`);
+          // Request the maximum allowed number of biomarkers
+          data = await getAllBiomarkers({ 
+            profile_id: profileIdStr,
+            limit: 1000 // Use the maximum allowed limit (1000)
           });
           console.log(`Received ${data.length} biomarkers in total for profile ${profileIdStr}`);
         } else {
@@ -1008,37 +1010,48 @@ const VisualizationPage: React.FC = () => {
 
       {/* Box for Profile Selector and History Button */}
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-        {/* Profile Selector Dropdown */}
-        {activeProfile && availableProfiles.length > 1 && (
-          <FormControl sx={{ minWidth: 200 }} size="small">
-            <InputLabel id="profile-select-label">Viewing Profile</InputLabel>
+        {/* Profile Selector Dropdown - Render if profile is active */}
+        {activeProfile && ( 
+          <FormControl sx={{ minWidth: 200 }} size="small"> {/* Removed disabled prop for now */}
+            <InputLabel id="profile-select-label">
+              {profileListLoading ? "Loading..." : profileListError ? "Error" : "Viewing Profile"}
+            </InputLabel>
             <Select
               labelId="profile-select-label"
               id="profile-select"
-              value={activeProfile.id || ''} // Ensure value is controlled
-              label="Viewing Profile"
+              value={activeProfile?.id || ''} // Use optional chaining and default to empty string
+              label={profileListLoading ? "Loading..." : profileListError ? "Error" : "Viewing Profile"} // Match InputLabel
               onChange={handleProfileSelectChange}
-              disabled={profileListLoading} // Disable while loading profiles
+              // Disabled state removed from FormControl, let Select handle internally if needed
             >
-              {profileListLoading ? (
-                <MenuItem disabled>
+              {/* Handle loading state */}
+              {profileListLoading && (
+                <MenuItem disabled value="">
                   <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
                 </MenuItem>
-              ) : profileListError ? (
-                 <MenuItem disabled sx={{ color: 'error.main' }}>Error loading profiles</MenuItem>
-              ) : (
+              )}
+              {/* Handle error state */}
+              {profileListError && !profileListLoading && (
+                 <MenuItem disabled value="" sx={{ color: 'error.main' }}>Error loading profiles</MenuItem>
+              )}
+              {/* Handle success state (only map if not loading and no error) */}
+              {!profileListLoading && !profileListError && availableProfiles.length > 0 && (
                 availableProfiles.map((profile) => (
                   <MenuItem key={profile.id} value={profile.id}>
                     {profile.name}
                   </MenuItem>
                 ))
               )}
+              {/* Handle case where profiles loaded but list is empty */}
+              {!profileListLoading && !profileListError && availableProfiles.length === 0 && (
+                 <MenuItem disabled value="">No profiles found</MenuItem>
+              )}
             </Select>
           </FormControl>
         )}
-        {/* Spacer or conditional rendering if only one profile */}
-        {activeProfile && availableProfiles.length <= 1 && !profileListLoading && (
-           <Box sx={{ minWidth: 200 }} /> // Placeholder to maintain layout
+        {/* Placeholder if no active profile */}
+        {!activeProfile && ( // Show placeholder only if no active profile
+           <Box sx={{ minWidth: 200 }} /> 
         )}
 
         {/* History Button */}

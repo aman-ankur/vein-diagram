@@ -197,6 +197,19 @@ export const createProfileFromPdf = async (pdfId: string, metadata: ProfileMetad
 };
 
 /**
+ * Merge source profiles into a target profile
+ */
+export const mergeProfiles = async (payload: { source_profile_ids: string[]; target_profile_id: string }): Promise<{ message: string }> => {
+  try {
+    const response = await axios.post<{ message: string }>(`${API_URL}/merge`, payload);
+    return response.data;
+  } catch (error) {
+    console.error(`Error merging profiles:`, error);
+    throw error;
+  }
+};
+
+/**
  * Generate health summary for a profile
  */
 export const generateHealthSummary = async (profileId: string): Promise<Profile> => {
