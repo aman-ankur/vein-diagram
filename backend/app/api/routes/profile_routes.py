@@ -239,16 +239,11 @@ async def update_profile(
     user_id = current_user.get("user_id")
     
     try:
-        # Convert string to UUID and query with user_id filter
-        try:
-            profile_id_uuid = UUID(profile_id)
-            db_profile = db.query(Profile).filter(
-                Profile.id == profile_id_uuid,
-                Profile.user_id == user_id  # Filter by user_id for security
-            ).first()
-        except ValueError as e:
-            logger.error(f"Invalid UUID format: {profile_id}")
-            raise HTTPException(status_code=400, detail="Invalid profile ID format")
+        # Query with user_id filter
+        db_profile = db.query(Profile).filter(
+            Profile.id == profile_id,
+            Profile.user_id == user_id  # Filter by user_id for security
+        ).first()
                     
         if not db_profile:
             raise HTTPException(status_code=404, detail="Profile not found")
