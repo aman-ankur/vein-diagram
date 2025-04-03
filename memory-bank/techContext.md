@@ -32,6 +32,7 @@
 
 ### External APIs
 - **Claude API**: Anthropic's AI model for generating biomarker insights and explanations.
+- **Supabase Auth**: Backend-as-a-Service for handling user authentication (email/password, social logins like Google). See `authentication_details.md`.
 
 ### Development Tools
 - **Git**: Version control system
@@ -112,7 +113,7 @@ vein-diagram/
 ### Security and Privacy
 - **Health Data Sensitivity**: All data handling must prioritize privacy (HIPAA considerations if applicable in target market). Data stored should be minimized and secured.
 - **PDF Content Security**: Uploaded files could contain risks; sanitization or isolated processing might be needed in production.
-- **API Security**: Authentication/Authorization will be needed post-MVP to protect profile data.
+- **API Security**: Authentication/Authorization is implemented using Supabase JWTs validated by the backend (`app/core/auth.py`). See `authentication_details.md`.
 
 ### Browser Compatibility
 - **Modern Browser Focus**: Targeting evergreen browsers (Chrome, Firefox, Safari, Edge).
