@@ -47,6 +47,17 @@ Handles management of user profiles.
     *   Path Param: `profile_id` (UUID string).
     *   Request Body: `FavoriteOrderUpdate` schema (`{"ordered_favorites": ["string", ...]}`).
     *   Response: `ProfileResponse` schema (updated profile).
+*   **`POST /{profile_id}/favorites`**: Add a biomarker name to the profile's favorites list.
+    *   Path Param: `profile_id` (UUID string).
+    *   Request Body: `AddFavoriteRequest` schema (`{"biomarker_name": "string"}`).
+    *   Response: `ProfileResponse` schema (updated profile).
+*   **`DELETE /{profile_id}/favorites/{biomarker_name}`**: Remove a biomarker name from the profile's favorites list.
+    *   Path Params: `profile_id` (UUID string), `biomarker_name` (string).
+    *   Response: `ProfileResponse` schema (updated profile).
+*   **`PUT /{profile_id}/favorites/order`**: Update the order of the entire favorites list.
+    *   Path Param: `profile_id` (UUID string).
+    *   Request Body: `FavoriteOrderUpdate` schema (`{"ordered_favorites": ["string", ...]}`).
+    *   Response: `ProfileResponse` schema (updated profile).
 *   **`POST /merge`**: Merge multiple source profiles into a single target profile. Re-associates biomarkers/PDFs, deduplicates biomarkers, and deletes source profiles.
     *   Request Body: `ProfileMergeRequest` schema (`{"source_profile_ids": ["uuid", ...], "target_profile_id": "uuid"}`).
     *   Response: `{"message": "Profiles merged successfully"}` (on success).
@@ -90,6 +101,9 @@ Handles retrieval and explanation of biomarker data.
     *   Path Param: `biomarker_id` (integer).
     *   Request Body: `BiomarkerExplanationRequest` schema.
     *   Response: `BiomarkerExplanationResponse`.
+*   **`DELETE /biomarkers/{biomarker_id}`**: Delete a specific biomarker entry by its database ID.
+    *   Path Param: `biomarker_id` (integer).
+    *   Response: `{"message": "Biomarker deleted successfully"}`.
 
 ## Health Score (`/api/health-score`)
 
@@ -102,11 +116,18 @@ Handles calculation and retrieval of a health score based on a profile's biomark
     *   Request Body: `BiomarkerExplanationRequest` schema (must include name).
     *   Response: `BiomarkerExplanationResponse`.
 
+## Health Score (`/api/health-score`)
+
+Handles calculation and retrieval of a health score based on a profile's biomarkers.
+
+*   **`GET /{profile_id}`**: Calculate and retrieve the health score for a specific profile.
+    *   Path Param: `profile_id` (UUID string).
+    *   Response: `HealthScoreResponse` schema (containing score, influencing factors, trend, etc.).
+
 ---
 **Important Notes & Potential Gaps:**
 
-*   **Profile-Specific Biomarker Retrieval:** The primary way to get biomarkers for a specific user profile (e.g., for history or visualization) seems to be missing a dedicated endpoint like `/api/profiles/{profile_id}/biomarkers`. Currently, one might filter `/api/biomarkers` or `/api/pdf/{file_id}/biomarkers` by `profile_id`, but a direct profile endpoint would be cleaner.
-*   **Profile-Specific Biomarker Retrieval:** The primary way to get biomarkers for a specific user profile (e.g., for history or visualization) seems to be missing a dedicated endpoint like `/api/profiles/{profile_id}/biomarkers`. Currently, one might filter `/api/biomarkers` or `/api/pdf/{file_id}/biomarkers` by `profile_id`, but a direct profile endpoint would be cleaner. *(Self-correction: This might be implicitly handled by filtering `/api/biomarkers`)*.
-*   **PDF ID vs File ID:** The profile matching/association endpoints (`/match`, `/associate`) seem to use `pdf_id` in their request schemas, but the PDF upload endpoint returns a `file_id` (which is the file hash). This needs clarification or alignment. It's likely they should consistently use the `file_id` (hash).
-*   **UUID Handling:** Profile routes seem to accept UUIDs as strings in path parameters, but internally convert/use them as UUID objects.
-*   **Health Score Calculation Details:** The exact calculation logic and influencing factors determination are handled within the backend service and not detailed in the API response structure itself beyond the schema definition.
+*   **Profile-Specific Biomarker Retrieval:** The primary way to get biomarkers for a specific user profile (e.g., for history or visualization) is by using the `profile_id` query parameter on the `/api/biomarkers` endpoint. While functional, a dedicated `/api/profiles/{profile_id}/biomarkers` endpoint could be considered for clarity in the future.
+*   **PDF ID vs File ID:** The profile matching/association endpoints (`/match`, `/associate`) use `file_id` (the file hash) in their request schemas, aligning with the `file_id` returned by the PDF upload endpoint.
+*   **UUID Handling:** Profile routes accept UUIDs as strings in path parameters and internally convert/use them as UUID objects.
+*   **Health Score Calculation Details:** The exact calculation logic and influencing factors determination are handled within the backend service (`health_score_service.py`) and not detailed in the API response structure itself beyond the `HealthScoreResponse` schema definition.

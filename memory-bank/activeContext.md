@@ -68,12 +68,12 @@ Significant recent developments include:
     *   Removed rendering of old `Dashboard` component from `HomePage.tsx`.
     *   Implemented basic structure, profile context integration, favorite biomarker display (with values/trends), last report date display, collapsible AI summary, and action buttons in `DashboardPage.tsx`.
     *   Replaced Health Score component integration with a placeholder due to component file access issues.
-    *   **Issue**: User reports still seeing the old summary page visually despite these code changes and cache clearing, suggesting a potential build, cache, or rendering conflict.
+    *   **Blocker**: User reports still seeing the old summary page visually despite these code changes and cache clearing, suggesting a potential build, cache, or rendering conflict.
 6.  **Visualization Page Fixes & Redesign**:
     *   Fixed crash in `BiomarkerTable` when expanding rows (missing `Grid` import).
     *   Resolved multiple TypeScript errors in `BiomarkerTable` related to incorrect prop usage (`description`, `source_name`), event handler signatures, and sorting logic.
     *   Corrected props passed to `ExplanationModal` in `VisualizationPage`.
-    *   Redesigned the "Smart Summary" tab in `VisualizationPage` for a more cohesive, modern aesthetic inspired by the Dashboard page (muted colors, outlined cards, refined typography and layout).
+    *   **Completed redesign of the "Smart Summary" tab** in `VisualizationPage` for a more cohesive, modern aesthetic inspired by the Dashboard page (muted colors, outlined cards, refined typography and layout).
 
 ## Next Steps
 
@@ -107,8 +107,9 @@ The immediate priorities are:
     *   Conduct end-to-end testing of user flows involving profile switching, PDF uploads per profile, and favorite management.
     *   Perform usability testing focusing on the new personalization features.
     *   Validate accuracy of data display when switching between profiles.
+    *   Add tests for the redesigned Visualization "Smart Summary" tab.
 7.  **Complete Dashboard Implementation**:
-    *   Resolve the issue preventing the new `DashboardPage.tsx` from rendering correctly at the `/dashboard` route.
+    *   **Resolve Blocker**: Investigate and fix the issue preventing the new `DashboardPage.tsx` from rendering correctly at the `/dashboard` route.
     *   Implement the "Category Status" overview section.
     *   Refine visual styling to match design inspirations.
     *   **Integrate Health Score**: Resolve component access issues and integrate the actual Health Score display.
@@ -197,4 +198,4 @@ The immediate priorities are:
     *   **Issue**: The new `DashboardPage.tsx` component is not rendering visually for the user at the `/dashboard` route, despite code changes. The old summary view persists.
     *   **Impact**: Blocks progress on dashboard UI refinement and feature completion.
     *   **Mitigation**: Further investigation needed (build process, routing conflicts, conditional rendering elsewhere). Caching and server restart did not resolve.
-    *   **Status**: **Blocker**.
+    *   **Status**: **Blocker**. Needs investigation (build, cache, routing, conditional rendering).

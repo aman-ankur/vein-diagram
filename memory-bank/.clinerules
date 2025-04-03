@@ -9,7 +9,8 @@
 - **API Endpoints**: Generally snake_case paths with parameters (e.g., `/api/profiles/{profile_id}/favorites`)
 - **Frontend Services**: camelCase, often ending with 'Service' (e.g., `profileService.ts`, `healthScoreService.ts`)
 - **Frontend Utils**: camelCase, often ending with 'Utils' (e.g., `favoritesUtils.ts`, `biomarkerUtils.ts`)
-- **Frontend Health Score Components**: PascalCase, often descriptive (e.g., `HealthScoreOverview.tsx`, `ScoreDisplay.tsx`, `InfluencingFactors.tsx`)
+- **Frontend Health Score Components**: PascalCase, often descriptive (e.g., `HealthScoreOverview.tsx`, `ScoreDisplay.tsx`, `InfluencingFactors.tsx`, `TrendIndicator.tsx`, `ScoreExplanation.tsx`)
+- **Frontend Dashboard Components**: PascalCase (e.g., `DashboardPage.tsx`)
 
 ### File Organization
 - Frontend components are organized by feature/purpose (e.g., `pages/ProfileManagement.tsx`, `components/FavoriteBiomarkersGrid.tsx`).
@@ -18,15 +19,15 @@
 - Frontend tests are named with `.test.tsx` suffix and often co-located or in specific test folders.
 - Utility functions are grouped by purpose (`frontend/src/utils/`).
 - API services are grouped (`frontend/src/services/`).
-- Configuration files (like `optimal_ranges.json`, `biomarker_aliases.json`) are stored in `backend/app/config/` or `backend/app/utils/`.
+- Configuration files (like `optimal_ranges.json`, `biomarker_aliases.json`) are stored in `backend/app/config/`.
 
 ### Code Style
 - TypeScript is used for all frontend code
 - Python type hints are used throughout the backend
 - React functional components with hooks are preferred.
 - FastAPI dependency injection is used for service composition.
-- TypeScript types are defined in `frontend/src/types/` (e.g., `healthScore.ts`).
-- Backend uses Pydantic schemas (`backend/app/schemas/`) for API validation and serialization (e.g., `health_score_schema.py`).
+- TypeScript types are defined in `frontend/src/types/` (e.g., `healthScore.ts`, `Profile.ts`).
+- Backend uses Pydantic schemas (`backend/app/schemas/`) for API validation and serialization (e.g., `health_score_schema.py`, `profile_schema.py`).
 
 ## Development Workflow
 
@@ -42,7 +43,7 @@
 - Specific tests exist for Profile and Favorite features (`test_profile_routes.py`, `ProfileManagement.test.tsx`).
 - Sample PDF reports (`backend/sample_reports/`) are used for testing the extraction pipeline.
 - Jest (`npm test`) is used for frontend testing.
-- Pytest (`PYTHONPATH=backend pytest backend/tests/...`) is used for backend testing. Requires setting `PYTHONPATH` to resolve `app` module imports. Tests for Health Score feature need to be added.
+- Pytest (`PYTHONPATH=backend pytest backend/tests/...`) is used for backend testing. Requires setting `PYTHONPATH` to resolve `app` module imports. Tests for Health Score feature and Visualization Smart Summary redesign need to be added.
 
 ## Critical Implementation Paths
 
@@ -90,6 +91,17 @@
 6. Backend calculates trend based on historical scores (if available - *future enhancement?*).
 7. Backend returns `HealthScoreResponse` to frontend.
 
+### Dashboard Flow
+1. User navigates to `/dashboard`.
+2. Frontend (`DashboardPage.tsx`) fetches active profile context.
+3. Frontend fetches profile favorites (`profileService.getProfileFavorites`).
+4. Frontend fetches latest biomarker values for favorites (potentially via `profileService.getProfileBiomarkers` or similar).
+5. Frontend fetches last report date (derived from biomarker data).
+6. Frontend fetches AI summary (potentially `healthSummaryService`).
+7. Frontend *attempts* to fetch Health Score (`healthScoreService.getHealthScore`) - currently placeholder.
+8. Frontend renders components: Profile info, Favorites grid, Last Report, AI Summary, Action Buttons, Category Status (placeholder), Health Score (placeholder).
+9. **Issue**: Visual rendering currently shows old summary page, not `DashboardPage.tsx`.
+
 ## Known Challenges
 
 ### PDF Extraction Complexity
@@ -112,6 +124,7 @@
 - Claude API calls need efficient management (caching insights, sequential processing helps avoid large timeouts but adds per-page latency).
 - Health Score calculation could be slow for profiles with extensive history (mitigated by optimization, caching).
 - Defining "optimal" ranges and score weighting requires careful consideration and may need user customization later.
+- Dashboard rendering issue prevents the new page from being displayed.
 
 ## User Preferences
 
@@ -140,6 +153,8 @@
 - Added **Health Score feature** for overall wellness tracking.
 - Progressing towards better mobile responsiveness.
 - **Refactored PDF processing** to use page filtering and sequential Claude calls to improve efficiency and avoid timeouts.
+- **Implemented new Dashboard page** (currently facing rendering issues).
+- **Redesigned Visualization "Smart Summary" tab**.
 
 ## Tool Usage Patterns
 
@@ -151,7 +166,7 @@
 
 ### Testing Tools
 - Jest & React Testing Library (`npm test`) for frontend tests.
-- pytest (`PYTHONPATH=backend pytest backend/tests/...`) for backend tests (needs Health Score tests). Requires `PYTHONPATH` set.
+- pytest (`PYTHONPATH=backend pytest backend/tests/...`) for backend tests (needs Health Score tests, Vis Smart Summary tests). Requires `PYTHONPATH` set.
 - VSCode testing integrations might be used.
 - Chrome DevTools for frontend debugging.
 - Backend logging (`backend/logs/`) for debugging.
