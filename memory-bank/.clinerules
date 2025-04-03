@@ -28,6 +28,10 @@
 - FastAPI dependency injection is used for service composition.
 - TypeScript types are defined in `frontend/src/types/` (e.g., `healthScore.ts`, `Profile.ts`).
 - Backend uses Pydantic schemas (`backend/app/schemas/`) for API validation and serialization (e.g., `health_score_schema.py`, `profile_schema.py`).
+- **Authentication**: Uses Supabase Auth (email/pass, Google OAuth). See `memory-bank/authentication_details.md`.
+  - Frontend state/methods managed in `frontend/src/contexts/AuthContext.tsx`.
+  - Key frontend components: `NewSignupPage.tsx`, `LoginPage.tsx`, `NewSignupForm.tsx`, `LoginForm.tsx`, `ProtectedRoute.tsx`.
+  - Backend validates Supabase JWTs via middleware (likely `backend/app/core/auth.py`).
 
 ## Development Workflow
 
