@@ -1,8 +1,9 @@
-import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../config';
 // Import the frontend types
 import { Biomarker, UploadResponse, ProcessingStatus } from '../types/pdf'; 
 import { BiomarkerExplanation, ApiError, FileMetadata, UserProfile } from '../types/api';
+import { supabase } from './supabaseClient';
 
 // Define types for RAW API responses from backend
 interface RawPDFResponse {
@@ -57,6 +58,71 @@ const api = axios.create({
     console.log('🔍 Serialized params:', serialized);
     return serialized;
   }
+});
+
+// Add auth token to requests
+api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  try {
+    // Get the current session from Supabase
+    const { data } = await supabase.auth.getSession();
+    
+    // If session exists, add the access token to Authorization header
+    if (data.session) {
+      // Get JWT token from Supabase session
+      const token = data.session.access_token;
+      
+      console.log('🔑 Found Supabase auth session, token available:', !!token);
+      
+      if (token) {
+        // Debug token structure (only in development)
+        try {
+          // Simple parsing of JWT payload without verification
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            console.log('🔍 Token payload structure:', {
+              sub: payload.sub ? 'present' : 'missing',
+              exp: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'missing',
+              aud: payload.aud || 'missing',
+              iss: payload.iss || 'missing',
+              // Don't log sensitive claims
+              claimCount: Object.keys(payload).length
+            });
+          }
+        } catch (e) {
+          console.warn('Failed to parse token for debugging:', e);
+        }
+        
+        // Set the Authorization header with the Bearer token
+        config.headers.Authorization = `Bearer ${token}`;
+        
+        // Log token length - don't log full token for security
+        console.log(`🔑 Set auth token (${token.length} chars) to request headers`);
+      } else {
+        console.warn('⚠️ No token found in Supabase session');
+      }
+    } else {
+      console.warn('⚠️ No active Supabase session found');
+    }
+    
+    // Log the headers that will be sent (without showing the full token)
+    const authHeader = config.headers.Authorization 
+      ? (typeof config.headers.Authorization === 'string' 
+         ? config.headers.Authorization.substring(0, 15) + '...' 
+         : 'non-string-type')
+      : 'none';
+      
+    console.log('🔶 Request headers:', { 
+      ...config.headers,
+      Authorization: authHeader 
+    });
+    
+  } catch (error) {
+    console.error('❌ Error getting auth token:', error);
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
 // Add request interceptor for logging and enhancement
@@ -680,5 +746,5 @@ export const deleteBiomarkerEntry = async (biomarkerEntryId: number): Promise<vo
   }
 };
 
-
+// Export the api instance as default
 export default api;
