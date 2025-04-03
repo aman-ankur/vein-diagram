@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
@@ -19,6 +19,9 @@ logger.info("Loaded environment variables from .env file")
 # Import routers
 from app.api.routes import pdf_routes, biomarker_routes, profile_routes
 
+# Import auth middleware
+from app.core.auth import get_current_user, get_optional_current_user
+
 # Create FastAPI app
 app = FastAPI(
     title="Vein Diagram API",
@@ -29,10 +32,18 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3005"],  # Include frontend development URLs
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:3001", 
+        "http://localhost:3002", 
+        "http://localhost:3005",
+        "http://localhost:5173",  # Vite default dev server
+        os.environ.get("FRONTEND_URL", "http://localhost:3000")  # Production frontend URL
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Authorization"],  # Expose Authorization header for token handling
     max_age=86400,  # Cache preflight requests for 24 hours
 )
 
@@ -41,6 +52,18 @@ app.include_router(pdf_routes.router, prefix="/api/pdf", tags=["PDF Processing"]
 app.include_router(biomarker_routes.router, prefix="/api", tags=["Biomarker Data"])
 app.include_router(profile_routes.router, prefix="/api/profiles", tags=["Profile Management"])
 
+# Authentication test endpoint
+@app.get("/api/auth/me", tags=["Authentication"])
+async def get_current_user_info(current_user = Depends(get_current_user)):
+    """
+    Test endpoint to check authentication and get current user info.
+    """
+    return {
+        "user_id": current_user.get("user_id"),
+        "email": current_user.get("email"),
+        "authenticated": True
+    }
+
 # Initialize the database at startup
 @app.on_event("startup")
 async def startup_db_client():
@@ -48,9 +71,11 @@ async def startup_db_client():
     logger.info("Checking critical environment variables:")
     anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     database_url = os.environ.get("DATABASE_URL", "")
+    supabase_jwt_secret = os.environ.get("SUPABASE_JWT_SECRET", "")
     
     logger.info(f"DATABASE_URL is {'set' if database_url else 'NOT SET'}")
     logger.info(f"ANTHROPIC_API_KEY is {'set (length: ' + str(len(anthropic_api_key)) + ')' if anthropic_api_key else 'NOT SET'}")
+    logger.info(f"SUPABASE_JWT_SECRET is {'set (length: ' + str(len(supabase_jwt_secret)) + ')' if supabase_jwt_secret else 'NOT SET'}")
     
     # Initialize the database
     init_db()

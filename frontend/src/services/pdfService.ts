@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { Profile } from '../types/Profile';
+import api from './api';
 
 const API_URL = `${API_BASE_URL}/pdf`;
+const API_PATH = '/pdf';
 
 /**
  * Upload a PDF file with optional profile ID
@@ -16,7 +18,7 @@ export const uploadPDF = async (file: File, profileId?: string): Promise<any> =>
   }
   
   try {
-    const response = await axios.post(`${API_URL}/upload`, formData, {
+    const response = await api.post(`${API_PATH}/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -33,7 +35,7 @@ export const uploadPDF = async (file: File, profileId?: string): Promise<any> =>
  */
 export const getPDFStatus = async (fileId: string): Promise<any> => {
   try {
-    const response = await axios.get(`${API_URL}/status/${fileId}`);
+    const response = await api.get(`${API_PATH}/status/${fileId}`);
     return response.data;
   } catch (error) {
     console.error(`Error getting PDF status for ${fileId}:`, error);
@@ -46,7 +48,7 @@ export const getPDFStatus = async (fileId: string): Promise<any> => {
  */
 export const getAllPDFs = async (): Promise<any> => {
   try {
-    const response = await axios.get(`${API_URL}/list`);
+    const response = await api.get(`${API_PATH}/list`);
     return response.data;
   } catch (error) {
     console.error('Error getting PDF list:', error);
@@ -59,7 +61,7 @@ export const getAllPDFs = async (): Promise<any> => {
  */
 export const deletePDF = async (fileId: string): Promise<any> => {
   try {
-    const response = await axios.delete(`${API_URL}/${fileId}`);
+    const response = await api.delete(`${API_PATH}/${fileId}`);
     return response.data;
   } catch (error) {
     console.error(`Error deleting PDF ${fileId}:`, error);
@@ -72,7 +74,7 @@ export const deletePDF = async (fileId: string): Promise<any> => {
  */
 export const extractProfileFromPDF = async (pdfId: number): Promise<Profile[]> => {
   try {
-    const response = await axios.post<Profile[]>(`${API_BASE_URL}/profiles/extract/${pdfId}`);
+    const response = await api.post<Profile[]>(`/api/profiles/extract/${pdfId}`);
     return response.data;
   } catch (error) {
     console.error(`Error extracting profile from PDF ${pdfId}:`, error);
@@ -85,7 +87,7 @@ export const extractProfileFromPDF = async (pdfId: number): Promise<Profile[]> =
  */
 export const assignPDFToProfile = async (fileId: string, profileId: string): Promise<any> => {
   try {
-    const response = await axios.put(`${API_URL}/${fileId}/profile`, { profile_id: profileId });
+    const response = await api.put(`${API_PATH}/${fileId}/profile`, { profile_id: profileId });
     return response.data;
   } catch (error) {
     console.error(`Error assigning PDF ${fileId} to profile ${profileId}:`, error);

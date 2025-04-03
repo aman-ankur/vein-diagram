@@ -8,8 +8,10 @@ import {
   ProfileMetadata
 } from '../types/Profile';
 import { API_BASE_URL } from '../config';
+import api from './api';
 
 const API_URL = `${API_BASE_URL}/api/profiles`;
+const API_PATH = '/api/profiles';
 
 /**
  * Fetch all profiles with optional search and pagination
@@ -32,7 +34,7 @@ export const getProfiles = async (
   
   try {
     // Pass the config object to axios.get
-    const response = await axios.get(API_URL, config); 
+    const response = await api.get(API_PATH, config); 
     return response.data;
   } catch (error) {
     console.error('Error fetching profiles:', error);
@@ -45,7 +47,7 @@ export const getProfiles = async (
  */
 export const addFavoriteBiomarker = async (profileId: string, biomarkerName: string): Promise<Profile> => {
   try {
-    const response = await axios.post<Profile>(`${API_URL}/${profileId}/favorites`, {
+    const response = await api.post<Profile>(`${API_PATH}/${profileId}/favorites`, {
       biomarker_name: biomarkerName,
     });
     return response.data;
@@ -62,7 +64,7 @@ export const removeFavoriteBiomarker = async (profileId: string, biomarkerName: 
   try {
     // Note: Axios delete method doesn't typically send a body, 
     // the biomarker name is part of the URL path as defined in the backend route.
-    const response = await axios.delete<Profile>(`${API_URL}/${profileId}/favorites/${encodeURIComponent(biomarkerName)}`);
+    const response = await api.delete<Profile>(`${API_PATH}/${profileId}/favorites/${encodeURIComponent(biomarkerName)}`);
     return response.data;
   } catch (error) {
     console.error(`Error removing favorite ${biomarkerName} for profile ${profileId}:`, error);
@@ -75,7 +77,7 @@ export const removeFavoriteBiomarker = async (profileId: string, biomarkerName: 
  */
 export const updateFavoriteOrder = async (profileId: string, orderedFavorites: string[]): Promise<Profile> => {
   try {
-    const response = await axios.put<Profile>(`${API_URL}/${profileId}/favorites/order`, {
+    const response = await api.put<Profile>(`${API_PATH}/${profileId}/favorites/order`, {
       ordered_favorites: orderedFavorites,
     });
     return response.data;
@@ -90,7 +92,7 @@ export const updateFavoriteOrder = async (profileId: string, orderedFavorites: s
  */
 export const getProfile = async (id: string): Promise<Profile> => {
   try {
-    const response = await axios.get<Profile>(`${API_URL}/${id}`);
+    const response = await api.get<Profile>(`${API_PATH}/${id}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching profile ${id}:`, error);
@@ -103,7 +105,7 @@ export const getProfile = async (id: string): Promise<Profile> => {
  */
 export const createProfile = async (profile: ProfileCreate): Promise<Profile> => {
   try {
-    const response = await axios.post<Profile>(`${API_URL}`, profile);
+    const response = await api.post<Profile>(API_PATH, profile);
     return response.data;
   } catch (error) {
     console.error('Error creating profile:', error);
@@ -116,7 +118,7 @@ export const createProfile = async (profile: ProfileCreate): Promise<Profile> =>
  */
 export const updateProfile = async (id: string, profile: ProfileUpdate): Promise<Profile> => {
   try {
-    const response = await axios.put<Profile>(`${API_URL}/${id}`, profile);
+    const response = await api.put<Profile>(`${API_PATH}/${id}`, profile);
     return response.data;
   } catch (error) {
     console.error(`Error updating profile ${id}:`, error);
@@ -129,7 +131,7 @@ export const updateProfile = async (id: string, profile: ProfileUpdate): Promise
  */
 export const deleteProfile = async (id: string): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/${id}`);
+    await api.delete(`${API_PATH}/${id}`);
   } catch (error) {
     console.error(`Error deleting profile ${id}:`, error);
     throw error;
@@ -141,7 +143,7 @@ export const deleteProfile = async (id: string): Promise<void> => {
  */
 export const extractProfileFromPDF = async (pdfId: number): Promise<Profile[]> => {
   try {
-    const response = await axios.post<Profile[]>(`${API_URL}/extract/${pdfId}`);
+    const response = await api.post<Profile[]>(`${API_PATH}/extract/${pdfId}`);
     return response.data;
   } catch (error) {
     console.error(`Error extracting profile from PDF ${pdfId}:`, error);
@@ -154,7 +156,7 @@ export const extractProfileFromPDF = async (pdfId: number): Promise<Profile[]> =
  */
 export const findMatchingProfiles = async (pdfId: string): Promise<ProfileMatchingResponse> => {
   try {
-    const response = await axios.post<ProfileMatchingResponse>(`${API_URL}/match`, { pdf_id: pdfId });
+    const response = await api.post<ProfileMatchingResponse>(`${API_PATH}/match`, { pdf_id: pdfId });
     return response.data;
   } catch (error) {
     console.error(`Error finding matching profiles for PDF ${pdfId}:`, error);
@@ -167,7 +169,7 @@ export const findMatchingProfiles = async (pdfId: string): Promise<ProfileMatchi
  */
 export const associatePdfWithProfile = async (pdfId: string, profileId: string): Promise<Profile> => {
   try {
-    const response = await axios.post<Profile>(`${API_URL}/associate`, {
+    const response = await api.post<Profile>(`${API_PATH}/associate`, {
       pdf_id: pdfId,
       profile_id: profileId,
       create_new_profile: false
@@ -184,7 +186,7 @@ export const associatePdfWithProfile = async (pdfId: string, profileId: string):
  */
 export const createProfileFromPdf = async (pdfId: string, metadata: ProfileMetadata): Promise<Profile> => {
   try {
-    const response = await axios.post<Profile>(`${API_URL}/associate`, {
+    const response = await api.post<Profile>(`${API_PATH}/associate`, {
       pdf_id: pdfId,
       create_new_profile: true,
       metadata_updates: metadata
@@ -201,7 +203,7 @@ export const createProfileFromPdf = async (pdfId: string, metadata: ProfileMetad
  */
 export const mergeProfiles = async (payload: { source_profile_ids: string[]; target_profile_id: string }): Promise<{ message: string }> => {
   try {
-    const response = await axios.post<{ message: string }>(`${API_URL}/merge`, payload);
+    const response = await api.post<{ message: string }>(`${API_PATH}/merge`, payload);
     return response.data;
   } catch (error) {
     console.error(`Error merging profiles:`, error);
@@ -214,10 +216,28 @@ export const mergeProfiles = async (payload: { source_profile_ids: string[]; tar
  */
 export const generateHealthSummary = async (profileId: string): Promise<Profile> => {
   try {
-    const response = await axios.post<Profile>(`${API_URL}/${profileId}/generate-summary`);
+    const response = await api.post<Profile>(`${API_PATH}/${profileId}/generate-summary`);
     return response.data;
   } catch (error) {
     console.error(`Error generating health summary for profile ${profileId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Migrate all unassigned profiles to the current authenticated user
+ */
+export const migrateProfilesToCurrentUser = async (): Promise<{ 
+  success: boolean; 
+  message: string; 
+  migrated_count: number;
+  total_profiles: number;
+}> => {
+  try {
+    const response = await api.post(`${API_PATH}/migrate`);
+    return response.data;
+  } catch (error) {
+    console.error('Error migrating profiles:', error);
     throw error;
   }
 };
