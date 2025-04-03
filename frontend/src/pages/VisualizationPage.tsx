@@ -36,6 +36,9 @@ import RefreshIcon from '@mui/icons-material/Refresh'; // Keep RefreshIcon if us
 import UpdateIcon from '@mui/icons-material/Update'; // Add UpdateIcon for the generate button
 import PsychologyIcon from '@mui/icons-material/Psychology'; // AI brain icon
 import SmartToyIcon from '@mui/icons-material/SmartToy'; // Another AI icon option
+import PersonIcon from '@mui/icons-material/Person';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 import { getBiomarkersByFileId, getAllBiomarkers, getBiomarkerExplanation, deleteBiomarkerEntry } from '../services/api'; // Added deleteBiomarkerEntry
 import { getProfiles, generateHealthSummary } from '../services/profileService'; // Import generateHealthSummary
@@ -923,49 +926,80 @@ const VisualizationPage: React.FC = () => {
   }
 
   // Handle the case where overview is shown but no profile is active (and not loading)
-  // Show dropdown instead of button
   if (!profileLoading && !activeProfile && !fileId) {
-     return (
-       <Container maxWidth="lg">
-         <Paper sx={{ p: 3, mt: 3, textAlign: 'center' }}>
-           <Typography variant="h6" gutterBottom>
-             Select a Profile
-           </Typography>
-           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-             Choose a profile below to view their biomarker visualizations.
-           </Typography>
-           {profileListLoading ? (
-             <CircularProgress />
-           ) : profileListError ? (
-             <Alert severity="error">{profileListError}</Alert>
-           ) : availableProfiles.length > 0 ? (
-             <FormControl sx={{ m: 1, minWidth: 200 }}>
-               <InputLabel id="profile-select-label">Profile</InputLabel>
-               <Select
-                 labelId="profile-select-label"
-                 id="profile-select"
-                 value="" // No value selected initially
-                 label="Profile"
-                 onChange={handleProfileSelectChange}
-               >
-                 {availableProfiles.map((profile) => (
-                   <MenuItem key={profile.id} value={profile.id}>
-                     {profile.name}
-                   </MenuItem>
-                 ))}
-               </Select>
-             </FormControl>
-           ) : (
-             <Alert severity="warning">No profiles found. Please create one first.</Alert>
-           )}
-           <Box sx={{ mt: 3 }}>
-              <Button component={Link} to="/profiles">
-                Manage Profiles
+    return (
+      <Container maxWidth="lg">
+        <Paper sx={{ p: 4, mt: 3, textAlign: 'center' }}>
+          <Typography variant="h5" gutterBottom>
+            Select a Profile to View Visualizations
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+            Choose a profile below to explore your biomarker data and health insights.
+          </Typography>
+          {profileListLoading ? (
+            <CircularProgress />
+          ) : profileListError ? (
+            <Alert severity="error">{profileListError}</Alert>
+          ) : availableProfiles.length > 0 ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <FormControl sx={{ m: 1, minWidth: 300 }}>
+                <InputLabel id="profile-select-label">Select Profile</InputLabel>
+                <Select
+                  labelId="profile-select-label"
+                  id="profile-select"
+                  value=""
+                  label="Select Profile"
+                  onChange={handleProfileSelectChange}
+                  sx={{ textAlign: 'left' }}
+                >
+                  {availableProfiles.map((profile) => (
+                    <MenuItem key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Typography variant="caption" color="text.secondary">
+                You can manage your profiles and create new ones from the Profiles page
+              </Typography>
+              <Box sx={{ mt: 2 }}>
+                <Button
+                  component={Link}
+                  to="/profiles"
+                  variant="outlined"
+                  startIcon={<PersonIcon />}
+                  sx={{ mr: 2 }}
+                >
+                  Manage Profiles
+                </Button>
+                <Button
+                  component={Link}
+                  to="/upload"
+                  variant="contained"
+                  startIcon={<CloudUploadIcon />}
+                >
+                  Upload New Data
+                </Button>
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <Alert severity="info" sx={{ maxWidth: 400 }}>
+                No profiles found. Create a profile to get started with visualizations.
+              </Alert>
+              <Button
+                component={Link}
+                to="/profiles"
+                variant="contained"
+                startIcon={<PersonAddIcon />}
+              >
+                Create Your First Profile
               </Button>
-           </Box>
-         </Paper>
-       </Container>
-     );
+            </Box>
+          )}
+        </Paper>
+      </Container>
+    );
   }
 
   // If profile is loaded but no biomarkers found (and not loading/error)
