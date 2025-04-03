@@ -110,6 +110,7 @@ const HomePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+  const [activeProfile, setActiveProfile] = useState<string | null>(null);
 
   // Check API availability and if user has uploads
   useEffect(() => {
@@ -204,7 +205,13 @@ const HomePage: React.FC = () => {
   };
   
   const handleExploreClick = () => {
-    navigate('/visualize');
+    // If no active profile, navigate to visualization with profile selection prompt
+    if (!activeProfile) {
+      navigate('/visualization');
+    } else {
+      // If profile is selected, navigate directly to visualization for that profile
+      navigate(`/visualization`);
+    }
   };
 
   return (
