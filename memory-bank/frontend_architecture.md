@@ -24,6 +24,8 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
     -   Examples: `Header.tsx`, `Footer.tsx`, `Layout.tsx`, `PDFUploader.tsx`, `BiomarkerTable.tsx`, `BiomarkerVisualization.tsx`, `FavoriteBiomarkersGrid.tsx`, `ProfileSelector.tsx`, `LoadingIndicator.tsx`, `ErrorHandler.tsx`, `HealthScoreOverview.tsx`, `ScoreDisplay.tsx`, `ScoreExplanation.tsx`, `InfluencingFactors.tsx`, `TrendIndicator.tsx`, `AddBiomarkerTile.tsx`, `AddFavoriteModal.tsx`, `ReplaceFavoriteModal.tsx`.
 -   **`pages/`**: Contains top-level components representing distinct application views/routes.
     -   Examples: `HomePage.tsx`, `UploadPage.tsx`, `VisualizationPage.tsx`, `BiomarkerHistoryPage.tsx`, `ProfileManagement.tsx`, `DashboardPage.tsx`.
+        - `VisualizationPage.tsx`: Displays detailed biomarker data (table, charts), favorite biomarkers, and the AI-generated health summary. Includes logic for profile selection, tabbed views, biomarker explanation modals, favorite management (add/remove/reorder), and health summary generation/display.
+            - **Health Summary Parsing**: Contains specific logic to parse the `health_summary` string received from the backend. It looks for section-defining emojis (💡, 📈, 👀) at the beginning of lines, ignores any potential text headers immediately following the emoji, and extracts bullet points (lines starting with •) for each section, rendering them in the correct UI structure.
 -   **`services/`**: Handles communication with the backend API.
     -   `api.ts`: Base Axios instance configuration (sets base URL, potentially headers).
     *   `pdfService.ts`: Functions for uploading PDFs, checking status.

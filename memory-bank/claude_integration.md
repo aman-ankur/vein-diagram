@@ -9,6 +9,7 @@ The Claude API is leveraged for three primary tasks:
 1.  **Biomarker Explanations**: Generating user-friendly explanations for specific biomarker results, including general information about the biomarker and context based on the user's specific value and reference range. (Handled by `app/services/llm_service.py`)
 2.  **Metadata Extraction**: Extracting structured patient and report metadata (like name, DOB, gender, patient ID, lab name, report date) from the unstructured text content of the ***initial pages*** of uploaded PDF lab reports. This aids in profile matching and data organization. (Handled by `app/services/metadata_parser.py`)
 3.  **Biomarker Extraction**: Extracting structured biomarker data (name, value, unit, range, etc.) from the text of ***relevant, filtered pages*** of uploaded PDF lab reports, processed sequentially. (Handled by `app/services/biomarker_parser.py`)
+4.  **Health Summary Generation**: Generating a structured, personalized health summary based on profile and biomarker history. (Handled by `app/services/health_summary_service.py`)
 
 ## Configuration
 
@@ -51,6 +52,20 @@ The Claude API is leveraged for three primary tasks:
     -   User Prompt: Provides the preprocessed text from the single page.
 -   **Parsing**: The service uses regex to find the JSON block in the response and `json.loads` to parse it. Includes extensive logic (`_repair_json`, `_fix_truncated_json`) to attempt fixing JSON formatting issues.
 -   **Sequential Processing**: This extraction is called sequentially for each relevant page identified by the filtering process in `pdf_service.py`.
+
+### 4. Health Summary Generation (`health_summary_service.py`)
+
+- **Goal**: Generate a structured, personalized health summary based on profile and biomarker history.
+- **Input**: User profile details (name, age, gender, favorites), formatted biomarker history (recent values, trends, full history).
+- **Structure**:
+    - System Prompt: Instructs Claude to act as an empathetic health monitoring assistant.
+    - User Prompt: Provides user info, biomarker data, and strict formatting rules.
+    - **Format Requirements**: Emphasizes exact output structure:
+        - Start each section *directly* with its emoji (💡, 📈, 👀) on a new line. NO text headers (e.g., "KEY INSIGHTS:") allowed after the emoji.
+        - Each point *within* a section starts on a new line with "• " (bullet and space).
+        - Strict adherence to `EMOJI\n• Point\n• Point\nEMOJI\n• Point...` format.
+        - No greetings or conclusions.
+- **Parsing (Frontend)**: The frontend (`VisualizationPage.tsx`) is responsible for parsing this string based on the emoji delimiters and bullet points to render the structured UI components.
 
 ## Caching (Biomarker Explanations Only)
 
