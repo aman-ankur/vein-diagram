@@ -26,6 +26,11 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
     -   Examples: `HomePage.tsx`, `UploadPage.tsx`, `VisualizationPage.tsx`, `BiomarkerHistoryPage.tsx`, `ProfileManagement.tsx`, `DashboardPage.tsx`.
         - `VisualizationPage.tsx`: Displays detailed biomarker data (table, charts), favorite biomarkers, and the AI-generated health summary. Includes logic for profile selection, tabbed views, biomarker explanation modals, favorite management (add/remove/reorder), and health summary generation/display.
             - **Health Summary Parsing**: Contains specific logic to parse the `health_summary` string received from the backend. It looks for section-defining emojis (💡, 📈, 👀) at the beginning of lines, ignores any potential text headers immediately following the emoji, and extracts bullet points (lines starting with •) for each section, rendering them in the correct UI structure.
+        - `AccountPage.tsx`: User profile and account settings page. Uses a custom Material UI implementation with styled components:
+            - **Styled Components**: Uses Material UI's `styled` API to create custom components (e.g., `StyledCard`, `GradientTypography`, `ProfileAvatar`)
+            - **Layout**: Responsive design with elegant card-based sections and proper spacing
+            - **UI Features**: User avatar with email initials, color gradients, hover effects, and smooth animations
+            - **Organization**: Distinct sections for user information and security/privacy management
 -   **`services/`**: Handles communication with the backend API.
     -   `api.ts`: Base Axios instance configuration (sets base URL, potentially headers).
     *   `pdfService.ts`: Functions for uploading PDFs, checking status.
@@ -51,6 +56,7 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 -   **Service Layer**: API interactions are encapsulated within service files (`services/`), promoting separation of concerns. Components call service functions rather than making direct API calls.
 -   **Context API for Global State**: `ProfileContext` is used to manage and provide the active profile state throughout the component tree, avoiding prop drilling for this essential global concern.
 -   **Utility Functions**: Common, reusable logic (e.g., formatting, calculations specific to biomarkers) is extracted into utility files (`utils/`). Favorite-specific utils are less relevant now.
+-   **Styled Components Pattern**: Used in parts of the application (especially `AccountPage.tsx`) to create reusable, themeable UI components with Material UI's `styled` API.
 
 ## Data Flow (Typical Page)
 
@@ -72,7 +78,10 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 ## Styling
 
 -   **Tailwind CSS**: Utility-first CSS framework is the primary method for styling. Class names are applied directly in the JSX.
--   **Material UI**: Also used for components and styling in parts of the application. This creates a mixed styling approach.
+-   **Material UI**: Also used for components and styling in parts of the application:
+    -   **Styled Components**: Used in the `AccountPage.tsx` to create custom, themeable UI components
+    -   **Theme Integration**: Material UI theme is accessed via `useTheme()` hook and used for consistent styling
+    -   **Responsive Props**: Material UI's responsive styling syntax used for adaptive layouts (e.g., `sx={{ flexDirection: { xs: 'column', md: 'row' } }}`)
 -   **Global Styles**: A base stylesheet (`styles/`) might define global resets, base styles, or custom Tailwind configurations.
 
 ### Important Styling Gotchas
@@ -82,6 +91,7 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
     -   For standalone components like login/signup pages, consider using only one styling approach consistently
     -   When working with existing components, check if they use Material UI's styling system before applying Tailwind classes
     -   For completely new UI elements that need to match the existing design system, prefer using the dominant styling approach of the parent container
+    -   For components with styling conflicts, consider the approach used in `AccountPage.tsx` which relies fully on Material UI's styling system
 
 ## Testing
 
