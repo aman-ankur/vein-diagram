@@ -7,6 +7,10 @@ from sqlalchemy.dialects.postgresql import UUID, ARRAY # Added ARRAY for potenti
 from datetime import datetime
 import uuid
 from app.db.database import Base
+import os
+
+# Determine if we're using SQLite
+is_sqlite = os.getenv("DATABASE_URL", "").startswith("sqlite")
 
 class Profile(Base):
     """
