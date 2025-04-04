@@ -1,0 +1,5 @@
+# Disallow all web crawlers from indexing the site initially.
+# This is often desired for web applications that require login.
+# You can adjust this later if specific public pages should be indexed.
+User-agent: *
+Disallow: /

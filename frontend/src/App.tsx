@@ -30,7 +30,9 @@ import {
   Science as ScienceIcon,
   Person as PersonIcon,
   Login as LoginIcon,
-  AccountCircle as AccountIcon
+  AccountCircle as AccountIcon,
+  ErrorOutline as ErrorOutlineIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -55,6 +57,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import AccountPage from './pages/AccountPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import { useAuth } from './contexts/AuthContext';
+import { logger } from './utils/logger';
 
 // Error Boundary Component
 class AppErrorBoundary extends React.Component<
@@ -71,16 +74,20 @@ class AppErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Application error:', error);
-    console.error('Component stack:', errorInfo.componentStack);
-    
-    // Additional debugging for network or API errors
+    logger.error('Application error caught by boundary', error, {
+      componentStack: errorInfo.componentStack
+    });
+
+    // Check for network or API errors
     if (error.message.includes('network') || error.message.includes('api') || error.message.includes('fetch')) {
-      console.error('Potential network or API error detected');
+      logger.warn('Network or API error detected', {
+        message: error.message,
+        type: 'network_error'
+      });
       
-      // Check API configuration
-      import('./config').then(config => {
-        console.log('Current API configuration:', {
+      // Log API configuration in development
+      import('./config/environment').then(config => {
+        logger.debug('Current API configuration', {
           apiBaseUrl: config.API_BASE_URL,
           environmentInfo: {
             isDev: import.meta.env.DEV,
@@ -106,17 +113,20 @@ class AppErrorBoundary extends React.Component<
             textAlign: 'center'
           }}
         >
-          <Typography variant="h4" color="error" gutterBottom>
+          <ErrorOutlineIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+          <Typography variant="h4" gutterBottom>
             Something went wrong
           </Typography>
-          <Typography variant="body1" gutterBottom>
-            {this.state.errorMessage || 'An unexpected error occurred'}
+          <Typography variant="body1" color="text.secondary" paragraph>
+            {this.state.errorMessage || 'An unexpected error occurred.'}
           </Typography>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={() => window.location.reload()}
-            sx={{ mt: 2 }}
+          <Button
+            variant="contained"
+            onClick={() => {
+              logger.info('User initiated app reload after error');
+              window.location.reload();
+            }}
+            startIcon={<RefreshIcon />}
           >
             Reload Application
           </Button>
