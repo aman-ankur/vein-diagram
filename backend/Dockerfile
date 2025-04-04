@@ -29,23 +29,21 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
+# Copy the application code and start script
 COPY . .
+COPY start.sh .
 
-# Create a non-root user
+# Create necessary directories and set permissions
+RUN mkdir -p /app/logs && \
+    chmod 755 /app/logs && \
+    chmod +x /app/start.sh
+
+# Create a non-root user and set ownership
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
-
-# Create and set permissions for necessary directories
-RUN mkdir -p /app/logs && \
-    chmod 755 /app/logs
-
-# Copy and set permissions for the start script
-COPY start.sh .
-RUN chmod +x start.sh
 
 # Expose the port the app runs on
 EXPOSE 8000
