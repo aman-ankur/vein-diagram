@@ -7,7 +7,7 @@ echo "Starting deployment process..."
 test_db_connection() {
     python << END
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from urllib.parse import urlparse, urlunparse
 import time
 
@@ -16,21 +16,7 @@ db_url = os.getenv("DATABASE_URL", "")
 if not db_url:
     raise Exception("DATABASE_URL not set")
 
-# Modify URL for Supabase if needed
-if 'supabase' in db_url:
-    parsed = urlparse(db_url)
-    # Only remove 'db.' from hostname if it exists, keep the original port
-    host = parsed.hostname.replace('db.', '')
-    # Reconstruct the URL maintaining the original port and query parameters
-    netloc = f"{parsed.username}:{parsed.password}@{host}:{parsed.port}"
-    db_url = urlunparse((
-        parsed.scheme,
-        netloc,
-        parsed.path,
-        parsed.params,
-        parsed.query,
-        parsed.fragment
-    ))
+print(f"Testing connection with URL: {db_url}")
 
 # Try to connect
 max_retries = 5
@@ -39,14 +25,16 @@ while retry_count < max_retries:
     try:
         engine = create_engine(db_url)
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            result = conn.execute(text("SELECT 1"))
+            result.fetchone()
         print("Database connection successful!")
         break
     except Exception as e:
         retry_count += 1
         if retry_count == max_retries:
             raise Exception(f"Failed to connect to database after {max_retries} attempts: {str(e)}")
-        print(f"Database connection attempt {retry_count} failed, retrying in 5 seconds...")
+        print(f"Database connection attempt {retry_count} failed: {str(e)}")
+        print("Retrying in 5 seconds...")
         time.sleep(5)
 END
 }
@@ -84,43 +72,45 @@ if ! python -m alembic upgrade head; then
     # Verify database schema
     python << END
 import sys
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from app.db.database import Base
 import os
 from urllib.parse import urlparse, urlunparse
+import time
 
 # Get database URL
 db_url = os.getenv("DATABASE_URL", "")
-if 'supabase' in db_url:
-    parsed = urlparse(db_url)
-    # Only remove 'db.' from hostname if it exists, keep the original port
-    host = parsed.hostname.replace('db.', '')
-    # Reconstruct the URL maintaining the original port and query parameters
-    netloc = f"{parsed.username}:{parsed.password}@{host}:{parsed.port}"
-    db_url = urlunparse((
-        parsed.scheme,
-        netloc,
-        parsed.path,
-        parsed.params,
-        parsed.query,
-        parsed.fragment
-    ))
 
-engine = create_engine(db_url)
-inspector = inspect(engine)
+print(f"Verifying schema with URL: {db_url}")
 
-# Get all expected tables from SQLAlchemy models
-expected_tables = set(Base.metadata.tables.keys())
-actual_tables = set(inspector.get_table_names())
+try:
+    engine = create_engine(db_url)
+    
+    # Test connection first
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT 1"))
+        result.fetchone()
+    
+    inspector = inspect(engine)
 
-# Compare
-missing_tables = expected_tables - actual_tables
-if missing_tables:
-    print(f"Missing tables: {missing_tables}")
+    # Get all expected tables from SQLAlchemy models
+    expected_tables = set(Base.metadata.tables.keys())
+    actual_tables = set(inspector.get_table_names())
+
+    print(f"Expected tables: {expected_tables}")
+    print(f"Actual tables: {actual_tables}")
+
+    # Compare
+    missing_tables = expected_tables - actual_tables
+    if missing_tables:
+        print(f"Missing tables: {missing_tables}")
+        sys.exit(1)
+    else:
+        print("All expected tables exist in the database.")
+        sys.exit(0)
+except Exception as e:
+    print(f"Error during schema verification: {str(e)}")
     sys.exit(1)
-else:
-    print("All expected tables exist in the database.")
-    sys.exit(0)
 END
     
     if [ $? -eq 0 ]; then
