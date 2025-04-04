@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../config';
 import { Biomarker, UploadResponse, ProcessingStatus } from '../types/pdf'; 
 import { BiomarkerExplanation, ApiError, FileMetadata, UserProfile } from '../types/api';
 import { supabase } from './supabaseClient';
+import { logger } from '../utils/logger';
 
 // Define types for RAW API responses from backend
 interface RawPDFResponse {
@@ -61,69 +62,44 @@ const api = axios.create({
 });
 
 // Add auth token to requests
-api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  try {
-    // Get the current session from Supabase
-    const { data } = await supabase.auth.getSession();
-    
-    // If session exists, add the access token to Authorization header
-    if (data.session) {
-      // Get JWT token from Supabase session
-      const token = data.session.access_token;
+api.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    try {
+      // Get the current session from Supabase
+      const { data } = await supabase.auth.getSession();
       
-      console.log('🔑 Found Supabase auth session, token available:', !!token);
-      
-      if (token) {
-        // Debug token structure (only in development)
-        try {
-          // Simple parsing of JWT payload without verification
-          const tokenParts = token.split('.');
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            console.log('🔍 Token payload structure:', {
-              sub: payload.sub ? 'present' : 'missing',
-              exp: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'missing',
-              aud: payload.aud || 'missing',
-              iss: payload.iss || 'missing',
-              // Don't log sensitive claims
-              claimCount: Object.keys(payload).length
-            });
-          }
-        } catch (e) {
-          console.warn('Failed to parse token for debugging:', e);
+      // If session exists, add the access token to Authorization header
+      if (data.session) {
+        const token = data.session.access_token;
+        logger.logAuth('Found Supabase auth session', { hasToken: !!token });
+        
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+          logger.logAuth('Set auth token to request headers', { tokenLength: token.length });
+        } else {
+          logger.warn('No token found in Supabase session');
         }
-        
-        // Set the Authorization header with the Bearer token
-        config.headers.Authorization = `Bearer ${token}`;
-        
-        // Log token length - don't log full token for security
-        console.log(`🔑 Set auth token (${token.length} chars) to request headers`);
       } else {
-        console.warn('⚠️ No token found in Supabase session');
+        logger.warn('No active Supabase session found');
       }
-    } else {
-      console.warn('⚠️ No active Supabase session found');
-    }
-    
-    // Log the headers that will be sent (without showing the full token)
-    const authHeader = config.headers.Authorization 
-      ? (typeof config.headers.Authorization === 'string' 
-         ? config.headers.Authorization.substring(0, 15) + '...' 
-         : 'non-string-type')
-      : 'none';
       
-    console.log('🔶 Request headers:', { 
-      ...config.headers,
-      Authorization: authHeader 
-    });
-    
-  } catch (error) {
-    console.error('❌ Error getting auth token:', error);
+      // Log the request details
+      logger.logAPIRequest(
+        config.method?.toUpperCase() || 'UNKNOWN',
+        config.url || 'UNKNOWN',
+        config.data
+      );
+      
+    } catch (error) {
+      logger.error('Error getting auth token', error);
+    }
+    return config;
+  },
+  (error) => {
+    logger.logAPIError('REQUEST', error.config?.url || 'UNKNOWN', error);
+    return Promise.reject(error);
   }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+);
 
 // Add request interceptor for logging and enhancement
 api.interceptors.request.use(
@@ -164,11 +140,19 @@ api.interceptors.request.use(
 // Add response interceptor for logging and error handling
 api.interceptors.response.use(
   (response) => {
-    console.log('API Response:', response.status, response.data);
+    logger.logAPIResponse(
+      response.config.method?.toUpperCase() || 'UNKNOWN',
+      response.config.url || 'UNKNOWN',
+      response.status
+    );
     return response;
   },
   async (error: AxiosError) => {
-    console.error('API Response Error:', error);
+    logger.logAPIError(
+      error.config?.method?.toUpperCase() || 'UNKNOWN',
+      error.config?.url || 'UNKNOWN',
+      error
+    );
     
     // Create standardized error object
     const apiError: ApiError = {
@@ -178,9 +162,9 @@ api.interceptors.response.use(
       isNetworkError: !error.response && error.message?.includes('Network Error')
     };
     
-    // Check if it's a network error that might benefit from a retry
+    // Log network errors that might need retry
     if (apiError.isNetworkError) {
-      console.log('Network error detected, may retry');
+      logger.warn('Network error detected, may retry');
     }
     
     return Promise.reject(apiError);
@@ -398,54 +382,23 @@ export const getBiomarkersByFileId = async (fileId: string, profile_id?: string)
   
   return withRetry(async () => {
     try {
-      // Build the URL with parameters
       let url = `/api/pdf/${fileId}/biomarkers`;
-      
-      // Always include profile_id in the parameters if provided
       const params: Record<string, string> = {};
+      
       if (profile_id) {
         params.profile_id = profile_id;
-        console.log(`🌟 Including profile_id=${profile_id} in request params`);
+        logger.debug('Including profile_id in request', { profile_id });
       }
       
-      console.log(`Making API request to ${url} with profile_id=${profile_id || 'undefined'}`);
-      // Use params object for consistency
       const response = await api.get(url, { params });
-      console.log(`API response received for ${url} with ${response.data.length} biomarkers`);
+      logger.debug('Biomarkers fetched successfully', { 
+        count: response.data.length,
+        fileId 
+      });
 
-      // Log the first biomarker to inspect its structure
-      if (response.data.length > 0) {
-        console.log('Sample biomarker data:', JSON.stringify(response.data[0], null, 2));
-      }
-      
-      // Map the backend response to the frontend Biomarker model
-      return response.data.map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        value: item.value,
-        unit: item.unit || '',
-        referenceRange: item.reference_range_text || 
-                       (item.reference_range_low !== null && item.reference_range_high !== null ? 
-                        `${item.reference_range_low}-${item.reference_range_high}` : undefined),
-        category: item.category || 'Other',
-        isAbnormal: item.is_abnormal || false,
-        fileId,
-        date: item.created_at || new Date().toISOString(),
-        // Use the report date from the PDF file if available
-        reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString(),
-        // Add profile ID for history view functionality - be flexible about where we get this from
-        profileId: item.profile_id || (item.pdf && item.pdf.profile_id) || profile_id || null,
-        // Add file name for source information in history view
-        fileName: item.pdf?.filename || null
-      }));
+      return response.data;
     } catch (error) {
-      console.error(`Failed to get biomarkers for file ${fileId}:`, error);
-      if (axios.isAxiosError(error) && error.response) {
-        throw {
-          message: error.response.data?.detail || error.response.data?.message || `Error getting biomarkers for file ${fileId}`,
-          status: error.response.status,
-        };
-      }
+      logger.error('Failed to fetch biomarkers', error, { fileId, profile_id });
       throw error;
     }
   });
