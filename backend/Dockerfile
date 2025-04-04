@@ -30,11 +30,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Ensure .dockerignore is present in the backend directory to exclude unnecessary files
 COPY . .
 
+# Create a startup script
+COPY start.sh .
+RUN chmod +x start.sh
+
 # Make port 8000 available to the world outside this container
 # This is the port Uvicorn will listen on
 EXPOSE 8000
 
-# Run uvicorn server when the container launches
-# Use 0.0.0.0 to allow connections from outside the container
-# The actual port will be provided by Render via the PORT environment variable
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}"]
+# Run the startup script when the container launches
+CMD ["./start.sh"]
