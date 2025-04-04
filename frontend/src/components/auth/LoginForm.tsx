@@ -25,7 +25,7 @@ const LoginForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loginStage, setLoginStage] = useState<'email' | 'password'>('email');
   
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -69,6 +69,25 @@ const LoginForm: React.FC = () => {
       console.error('Login error:', error);
       setErrorMessage(error.message || 'Failed to sign in');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+      
+      const { error } = await signInWithGoogle();
+      
+      if (error) {
+        throw error;
+      }
+      
+      // The redirect will be handled by Supabase automatically, no need to navigate
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      setErrorMessage(error.message || 'Failed to sign in with Google');
       setIsLoading(false);
     }
   };
@@ -308,22 +327,63 @@ const LoginForm: React.FC = () => {
               Continue with email
             </Button>
 
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontWeight: 500, textAlign: 'center' }}>
+              Or continue with
+            </Typography>
+            
             <Stack direction="row" spacing={2} sx={{ width: '100%', mb: 3 }}>
               <Button 
                 fullWidth
                 variant="outlined"
                 startIcon={
-                  <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo" height="18" width="18" />
+                  isLoading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+                      <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
+                      <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
+                      <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
+                      <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
+                    </svg>
+                  )
                 }
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
                 sx={{
                   py: 1.2,
                   borderColor: 'rgba(99, 102, 241, 0.3)',
                   color: 'white',
                   borderRadius: 2,
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backdropFilter: 'blur(4px)',
+                  fontWeight: 500,
                   '&:hover': {
                     borderColor: 'primary.main',
                     bgcolor: 'rgba(99, 102, 241, 0.1)',
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
                   },
+                  '&:active': {
+                    transform: 'translateY(0)',
+                    boxShadow: 'none',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(rgba(255,255,255,0.1), rgba(255,255,255,0))',
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease-in-out',
+                  },
+                  '&:hover::after': {
+                    opacity: 1,
+                  }
                 }}
               >
                 Google
@@ -332,28 +392,50 @@ const LoginForm: React.FC = () => {
                 fullWidth
                 variant="outlined"
                 startIcon={
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple logo" height="18" width="18" style={{ filter: 'invert(1)' }} />
+                  <svg width="18" height="22" viewBox="0 0 170 170" fill="white" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.197-2.12-9.973-3.17-14.34-3.17-4.58 0-9.492 1.05-14.746 3.17-5.262 2.13-9.501 3.24-12.742 3.35-4.929 0.21-9.842-1.96-14.746-6.52-3.13-2.73-7.045-7.41-11.735-14.04-5.032-7.08-9.169-15.29-12.41-24.65-3.471-10.11-5.211-19.9-5.211-29.378 0-10.857 2.346-20.221 7.045-28.068 3.693-6.303 8.606-11.275 14.755-14.925s12.793-5.51 19.948-5.629c3.915 0 9.049 1.211 15.429 3.591 6.362 2.388 10.447 3.599 12.238 3.599 1.339 0 5.877-1.416 13.57-4.239 7.275-2.618 13.415-3.702 18.445-3.275 13.63 1.1 23.87 6.473 30.68 16.153-12.19 7.386-18.22 17.731-18.1 31.002 0.11 10.337 3.86 18.939 11.23 25.769 3.34 3.17 7.07 5.62 11.22 7.36-0.9 2.61-1.85 5.11-2.86 7.51zM119.11 7.24c0 8.102-2.96 15.667-8.86 22.669-7.12 8.324-15.732 13.134-25.071 12.375-0.119-0.972-0.188-1.995-0.188-3.07 0-7.778 3.386-16.102 9.399-22.908 3.002-3.446 6.82-6.311 11.45-8.597 4.62-2.253 8.99-3.498 13.1-3.71 0.12 1.083 0.17 2.166 0.17 3.241z"/>
+                  </svg>
                 }
                 sx={{
                   py: 1.2,
                   borderColor: 'rgba(99, 102, 241, 0.3)',
                   color: 'white',
                   borderRadius: 2,
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backdropFilter: 'blur(4px)',
+                  fontWeight: 500,
                   '&:hover': {
                     borderColor: 'primary.main',
                     bgcolor: 'rgba(99, 102, 241, 0.1)',
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
                   },
+                  '&:active': {
+                    transform: 'translateY(0)',
+                    boxShadow: 'none',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(rgba(255,255,255,0.1), rgba(255,255,255,0))',
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease-in-out',
+                  },
+                  '&:hover::after': {
+                    opacity: 1,
+                  }
                 }}
               >
                 Apple
               </Button>
             </Stack>
-
-            <Divider sx={{ my: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                or continue with SSO
-              </Typography>
-            </Divider>
 
             <Button
               fullWidth
@@ -363,9 +445,19 @@ const LoginForm: React.FC = () => {
                 py: 1.2,
                 color: 'text.secondary',
                 borderRadius: 2,
+                backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                backdropFilter: 'blur(4px)',
+                border: '1px solid rgba(99, 102, 241, 0.1)',
+                fontWeight: 500,
                 '&:hover': {
-                  bgcolor: 'rgba(255, 255, 255, 0.05)',
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  borderColor: 'rgba(99, 102, 241, 0.2)',
+                  transform: 'translateY(-1px)',
                 },
+                '&:active': {
+                  transform: 'translateY(0)',
+                },
+                transition: 'all 0.2s ease-in-out'
               }}
             >
               Enterprise Single Sign-On

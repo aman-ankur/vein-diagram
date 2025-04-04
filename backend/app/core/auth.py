@@ -22,6 +22,9 @@ JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "your-supabase-jwt-secret")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "your-supabase-url")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "your-supabase-service-key")
 
+# Supabase uses "authenticated" as the standard audience for authenticated users
+EXPECTED_AUDIENCE = "authenticated"
+
 # Security bearer scheme for tokens
 security = HTTPBearer()
 
@@ -88,7 +91,11 @@ async def get_current_user(
                 token, 
                 JWT_SECRET, 
                 algorithms=["HS256"],
-                options={"verify_signature": True}
+                audience=EXPECTED_AUDIENCE,
+                options={
+                    "verify_signature": True,
+                    "verify_aud": True,
+                }
             )
             
             # Extract user information - Supabase uses 'sub' for user ID
@@ -220,7 +227,11 @@ def get_optional_current_user(
                 token, 
                 JWT_SECRET, 
                 algorithms=["HS256"],
-                options={"verify_signature": True}
+                audience=EXPECTED_AUDIENCE,  # Use the cleaned audience
+                options={
+                    "verify_signature": True,
+                    "verify_aud": True,
+                }
             )
             
             # Extract user information
