@@ -11,6 +11,7 @@ import {
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ReplayIcon from '@mui/icons-material/Replay';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
+import { logger } from '../utils/logger';
 
 interface ErrorHandlerProps {
   error: Error | string | null;
@@ -46,6 +47,15 @@ const ErrorHandler: React.FC<ErrorHandlerProps> = ({
     errorMessage.includes('ECONNREFUSED') ||
     errorMessage.includes('Failed to fetch');
   
+  // Log the error when the component renders
+  React.useEffect(() => {
+    if (isNetworkError) {
+      logger.warn('Network error encountered', { message: errorMessage });
+    } else {
+      logger.error('Application error', error);
+    }
+  }, [error, isNetworkError, errorMessage]);
+  
   return (
     <Alert
       severity="error"
@@ -55,7 +65,10 @@ const ErrorHandler: React.FC<ErrorHandlerProps> = ({
           <Button 
             color="inherit" 
             size="small"
-            onClick={retry}
+            onClick={() => {
+              logger.info('Retrying after error', { errorMessage });
+              retry();
+            }}
             startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <ReplayIcon />}
             disabled={isLoading}
           >
