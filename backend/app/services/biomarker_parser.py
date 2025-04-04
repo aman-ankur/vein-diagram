@@ -23,26 +23,10 @@ from app.services.biomarker_dictionary import (
     BIOMARKER_DICT
 )
 
-# Configure logging with more detailed format
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+# Get logger for this module
 logger = logging.getLogger(__name__)
 
-# Set up a file handler to also log to a file
-log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
-os.makedirs(log_dir, exist_ok=True)
-file_handler = logging.FileHandler(os.path.join(log_dir, 'biomarker_parser.log'))
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'))
-logger.addHandler(file_handler)
-
-# Set debug level to enable all logging messages
-logger.setLevel(logging.DEBUG)
-
-# Load Claude API key from environment variable
-# ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "") # Key is retrieved within the function now
+# Claude API URL
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 
 # Set this to True to save all Claude API requests and responses for debugging
