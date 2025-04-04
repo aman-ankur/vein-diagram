@@ -1,4 +1,4 @@
-# Product Requirements Document: Vein Diagram (Revised)
+# Product Requirements Document: Vein Diagram
 
 <prd>
   <problem_statement>
@@ -79,54 +79,6 @@
       10. Interactive educational visualizations explaining biomarker science
     </future_considerations>
   </features>
-
-  <constraints>
-    1. Development Timeline: MVP must launch within 6 months
-    2. Budget: Initial funding allows for a team of 5 developers for 12 months
-    3. Technical Limitations:
-       - OCR accuracy varies across different lab report formats
-       - Initial support limited to major lab providers (Quest, LabCorp)
-       - Browser compatibility requirements (Chrome, Safari, Firefox, Edge)
-       - High-quality visualizations require optimization for performance
-    4. Regulatory Considerations:
-       - HIPAA compliance required for US market
-       - GDPR compliance required for European market
-       - Cannot provide medical diagnosis or specific medical advice
-       - Clear disclaimers needed for any general improvement suggestions
-    5. Team Constraints:
-       - Need for dedicated data visualization specialist
-       - Limited expertise in machine learning for advanced features
-       - No dedicated mobile developers in initial team
-  </constraints>
-
-  <success_metrics>
-    1. User Acquisition:
-       - 5,000 registered users by end of month 3
-       - 25,000 registered users by end of month 6
-       - 100,000 registered users by end of year 1
-    
-    2. User Engagement:
-       - 70% of users upload at least 2 lab reports
-       - 50% of users return to the platform monthly
-       - Average session duration of 7+ minutes (indicating deep engagement with visualizations)
-       - 60% of users explore the correlation visualizations
-    
-    3. Technical Performance:
-       - 95% accuracy in OCR and data extraction
-       - 99.9% platform uptime
-       - Page load times under 2 seconds
-       - Visualization render time under 1 second
-    
-    4. Business Metrics:
-       - 5% conversion rate to premium subscription (if applicable)
-       - 40% reduction in customer support tickets month-over-month
-       - Net Promoter Score (NPS) of 40+
-    
-    5. User Satisfaction:
-       - 80% positive ratings for visualization quality and clarity
-       - 70% of users report better understanding of their health markers
-       - 65% of users find the correlation insights valuable
-  </success_metrics>
 
   <user_journey>
     1. Discovery & Onboarding
