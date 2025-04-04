@@ -3,7 +3,7 @@ import os
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 # Import the Base model and other models
 from app.db.database import Base
@@ -18,11 +18,22 @@ config = context.config
 # Get the database URL from environment variable with SQLite as default
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vein_diagram.db")
 
-# If using Supabase, modify the URL to use the standard PostgreSQL port
+# If using Supabase, modify the URL to maintain the pooler configuration
 if 'supabase' in DATABASE_URL:
+    # Parse the original URL
     parsed = urlparse(DATABASE_URL)
+    # Only remove 'db.' from hostname if it exists
     host = parsed.hostname.replace('db.', '')
-    DATABASE_URL = f"postgresql://{parsed.username}:{parsed.password}@{host}:5432/{parsed.path[1:]}?sslmode=require"
+    # Reconstruct the URL maintaining the original port and query parameters
+    netloc = f"{parsed.username}:{parsed.password}@{host}:{parsed.port}"
+    DATABASE_URL = urlunparse((
+        parsed.scheme,
+        netloc,
+        parsed.path,
+        parsed.params,
+        parsed.query,
+        parsed.fragment
+    ))
 
 # Determine if we're using SQLite
 is_sqlite = DATABASE_URL.startswith("sqlite")

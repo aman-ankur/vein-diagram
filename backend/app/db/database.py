@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Engine
 import os
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlunparse
 import logging
 from typing import Generator
 from fastapi import Depends
@@ -14,14 +14,22 @@ logger = logging.getLogger(__name__)
 # Get the database URL from environment variables or use a default SQLite database
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vein_diagram.db")
 
-# If using Supabase, modify the URL to use the transaction pooler
+# If using Supabase, modify the URL to maintain the pooler configuration
 if 'supabase' in DATABASE_URL:
     # Parse the original URL
     parsed = urlparse(DATABASE_URL)
-    # Remove 'db.' prefix if it exists and use transaction pooler port
+    # Only remove 'db.' from hostname if it exists
     host = parsed.hostname.replace('db.', '')
-    # Reconstruct the URL with transaction pooler settings
-    DATABASE_URL = f"postgresql://{parsed.username}:{parsed.password}@{host}:6543/{parsed.path[1:]}?sslmode=require"
+    # Reconstruct the URL maintaining the original port and query parameters
+    netloc = f"{parsed.username}:{parsed.password}@{host}:{parsed.port}"
+    DATABASE_URL = urlunparse((
+        parsed.scheme,
+        netloc,
+        parsed.path,
+        parsed.params,
+        parsed.query,
+        parsed.fragment
+    ))
 
 logger.info(f"Database type: {'SQLite' if DATABASE_URL.startswith('sqlite') else 'PostgreSQL'}")
 
