@@ -17,10 +17,11 @@ numpy==1.24.4 # Pinned numpy version compatible with pandas 2.0.1
 pandas==2.0.1
 python-dateutil==2.8.2
 pytest-asyncio==0.23.5
-psycopg2-binary==2.9.6
+psycopg2-binary==2.9.6  # PostgreSQL driver
+aiosqlite==0.19.0  # Async SQLite support
+alembic==1.13.1  # Database migrations
+python-jose==3.4.0
+PyJWT  # Added dependency for auth.py
+PyPDF2  # Added dependency for pdf_service.py
 fuzzywuzzy==0.18.0
 python-Levenshtein==0.21.1
-alembic==1.13.1 # Added for database migrations
-python-jose==3.4.0
-PyJWT # Added dependency for auth.py (provides 'import jwt')
-PyPDF2 # Added dependency for pdf_service.py

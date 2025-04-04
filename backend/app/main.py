@@ -4,7 +4,7 @@ import uvicorn
 import os
 import logging
 from dotenv import load_dotenv
-from app.db.init_db import init_db
+from app.db.database import init_db, dispose_engine
 from fastapi.responses import JSONResponse, FileResponse
 import glob
 from app.core.logging_config import setup_logging
@@ -47,9 +47,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 # Create FastAPI app
 app = FastAPI(
     title="Vein Diagram API",
-    description="API for processing blood test PDFs and generating visualizations",
-    version="0.1.0",
-    redirect_slashes=False  # Disable automatic slash redirects
+    description="API for managing lab reports and biomarker data",
+    version="1.0.0"
 )
 
 # Add request logging middleware
@@ -64,7 +63,8 @@ origins = [
     "http://localhost:3005",
     "http://localhost:5173",  # Vite default dev server
     "https://veindiagram.com", # Production domain
-    "https://www.veindiagram.com" # Production domain with www
+    "https://www.veindiagram.com", # Production domain with www
+    os.getenv("FRONTEND_URL", ""),  # Production frontend URL
 ]
 
 # Optionally add FRONTEND_URL from environment if it's set and not already in the list
@@ -103,33 +103,58 @@ async def get_current_user_info(current_user = Depends(get_current_user)):
 # Initialize the database at startup
 @app.on_event("startup")
 async def startup_db_client():
-    # Check critical environment variables
-    database_url = os.environ.get("DATABASE_URL", "")
-    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    supabase_jwt_secret = os.environ.get("SUPABASE_JWT_SECRET", "")
-    
-    if not all([database_url, anthropic_api_key, supabase_jwt_secret]):
-        logger.error("Missing critical environment variables")
-        if not database_url:
-            logger.error("DATABASE_URL is not set")
-        if not anthropic_api_key:
-            logger.error("ANTHROPIC_API_KEY is not set")
-        if not supabase_jwt_secret:
-            logger.error("SUPABASE_JWT_SECRET is not set")
-    
-    # Initialize the database
-    init_db()
-    logger.info("Database initialized")
+    """
+    Initialize database and check critical environment variables on startup.
+    """
+    try:
+        # Check critical environment variables
+        required_vars = {
+            "DATABASE_URL": os.environ.get("DATABASE_URL", ""),
+            "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", ""),
+            "SUPABASE_JWT_SECRET": os.environ.get("SUPABASE_JWT_SECRET", ""),
+            "SUPABASE_URL": os.environ.get("SUPABASE_URL", ""),
+            "SUPABASE_SERVICE_KEY": os.environ.get("SUPABASE_SERVICE_KEY", "")
+        }
+
+        missing_vars = [var for var, value in required_vars.items() if not value]
+        
+        if missing_vars:
+            logger.error("Missing critical environment variables: %s", ", ".join(missing_vars))
+            raise ValueError(f"Missing critical environment variables: {', '.join(missing_vars)}")
+        
+        # Initialize the database
+        init_db()
+        logger.info("Database initialized successfully")
+        
+    except Exception as e:
+        logger.error("Failed to initialize application: %s", str(e))
+        raise
 
 # Root endpoint
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Vein Diagram API"}
+    """
+    Root endpoint with API information.
+    """
+    return {
+        "name": "Vein Diagram API",
+        "version": "1.0.0",
+        "description": "API for managing lab reports and biomarker data",
+        "docs_url": "/docs",
+        "redoc_url": "/redoc"
+    }
 
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """
+    Health check endpoint to verify API is running.
+    """
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "database": "connected"
+    }
 
 # Debug endpoints for developers
 @app.get("/debug/logs", tags=["Debug"])
@@ -175,6 +200,18 @@ async def get_claude_response(filename: str):
         return JSONResponse(status_code=404, content={"error": f"Response file {filename} not found"})
     
     return FileResponse(file_path)
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    """
+    Clean up database connections on shutdown.
+    """
+    try:
+        dispose_engine()
+        logger.info("Database connections cleaned up successfully")
+    except Exception as e:
+        logger.error("Error during database cleanup: %s", str(e))
+        raise
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

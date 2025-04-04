@@ -1,41 +1,70 @@
-# Git files
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+vein-d/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and databases
+*.log
+logs/
+*.sqlite3
+*.db
+test.db
+vein_diagram.db
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Docker
+.docker/
+
+# Git
 .git/
 .gitignore
 
-# Python cache and compiled files
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# Virtual environment folders
-env/
-venv/
-vein-d/ # Specific to this project
-
-# Environment variables / Secrets
-.env*
-
-# IDE / Editor specific files
-.vscode/
-.idea/
-
-# Test related files/folders
-tests/
-htmlcov/
-.pytest_cache/
-*.log # Exclude log files if any are generated locally
-
-# Database files (if any local ones exist)
-*.db
-*.sqlite3
-
-# OS specific files
-.DS_Store
-Thumbs.db
-
-# Other potentially large or unnecessary files
-uploads/* # Exclude local uploads if not needed in image
-db_backups/*
-*.bak # Backup files
+# Other
+*.DS_Store
+uploads/
+temp/
+*.pdf
