@@ -7,14 +7,17 @@ from dotenv import load_dotenv
 from app.db.init_db import init_db
 from fastapi.responses import JSONResponse, FileResponse
 import glob
+from app.core.logging_config import setup_logging
+import time
+from starlette.middleware.base import BaseHTTPMiddleware
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging configuration
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
-logger.info("Loaded environment variables from .env file")
+logger.info("Environment loaded")
 
 # Import routers
 from app.api.routes import pdf_routes, biomarker_routes, profile_routes
@@ -22,12 +25,35 @@ from app.api.routes import pdf_routes, biomarker_routes, profile_routes
 # Import auth middleware
 from app.core.auth import get_current_user, get_optional_current_user
 
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        
+        # Skip logging for health check endpoints
+        if not request.url.path.endswith('/health'):
+            # Get client IP and query parameters
+            client_host = request.client.host if request.client else "unknown"
+            query_string = str(request.query_params) if request.query_params else ""
+            status_phrase = "OK" if response.status_code == 200 else response.status_code
+            
+            logger.info(
+                f'{client_host} - "{request.method} {request.url.path}{query_string} HTTP/1.1" {response.status_code} {status_phrase}'
+            )
+        
+        return response
+
 # Create FastAPI app
 app = FastAPI(
     title="Vein Diagram API",
     description="API for processing blood test PDFs and generating visualizations",
     version="0.1.0",
+    redirect_slashes=False  # Disable automatic slash redirects
 )
+
+# Add request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
 
 # Configure CORS
 app.add_middleware(
@@ -47,7 +73,7 @@ app.add_middleware(
     max_age=86400,  # Cache preflight requests for 24 hours
 )
 
-# Include routers
+# Include routers with explicit paths for both with and without trailing slash
 app.include_router(pdf_routes.router, prefix="/api/pdf", tags=["PDF Processing"])
 app.include_router(biomarker_routes.router, prefix="/api", tags=["Biomarker Data"])
 app.include_router(profile_routes.router, prefix="/api/profiles", tags=["Profile Management"])
@@ -67,19 +93,23 @@ async def get_current_user_info(current_user = Depends(get_current_user)):
 # Initialize the database at startup
 @app.on_event("startup")
 async def startup_db_client():
-    # Debug environment variables
-    logger.info("Checking critical environment variables:")
-    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    # Check critical environment variables
     database_url = os.environ.get("DATABASE_URL", "")
+    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     supabase_jwt_secret = os.environ.get("SUPABASE_JWT_SECRET", "")
     
-    logger.info(f"DATABASE_URL is {'set' if database_url else 'NOT SET'}")
-    logger.info(f"ANTHROPIC_API_KEY is {'set (length: ' + str(len(anthropic_api_key)) + ')' if anthropic_api_key else 'NOT SET'}")
-    logger.info(f"SUPABASE_JWT_SECRET is {'set (length: ' + str(len(supabase_jwt_secret)) + ')' if supabase_jwt_secret else 'NOT SET'}")
+    if not all([database_url, anthropic_api_key, supabase_jwt_secret]):
+        logger.error("Missing critical environment variables")
+        if not database_url:
+            logger.error("DATABASE_URL is not set")
+        if not anthropic_api_key:
+            logger.error("ANTHROPIC_API_KEY is not set")
+        if not supabase_jwt_secret:
+            logger.error("SUPABASE_JWT_SECRET is not set")
     
     # Initialize the database
     init_db()
-    logger.info("Database initialized at startup")
+    logger.info("Database initialized")
 
 # Root endpoint
 @app.get("/")

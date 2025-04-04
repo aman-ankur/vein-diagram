@@ -100,11 +100,12 @@ async def create_profile(
         logger.error(f"Error creating profile: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+@router.get("", response_model=ProfileList)
 @router.get("/", response_model=ProfileList)
 async def get_profiles(
-    skip: int = 0,
-    limit: int = 100,
-    search: Optional[str] = None,
+    skip: int = Query(0, description="Number of profiles to skip"),
+    limit: int = Query(100, description="Maximum number of profiles to return"),
+    search: Optional[str] = Query(None, description="Search term for profile name or patient ID"),
     db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -115,9 +116,9 @@ async def get_profiles(
     try:
         # Get user_id from authentication
         user_id = current_user.get("user_id")
-        logger.info(f"Fetching profiles for user_id: {user_id}")
+        logger.info(f"GET /profiles with skip={skip}, limit={limit}, search={search}, user_id={user_id}")
         
-        # Base query - Select only known/stable columns explicitly
+        # Base query
         query = db.query(
             Profile.id,
             Profile.name,
@@ -128,32 +129,22 @@ async def get_profiles(
             Profile.last_modified,
             Profile.favorite_biomarkers,
             Profile.user_id
-        ).filter(Profile.user_id == user_id)  # Filter by user_id
+        ).filter(Profile.user_id == user_id)
 
-        # Apply search filter if provided (filtering on columns we selected)
         if search:
             search_term = f"%{search}%"
             query = query.filter(Profile.name.ilike(search_term) | Profile.patient_id.ilike(search_term))
 
-        # Calculate Total Count Separately
-        count_query = db.query(func.count(Profile.id)).filter(Profile.user_id == user_id)
-        if search:
-            count_query = count_query.filter(Profile.name.ilike(search_term) | Profile.patient_id.ilike(search_term))
-        total = count_query.scalar()
-        
-        logger.info(f"Found {total} total profiles for user_id: {user_id}")
-
-        # Apply pagination and select columns
+        total = query.count()
         profile_tuples = query.offset(skip).limit(limit).all()
-        logger.info(f"Retrieved {len(profile_tuples)} profiles after pagination")
+        logger.info(f"Found {total} total profiles, returning {len(profile_tuples)} after pagination")
 
-        # Prepare response with counts for each profile
+        # Prepare response
         profile_responses = []
         for p_id, p_name, p_dob, p_gender, p_patient_id, p_created_at, p_last_modified, p_favs, p_user_id in profile_tuples:
             biomarker_count = db.query(func.count(Biomarker.id)).filter(Biomarker.profile_id == p_id).scalar()
             pdf_count = db.query(func.count(PDF.id)).filter(PDF.profile_id == p_id).scalar()
 
-            # Manually construct the response dictionary from the tuple
             profile_data = {
                 "id": p_id,
                 "name": p_name,
@@ -169,7 +160,6 @@ async def get_profiles(
                 "summary_last_updated": None,
                 "user_id": p_user_id
             }
-            # Validate data against the schema before appending
             response_item = ProfileResponse(**profile_data)
             profile_responses.append(response_item)
         
@@ -308,16 +298,13 @@ async def delete_profile(
     Only allows deleting profiles owned by the authenticated user.
     """
     profile_id = profile_id.strip()
-    logger.info(f"DELETE endpoint called for profile ID: '{profile_id}'")
     user_id = current_user.get("user_id")
     
     try:
         # Convert string to UUID
         try:
             profile_id_uuid = UUID(profile_id)
-            logger.info(f"Converted input to UUID: {profile_id_uuid}")
         except ValueError as e:
-            logger.error(f"Invalid UUID format: '{profile_id}'")
             raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {str(e)}")
         
         # Find the profile with user_id filter
@@ -327,32 +314,19 @@ async def delete_profile(
         ).first()
         
         if not db_profile:
-            logger.warning(f"Profile with ID '{profile_id}' not found or not owned by the current user")
             raise HTTPException(status_code=404, detail="Profile not found")
-        
-        logger.info(f"Found profile to delete: {db_profile.name} (ID: {db_profile.id})")
         
         # Unlink biomarkers and PDFs
         biomarker_count = db.query(Biomarker).filter(Biomarker.profile_id == db_profile.id).count()
         pdf_count = db.query(PDF).filter(PDF.profile_id == db_profile.id).count()
         
-        logger.info(f"Unlinking {biomarker_count} biomarkers and {pdf_count} PDFs")
-        
         db.query(Biomarker).filter(Biomarker.profile_id == db_profile.id).update({"profile_id": None})
         db.query(PDF).filter(PDF.profile_id == db_profile.id).update({"profile_id": None})
         
-        # Store profile ID for verification
-        profile_id_to_check = db_profile.id
-        
         # Delete the profile
-        logger.info(f"Executing db.delete on profile {db_profile.id}")
         db.delete(db_profile)
-        
-        # Commit the transaction
-        logger.info("Committing transaction...")
         db.commit()
         
-        logger.info(f"Successfully completed delete operation for profile {profile_id}")
         return None
         
     except HTTPException:
@@ -360,7 +334,6 @@ async def delete_profile(
     except Exception as e:
         db.rollback()
         logger.error(f"Error deleting profile {profile_id}: {str(e)}")
-        logger.exception("Full exception details:")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post("/extract/{pdf_id}", response_model=List[ProfileResponse])

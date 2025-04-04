@@ -17,12 +17,7 @@ import threading
 import time
 from app.services.biomarker_parser import _preprocess_text_for_claude, _repair_json # Re-use preprocessing and repair
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+# Get logger for this module
 logger = logging.getLogger(__name__)
 
 # Set up a file handler

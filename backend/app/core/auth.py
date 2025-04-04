@@ -52,29 +52,15 @@ async def get_current_user(
     """
     try:
         token = credentials.credentials
-        logger.info(f"Processing token auth, token length: {len(token)}")
         
         # Handle development mode with a default token
         if JWT_SECRET == "your-supabase-jwt-secret":
             logger.warning("Using development mode JWT validation - INSECURE")
-            
-            # Try to decode without verification to at least get the structure
             try:
-                # Decode without verification for development
-                payload = jwt.decode(
-                    token, 
-                    options={"verify_signature": False}
-                )
-                
-                logger.info(f"Decoded token payload: {payload}")
-                
-                # Get the user_id from Supabase-specific claims
-                # Supabase tokens have 'sub' as user ID
+                payload = jwt.decode(token, options={"verify_signature": False})
                 user_id = payload.get("sub")
-                
                 if not user_id:
                     raise AuthError("Missing user identifier in token")
-                
                 return {
                     "user_id": user_id,
                     "email": payload.get("email"),
@@ -86,7 +72,6 @@ async def get_current_user(
         
         # Production mode with proper verification
         try:
-            # Decode and verify the token
             payload = jwt.decode(
                 token, 
                 JWT_SECRET, 
@@ -98,19 +83,14 @@ async def get_current_user(
                 }
             )
             
-            # Extract user information - Supabase uses 'sub' for user ID
             user_id = payload.get("sub")
             exp = payload.get("exp")
             
-            # Check for token expiration
             if exp is None or datetime.utcnow() > datetime.utcfromtimestamp(exp):
                 raise AuthError("Token has expired")
             
-            # Check for required claims
             if user_id is None:
                 raise AuthError("Invalid token payload: missing user ID")
-                
-            logger.info(f"Successfully authenticated user: {user_id}")
             
             return {
                 "user_id": user_id,
@@ -121,19 +101,12 @@ async def get_current_user(
         except PyJWTError as e:
             logger.error(f"JWT verification error: {str(e)}")
             
-            # Try fallback JWT verification with different algorithms
             try:
-                logger.info("Attempting fallback JWT verification...")
-                # Try with RS256 (commonly used by Supabase)
                 payload = jwt.decode(
                     token,
-                    options={"verify_signature": False},  # Skip verification as fallback
+                    options={"verify_signature": False},
                 )
                 
-                # Log what we found but with caution
-                logger.info(f"Fallback decode successful, found payload structure: {list(payload.keys())}")
-                
-                # Extract user ID if present
                 user_id = payload.get("sub")
                 if not user_id:
                     raise AuthError("Missing user identifier in token")
@@ -142,10 +115,10 @@ async def get_current_user(
                 return {
                     "user_id": user_id,
                     "email": payload.get("email"),
-                    "role": "user"  # Default role for unverified tokens
+                    "role": "user"
                 }
             except Exception as fallback_err:
-                logger.error(f"Fallback JWT decoding also failed: {str(fallback_err)}")
+                logger.error(f"Fallback JWT decoding failed: {str(fallback_err)}")
                 raise AuthError(f"Invalid authentication token: {str(e)}")
     
     except PyJWTError as e:
@@ -189,66 +162,42 @@ def get_optional_current_user(
         return None
     
     token = auth_header.replace("Bearer ", "")
-    logger.debug(f"Optional auth token received, length: {len(token)}")
     
     try:
-        # Use the same approach as get_current_user but don't raise exceptions
-        # Handle development mode with a default token
         if JWT_SECRET == "your-supabase-jwt-secret":
-            logger.warning("Using development mode JWT validation for optional auth - INSECURE")
-            
             try:
-                # Decode without verification for development
-                payload = jwt.decode(
-                    token, 
-                    options={"verify_signature": False}
-                )
-                
-                # Get the user_id from Supabase-specific claims
+                payload = jwt.decode(token, options={"verify_signature": False})
                 user_id = payload.get("sub")
-                
                 if not user_id:
-                    logger.warning("Missing user identifier in optional auth token")
                     return None
-                
                 return {
                     "user_id": user_id,
                     "email": payload.get("email"),
-                    "role": "user"  # Default role in dev mode
+                    "role": "user"
                 }
-            except Exception as e:
-                logger.warning(f"Failed to decode optional auth token: {str(e)}")
+            except Exception:
                 return None
         
-        # Production mode
         try:
-            # Decode and verify the token
             payload = jwt.decode(
                 token, 
                 JWT_SECRET, 
                 algorithms=["HS256"],
-                audience=EXPECTED_AUDIENCE,  # Use the cleaned audience
+                audience=EXPECTED_AUDIENCE,
                 options={
                     "verify_signature": True,
                     "verify_aud": True,
                 }
             )
             
-            # Extract user information
             user_id = payload.get("sub")
             exp = payload.get("exp")
             
-            # Check for token expiration
             if exp is None or datetime.utcnow() > datetime.utcfromtimestamp(exp):
-                logger.debug("Optional auth token has expired")
                 return None
             
-            # Check for required claims
             if user_id is None:
-                logger.debug("Invalid optional auth token payload: missing user ID")
                 return None
-                
-            logger.debug(f"Successfully authenticated optional user: {user_id}")
             
             return {
                 "user_id": user_id,
@@ -256,19 +205,12 @@ def get_optional_current_user(
                 "role": payload.get("role", "user"),
                 "exp": exp
             }
-        except PyJWTError as e:
-            # Try fallback with decode only
+        except PyJWTError:
             try:
-                payload = jwt.decode(
-                    token,
-                    options={"verify_signature": False}
-                )
-                
+                payload = jwt.decode(token, options={"verify_signature": False})
                 user_id = payload.get("sub")
                 if not user_id:
                     return None
-                
-                logger.warning(f"Using UNVERIFIED optional token for user: {user_id}")
                 return {
                     "user_id": user_id,
                     "email": payload.get("email"),
@@ -298,7 +240,6 @@ def requires_auth(scopes: List[str] = None):
         if not scopes:
             return user
             
-        # Check if user has required scopes
         user_scopes = user.get("scopes", [])
         for scope in scopes:
             if scope not in user_scopes:

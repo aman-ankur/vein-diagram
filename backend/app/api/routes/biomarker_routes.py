@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timedelta
 import uuid
 from uuid import UUID
+import logging
 
 from app.db.session import get_db
 from app.models.biomarker_model import Biomarker, BiomarkerDictionary
@@ -18,6 +19,7 @@ from app.services.llm_service import explain_biomarker, ExplanationCache
 from app.core.auth import get_current_user, get_optional_current_user
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 # Initialize the explanation cache
 explanation_cache = ExplanationCache()
 
@@ -122,33 +124,20 @@ def get_all_biomarkers(
 ):
     """
     Get all biomarkers with optional filtering.
-    
-    Args:
-        category: Optional category to filter by
-        profile_id: Optional profile ID to filter by
-        limit: Maximum number of results to return
-        offset: Offset for pagination
-        db: Database session
-        
-    Returns:
-        List of biomarkers
     """
     # Log the request parameters
-    print(f"GET /biomarkers with category={category}, profile_id={profile_id}, limit={limit}, offset={offset}")
+    logger.info(f"GET /biomarkers with category={category}, profile_id={profile_id}, limit={limit}, offset={offset}")
     
     # Start with a base query and eager load PDF relationship
     query = db.query(Biomarker).options(joinedload(Biomarker.pdf))
     
     # Apply category filter if provided
     if category:
-        print(f"Filtering biomarkers by category={category}")
         query = query.filter(Biomarker.category == category)
     
     # Apply profile filter if provided
     if profile_id:
-        print(f"Filtering biomarkers by profile_id={profile_id}")
         try:
-            # Convert string to UUID
             profile_uuid = UUID(profile_id)
             query = query.filter(Biomarker.profile_id == profile_uuid)
         except ValueError:
@@ -159,48 +148,10 @@ def get_all_biomarkers(
     
     # Execute the query
     biomarkers = query.all()
-    print(f"Found {len(biomarkers)} biomarkers" + 
-          (f" for category={category}" if category else "") + 
-          (f" and profile_id={profile_id}" if profile_id else ""))
+    logger.info(f"Found {len(biomarkers)} biomarkers")
     
-    # Process the biomarker objects to properly handle PDF relationship
-    result = []
-    for biomarker in biomarkers:
-        # Create a dictionary for the biomarker
-        biomarker_dict = {
-            "id": biomarker.id,
-            "pdf_id": biomarker.pdf_id,
-            "name": biomarker.name,
-            "original_name": biomarker.original_name,
-            "original_value": biomarker.original_value,
-            "original_unit": biomarker.original_unit,
-            "value": biomarker.value,
-            "unit": biomarker.unit,
-            "reference_range_low": biomarker.reference_range_low,
-            "reference_range_high": biomarker.reference_range_high,
-            "reference_range_text": biomarker.reference_range_text,
-            "category": biomarker.category,
-            "is_abnormal": biomarker.is_abnormal,
-            "notes": biomarker.notes,
-            "extracted_date": biomarker.extracted_date,
-            "validated": biomarker.validated,
-            "validated_by": biomarker.validated_by,
-            "validated_date": biomarker.validated_date,
-            "pdf": None
-        }
-        
-        # If pdf relationship is loaded, add it to the result
-        if biomarker.pdf:
-            biomarker_dict["pdf"] = {
-                "file_id": biomarker.pdf.file_id,
-                "filename": biomarker.pdf.filename,
-                "report_date": biomarker.pdf.report_date
-            }
-        
-        result.append(biomarker_dict)
-    
-    # Return the processed results
-    return result
+    # Process and return the results
+    return [BiomarkerResponse.from_orm(b) for b in biomarkers]
 
 @router.get("/biomarkers/categories", response_model=List[str])
 def get_biomarker_categories(db: Session = Depends(get_db)):

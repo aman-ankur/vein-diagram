@@ -14,7 +14,7 @@ import pdfplumber
 import pandas as pd
 import re
 import dateutil.parser
-import asyncio # Add asyncio import
+import asyncio
 
 from app.services.biomarker_parser import (
     extract_biomarkers_with_claude,
@@ -27,19 +27,8 @@ from app.models.pdf_model import PDF  # Import the PDF model class
 from app.db.database import SessionLocal  # Import SessionLocal for error handling
 from app.services.health_summary_service import generate_and_update_health_summary # Import the new service function
 
-# Configure logging with more detailed format
-logging.basicConfig(level=logging.INFO)
+# Get logger for this module
 logger = logging.getLogger(__name__)
-
-# Set up a file handler to also log to a file
-log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
-os.makedirs(log_dir, exist_ok=True)
-file_handler = logging.FileHandler(os.path.join(log_dir, 'pdf_service.log'))
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'))
-logger.addHandler(file_handler)
-
-# Maximum number of pages to extract from PDFs (Commented out to process all pages)
-# MAX_PAGES = 5
 
 # --- Helper Functions for Page Filtering (Phase 2) ---
 
