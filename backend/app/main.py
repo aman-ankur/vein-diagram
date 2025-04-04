@@ -48,7 +48,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app = FastAPI(
     title="Vein Diagram API",
     description="API for managing lab reports and biomarker data",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs" if os.getenv("ENVIRONMENT") != "production" else None,
+    redoc_url="/redoc" if os.getenv("ENVIRONMENT") != "production" else None
 )
 
 # Add request logging middleware
@@ -67,11 +69,8 @@ origins = [
     os.getenv("FRONTEND_URL", ""),  # Production frontend URL
 ]
 
-# Optionally add FRONTEND_URL from environment if it's set and not already in the list
-# This provides flexibility but explicit listing is generally safer for production.
-# frontend_url_env = os.environ.get("FRONTEND_URL")
-# if frontend_url_env and frontend_url_env not in origins:
-#     origins.append(frontend_url_env)
+# Remove any empty strings from origins
+origins = [origin for origin in origins if origin]
 
 app.add_middleware(
     CORSMiddleware,
@@ -140,8 +139,8 @@ async def root():
         "name": "Vein Diagram API",
         "version": "1.0.0",
         "description": "API for managing lab reports and biomarker data",
-        "docs_url": "/docs",
-        "redoc_url": "/redoc"
+        "docs_url": "/docs" if os.getenv("ENVIRONMENT") != "production" else None,
+        "redoc_url": "/redoc" if os.getenv("ENVIRONMENT") != "production" else None
     }
 
 # Health check endpoint
@@ -149,12 +148,22 @@ async def root():
 async def health_check():
     """
     Health check endpoint to verify API is running.
+    Returns detailed health information in non-production environments.
     """
-    return {
+    health_info = {
         "status": "healthy",
         "version": "1.0.0",
-        "database": "connected"
     }
+    
+    # Add more detailed information for non-production environments
+    if os.getenv("ENVIRONMENT") != "production":
+        health_info.update({
+            "database": "connected",
+            "environment": os.getenv("ENVIRONMENT", "development"),
+            "debug_mode": os.getenv("DEBUG", "false").lower() == "true"
+        })
+    
+    return health_info
 
 # Debug endpoints for developers
 @app.get("/debug/logs", tags=["Debug"])
