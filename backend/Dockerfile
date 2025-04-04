@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
     poppler-utils \
     build-essential \
     libpq-dev \
+    iputils-ping \
+    curl \
+    dnsutils \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
