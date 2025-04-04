@@ -56,16 +56,26 @@ app = FastAPI(
 app.add_middleware(RequestLoggingMiddleware)
 
 # Configure CORS
+# Define allowed origins for development and production
+origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:3005",
+    "http://localhost:5173",  # Vite default dev server
+    "https://veindiagram.com", # Production domain
+    "https://www.veindiagram.com" # Production domain with www
+]
+
+# Optionally add FRONTEND_URL from environment if it's set and not already in the list
+# This provides flexibility but explicit listing is generally safer for production.
+# frontend_url_env = os.environ.get("FRONTEND_URL")
+# if frontend_url_env and frontend_url_env not in origins:
+#     origins.append(frontend_url_env)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", 
-        "http://localhost:3001", 
-        "http://localhost:3002", 
-        "http://localhost:3005",
-        "http://localhost:5173",  # Vite default dev server
-        os.environ.get("FRONTEND_URL", "http://localhost:3000")  # Production frontend URL
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -167,4 +177,4 @@ async def get_claude_response(filename: str):
     return FileResponse(file_path)
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

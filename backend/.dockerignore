@@ -1,0 +1,41 @@
+# Git files
+.git/
+.gitignore
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment folders
+env/
+venv/
+vein-d/ # Specific to this project
+
+# Environment variables / Secrets
+.env*
+
+# IDE / Editor specific files
+.vscode/
+.idea/
+
+# Test related files/folders
+tests/
+htmlcov/
+.pytest_cache/
+*.log # Exclude log files if any are generated locally
+
+# Database files (if any local ones exist)
+*.db
+*.sqlite3
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Other potentially large or unnecessary files
+uploads/* # Exclude local uploads if not needed in image
+db_backups/*
+*.bak # Backup files
