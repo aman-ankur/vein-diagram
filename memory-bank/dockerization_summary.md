@@ -1,43 +1,59 @@
 # Vein Diagram: Backend Dockerization Summary
 
-This document summarizes the steps taken to containerize the FastAPI backend application using Docker and the subsequent troubleshooting process.
+This document summarizes the containerization process for the FastAPI backend application.
 
-## 1. Initial Dockerfile Setup (`backend/Dockerfile`)
+## 1. Dockerfile Configuration
 
 -   Base Image: `python:3.9-slim`
--   Working Directory: `/app`
--   System Dependencies Installed (`apt-get`):
-    -   `tesseract-ocr` (for OCR)
-    -   `poppler-utils` (for `pdf2image`)
-    -   `build-essential` (for potential C extensions during pip install)
-    -   `libpq-dev` (for `psycopg2` PostgreSQL driver)
--   `.dockerignore`: Created in `backend/` to exclude `venv`, `__pycache__`, logs, etc.
--   Python Dependencies: Copied `requirements.txt` and installed using `pip install --no-cache-dir -r requirements.txt`.
--   Code Copy: Copied the rest of the application code (`COPY . .`).
--   Port Exposure: Exposed port `8000`.
--   Runtime Command (`CMD`): `["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`
+-   Key Dependencies:
+    -   `tesseract-ocr` (OCR functionality)
+    -   `poppler-utils` (PDF processing)
+    -   `libpq-dev` (PostgreSQL driver)
+-   Port: `8000`
+-   Runtime: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
 
-## 2. Dependency Resolution
+## 2. Key Dependency Resolutions
 
--   **Missing Packages**: Added `PyPDF2` and `PyJWT` to `requirements.txt` to fix `ModuleNotFoundError` during container startup.
--   **Compatibility**: Pinned `numpy==1.24.4` in `requirements.txt` to resolve version conflicts with `pandas==2.0.1`.
+-   Added missing `PyPDF2` and `PyJWT` packages
+-   Pinned `numpy==1.24.4` to resolve conflicts with `pandas==2.0.1`
+-   Modified `database.py` to conditionally use SQLite-specific parameters only when needed
 
-## 3. Database Connection Configuration
+## 3. Supabase Connection Issue & Solution
 
--   **SQLite vs PostgreSQL**: Modified `backend/app/db/database.py` to conditionally add `connect_args={"check_same_thread": False}` to the SQLAlchemy `create_engine` call *only* if the `DATABASE_URL` starts with `sqlite`. This fixed a `psycopg2.ProgrammingError: invalid connection option "check_same_thread"` when using the PostgreSQL connection string for Supabase.
+### Issue Identified
+Docker containers by default use IPv4, while Supabase's direct database connection requires IPv6 connectivity, resulting in "Network unreachable" errors.
 
-## 4. Network Connectivity Troubleshooting (Container -> Supabase)
+### Available Connection Options
+Supabase provides three connection methods:
+1. **Direct Connection**: Not IPv4 compatible
+2. **Transaction Pooler**: IPv4 compatible, ideal for stateless applications
+3. **Session Pooler**: IPv4 compatible, alternative to Direct Connection
 
-After fixing the initial dependency and database configuration errors, the container failed to start when using the Supabase `DATABASE_URL`, citing network issues.
+### Solution
+Used the Transaction Pooler connection format with IPv4 support:
 
--   **Error**: `sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "db.qbhopetkwddrqqlsucqi.supabase.co" (...) port 5432 failed: Network is unreachable`
--   **Diagnostics Added**: Modified `Dockerfile` to include `iputils-ping`, `curl`, and `dnsutils` via `apt-get`. Rebuilt the image multiple times.
--   **Connectivity Tests**:
-    -   `ping 8.8.8.8`: **Success**. Confirmed general internet access from the container.
-    -   `ping db.qbhopetkwddrqqlsucqi.supabase.co`: **Failure** ("Network is unreachable"). Container could not reach the Supabase host by name.
-    -   `curl -v https://db.qbhopetkwddrqqlsucqi.supabase.co`: **Failure**. Resolved hostname to IPv6 address but failed with "Network is unreachable".
-    -   `curl -4 -v https://db.qbhopetkwddrqqlsucqi.supabase.co`: **Failure**. Failed with "Could not resolve host", indicating an issue resolving the A (IPv4) record.
--   **DNS Investigation**:
-    -   `cat /etc/resolv.conf`: Showed the container using Docker's internal DNS server (`192.168.65.7`).
-    -   `docker run --dns 8.8.8.8 ...`: Attempted to force Google's public DNS. Still resulted in the "Network is unreachable" error, connecting via IPv6.
--   **Next Step (Interrupted)**: Attempting to use `dig +short A db.qbhopetkwddrqqlsucqi.supabase.co` inside the container to get the explicit IPv4 address, with the goal of using the IP directly in the `DATABASE_URL` as a workaround for the IPv6 routing/DNS issue.
+```bash
+# Format of working DATABASE_URL (sensitive details removed)
+postgresql://postgres.[PROJECT_ID]:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require
+```
+
+### Production Configuration
+```bash
+docker run -p 8000:8000 \
+  --network=vein-diagram-net \
+  --dns 8.8.8.8 \
+  -e DATABASE_URL="postgresql://postgres.[PROJECT_ID]:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require" \
+  -e SUPABASE_JWT_SECRET="[REDACTED]" \
+  -e SUPABASE_URL="https://[PROJECT_ID].supabase.co" \
+  -e SUPABASE_SERVICE_KEY="[REDACTED]" \
+  -e ANTHROPIC_API_KEY="[REDACTED]" \
+  --name vein-diagram-backend \
+  vein-diagram-backend
+```
+
+## 4. Key Learnings
+
+1. Always check database provider documentation for different connection methods
+2. Consider network compatibility (IPv4 vs IPv6) when dockerizing applications
+3. Connection poolers provide better stability for containerized applications
+4. Use Docker Compose or Kubernetes for production to manage environment variables securely
