@@ -18,11 +18,11 @@ config = context.config
 # Get the database URL from environment variable with SQLite as default
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vein_diagram.db")
 
-# If using Supabase, modify the URL to use the transaction pooler
+# If using Supabase, modify the URL to use the standard PostgreSQL port
 if 'supabase' in DATABASE_URL:
     parsed = urlparse(DATABASE_URL)
     host = parsed.hostname.replace('db.', '')
-    DATABASE_URL = f"postgresql://{parsed.username}:{parsed.password}@{host}:6543/{parsed.path[1:]}?sslmode=require"
+    DATABASE_URL = f"postgresql://{parsed.username}:{parsed.password}@{host}:5432/{parsed.path[1:]}?sslmode=require"
 
 # Determine if we're using SQLite
 is_sqlite = DATABASE_URL.startswith("sqlite")
@@ -71,10 +71,6 @@ def run_migrations_online() -> None:
         # PostgreSQL-specific configuration
         engine_config.update({
             'sqlalchemy.url': DATABASE_URL,
-            'sqlalchemy.pool_size': '20',
-            'sqlalchemy.max_overflow': '10',
-            'sqlalchemy.pool_pre_ping': 'true',
-            'sqlalchemy.pool_recycle': '300',
             'sqlalchemy.connect_args': {
                 'connect_timeout': 30,
                 'keepalives': 1,
