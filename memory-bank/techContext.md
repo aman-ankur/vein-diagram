@@ -241,3 +241,36 @@ The application backend is successfully deployed as a Dockerized web service on 
     *   Configure logging for production (typically `stdout`/`stderr` for cloud platforms).
     *   Configure CORS correctly for frontend integration.
     *   Implement health checks (`/health` endpoint) for monitoring.
+
+## User Data Isolation
+
+### Profile Management
+Profiles are isolated by user account through the following mechanisms:
+
+1. **User-Scoped Storage Keys**:
+   ```typescript
+   // Helper to get user-specific localStorage key
+   const getProfileStorageKey = () => {
+     return user?.id ? `activeProfileId_${user.id}` : null;
+   };
+   ```
+
+2. **Backend Authorization**:
+   - Profiles are associated with user IDs in the database
+   - API routes validate that users can only access their own profiles
+   - Automatic filtering ensures users only see their authorized data
+
+3. **Context Reset on Auth Changes**:
+   ```typescript
+   // Load active profile from localStorage on mount or user change
+   useEffect(() => {
+     // Clear active profile when user changes
+     setActiveProfile(null);
+     
+     // Only try to load a profile if we have a user
+     if (!user?.id) return;
+     // ...
+   }, [user?.id]); // Re-run when user ID changes
+   ```
+
+This approach maintains strict separation between user data, ensuring security and privacy across all application features.

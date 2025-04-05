@@ -178,4 +178,51 @@ Vein Diagram implements a secure authentication system using Supabase Auth, prov
 - **Integration Tests**: Testing interaction between components and context, mocking API/Supabase calls.
 - **E2E Tests**: User journeys (signup, login, reset password, social login) using frameworks like Cypress or Playwright (if implemented).
 
+## Google OAuth Integration
+
+### Implementation
+The application uses Supabase's built-in OAuth providers to handle Google authentication. The integration is configured in the `AuthContext.tsx` file:
+
+```typescript
+// Sign in with Google OAuth
+const signInWithGoogle = async () => {
+  setError(null);
+  // Use environment variable for redirect URL instead of window.location.origin
+  const redirectUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
+  console.log(`Auth redirect URL: ${redirectUrl}/auth/callback`);
+  
+  return await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${redirectUrl}/auth/callback`,
+      queryParams: {
+        prompt: 'select_account',  // Force Google to show the account selection screen
+        access_type: 'online'      // Request fresh token each time
+      }
+    },
+  });
+};
+```
+
+### Key Features
+1. **Configurable Redirect URL**: Uses `VITE_FRONTEND_URL` environment variable or falls back to `window.location.origin`
+2. **Account Selection**: Forces Google to display the account selection screen with `prompt: 'select_account'`
+3. **Fresh Token**: Requests a new token with each authentication using `access_type: 'online'`
+4. **Callback Handling**: Redirects to `/auth/callback` for processing the authentication response
+
+### OAuth Flow
+1. User clicks "Sign in with Google"
+2. Application calls `signInWithGoogle()`
+3. Redirects to Google's authorization endpoint with parameters to show account selection
+4. User selects their Google account and grants permissions
+5. Google redirects back to `/auth/callback` endpoint
+6. `AuthCallbackPage` component processes the token and establishes the session
+7. User is redirected to the dashboard
+
+### Multi-Account Support
+The application is specifically configured to support users with multiple Google accounts:
+- The `prompt: 'select_account'` parameter ensures users can choose which account to use
+- This prevents automatic sign-in with the last used account, improving user control
+- The approach balances security and convenience for users with multiple profiles
+
 This comprehensive reference provides all necessary context for any LLM IDE to understand and work with the authentication system in the Vein Diagram application.
