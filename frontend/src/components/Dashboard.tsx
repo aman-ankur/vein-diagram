@@ -28,10 +28,10 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import DescriptionIcon from '@mui/icons-material/Description';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import InsightsIcon from '@mui/icons-material/Insights';
-import FavoriteIcon from '@mui/icons-material/Favorite';
+// FavoriteIcon removed - unused
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
-import ScaleIcon from '@mui/icons-material/Scale';
+// ScaleIcon removed - unused
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { Link as RouterLink } from 'react-router-dom';
 import storageService, { STORAGE_KEYS } from '../services/localStorage';
@@ -511,4 +511,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

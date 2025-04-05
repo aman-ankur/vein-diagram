@@ -1,17 +1,17 @@
-import axios from 'axios';
-import { 
-  Profile, 
-  ProfileCreate, 
+// axios removed - unused
+import {
+  Profile,
+  ProfileCreate,
   ProfileUpdate, 
   ProfileListResponse,
   ProfileMatchingResponse,
   ProfileMetadata
 } from '../types/Profile';
-import { API_BASE_URL } from '../config';
+// API_BASE_URL removed - unused
 import api from './api';
 
-const API_URL = `${API_BASE_URL}/api/profiles`;
-const API_PATH = '/api/profiles';
+// API_URL removed - unused
+const API_PATH = '/api/profiles'; // Use relative path with api instance
 
 /**
  * Fetch all profiles with optional search and pagination

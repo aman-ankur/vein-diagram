@@ -12,14 +12,14 @@ import {
   IconButton,
   Drawer,
   List,
-  ListItem,
+  // ListItem removed - unused
   ListItemIcon,
   ListItemText,
   ListItemButton,
   CircularProgress,
   Alert,
-  Snackbar,
-  ClickAwayListener
+  Snackbar
+  // ClickAwayListener removed - unused
 } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -220,7 +220,7 @@ const NavBar: React.FC<{
 
 function AppContent() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+  // const [apiAvailable, setApiAvailable] = useState<boolean | null>(null); // Removed - unused variable
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
   const { user } = useAuth();
@@ -230,15 +230,15 @@ function AppContent() {
     const checkApi = async () => {
       try {
         const isAvailable = await checkApiAvailability();
-        setApiAvailable(isAvailable);
-        
+        // setApiAvailable(isAvailable); // Removed - unused variable
+
         if (!isAvailable) {
           setErrorMessage('Unable to connect to the backend server. Some features may be limited.');
           setShowErrorSnackbar(true);
         }
       } catch (error) {
         console.error('Error checking API:', error);
-        setApiAvailable(false);
+        // setApiAvailable(false); // Removed - state variable was removed
         setErrorMessage('Network error. Please check your connection.');
         setShowErrorSnackbar(true);
       }

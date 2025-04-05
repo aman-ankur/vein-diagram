@@ -1,28 +1,37 @@
-import React from 'react';
+// React import removed - unused
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ExplanationModal, { BiomarkerExplanation } from '../ExplanationModal';
+import ExplanationModal from '../ExplanationModal'; // Default import
 import { ThemeProvider } from '@mui/material';
 import { theme } from '../../theme';
+import { Biomarker } from '../../types/biomarker.d'; // Correct path based on file listing
+import { BiomarkerExplanation as BiomarkerExplanationType } from '../../types/api'; // Correct type import
 
-// Mock explanation data
-const mockExplanation: BiomarkerExplanation = {
-  biomarker_id: 1,
+// Mock biomarker data conforming to the Biomarker type
+const mockBiomarker: Biomarker = {
+  id: 1, // Added missing id
   name: 'Glucose',
-  general_explanation: 'Glucose is a sugar that serves as the primary source of energy for the body. It comes from carbohydrates in foods and is essential for brain function. The glucose test measures the level of glucose in your bloodstream at the time of the test.',
-  specific_explanation: 'Your glucose level of 95 mg/dL is within the normal reference range of 70-99 mg/dL. This suggests your body is effectively regulating blood sugar levels. Maintaining normal glucose levels reduces the risk of developing diabetes and related complications.',
-  created_at: '2023-10-15T10:30:00Z',
-  from_cache: false
-};
-
-const mockBiomarker = {
-  name: 'Glucose',
-  value: '100',
+  value: 100, // Changed to number
   unit: 'mg/dL',
   referenceRange: '70-99 mg/dL',
-  explanation: 'Your glucose level is slightly elevated.',
-  isAbnormal: true
+  reference_range_low: 70,
+  reference_range_high: 99,
+  isAbnormal: true,
+  date: '2023-10-15T00:00:00Z', // Added missing date
+  reportDate: '2023-10-15', // Added reportDate
+  category: 'Metabolic', // Added category
+  fileId: 'file123', // Added fileId
+  fileName: 'report.pdf' // Added fileName
 };
+
+// Mock explanation data conforming to BiomarkerExplanationType
+const mockExplanationData: BiomarkerExplanationType = {
+  name: 'Glucose', // Added name as it's required in the type
+  general_explanation: 'General info about Glucose.',
+  specific_explanation: 'Your Glucose level is analyzed.',
+  // biomarker_id, created_at, from_cache are optional per api.ts
+};
+
 
 describe('ExplanationModal Component', () => {
   const mockOnClose = jest.fn();
@@ -37,14 +46,16 @@ describe('ExplanationModal Component', () => {
         <ExplanationModal
           open={true}
           onClose={mockOnClose}
-          isLoading={true}
+          loading={true} // Use 'loading' prop
           error={null}
-          biomarker={null}
+          biomarker={mockBiomarker} // Pass a valid biomarker even in loading state
+          explanation={null}
         />
       </ThemeProvider>
     );
-    
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+
+    // Check for loading text/indicator (adjust based on actual implementation)
+    expect(screen.getByText(/analyzing your biomarker data/i)).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
@@ -55,14 +66,15 @@ describe('ExplanationModal Component', () => {
         <ExplanationModal
           open={true}
           onClose={mockOnClose}
-          isLoading={false}
+          loading={false} // Use 'loading' prop
           error={errorMessage}
-          biomarker={null}
+          biomarker={mockBiomarker} // Pass valid biomarker
+          explanation={null}
         />
       </ThemeProvider>
     );
-    
-    expect(screen.getByText(/error/i)).toBeInTheDocument();
+
+    expect(screen.getByText(/unable to generate explanation/i)).toBeInTheDocument();
     expect(screen.getByText(errorMessage)).toBeInTheDocument();
   });
 
@@ -72,18 +84,25 @@ describe('ExplanationModal Component', () => {
         <ExplanationModal
           open={true}
           onClose={mockOnClose}
-          isLoading={false}
+          loading={false} // Use 'loading' prop
           error={null}
           biomarker={mockBiomarker}
+          explanation={mockExplanationData} // Pass mock explanation data
         />
       </ThemeProvider>
     );
-    
+
     // Check title and values
     expect(screen.getByText(mockBiomarker.name)).toBeInTheDocument();
-    expect(screen.getByText(`${mockBiomarker.value} ${mockBiomarker.unit}`)).toBeInTheDocument();
-    expect(screen.getByText(mockBiomarker.referenceRange)).toBeInTheDocument();
-    expect(screen.getByText(mockBiomarker.explanation)).toBeInTheDocument();
+    // Check for the formatted value and unit
+    expect(screen.getByText(`${mockBiomarker.value.toFixed(2)}`)).toBeInTheDocument();
+    expect(screen.getByText(mockBiomarker.unit)).toBeInTheDocument();
+    // Check for reference range
+    expect(screen.getByText(mockBiomarker.referenceRange || `${mockBiomarker.reference_range_low}-${mockBiomarker.reference_range_high}`)).toBeInTheDocument();
+
+    // Check explanation text
+    expect(screen.getByText(mockExplanationData.general_explanation)).toBeInTheDocument();
+    expect(screen.getByText(mockExplanationData.specific_explanation)).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', () => {
@@ -92,16 +111,18 @@ describe('ExplanationModal Component', () => {
         <ExplanationModal
           open={true}
           onClose={mockOnClose}
-          isLoading={false}
+          loading={false} // Use 'loading' prop
           error={null}
           biomarker={mockBiomarker}
+          explanation={mockExplanationData}
         />
       </ThemeProvider>
     );
-    
+
+    // Find close button by aria-label
     const closeButton = screen.getByRole('button', { name: /close/i });
     fireEvent.click(closeButton);
-    
+
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
-}); 
+});

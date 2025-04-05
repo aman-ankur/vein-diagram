@@ -1,6 +1,6 @@
-import React from 'react';
+// React import removed - unused
 import { render, screen, fireEvent } from '@testing-library/react';
-import PDFUploader from '../PDFUploader';
+import PDFUploader from './PDFUploader'; // Corrected import path
 import { message } from 'antd';
 import axios from 'axios';
 
@@ -118,4 +118,4 @@ describe('PDFUploader Component', () => {
       expect(message.error).toHaveBeenCalledWith('test.pdf upload failed');
     }
   });
-}); 
+});

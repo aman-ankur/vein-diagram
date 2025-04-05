@@ -6,7 +6,8 @@ import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
 global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder;
+// Use 'as any' to bypass type mismatch in test setup
+global.TextDecoder = TextDecoder as any;
 
 // Mock Vite's import.meta.env
 const mockEnv = {
@@ -58,4 +59,4 @@ jest.mock('react-router-dom', () => ({
     hash: '',
     state: null
   })
-})); 
+}));

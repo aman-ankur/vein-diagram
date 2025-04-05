@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Paper,
+  // Paper removed - unused
   Button,
   Container,
   CircularProgress,
@@ -17,10 +17,10 @@ import {
   Card,
   CardContent,
   LinearProgress,
-  useTheme
+  // useTheme removed - unused
 } from '@mui/material';
-import { useDropzone } from 'react-dropzone';
-import { CloudUpload as CloudUploadIcon, CheckCircle as CheckCircleIcon, Error as ErrorIcon } from '@mui/icons-material';
+// import { useDropzone } from 'react-dropzone'; // Removed unused import
+import { CheckCircle as CheckCircleIcon } from '@mui/icons-material'; // Removed CloudUploadIcon, ErrorIcon
 import { uploadPDF, getPDFStatus } from '../services/api';
 import { getUploadHistory, saveUploadHistory } from '../services/localStorage';
 import { MAX_FILE_SIZE, SUPPORTED_FILE_TYPES, STATUS_CHECK_INTERVAL } from '../config';
@@ -49,7 +49,7 @@ const steps = [
 ];
 
 const UploadPage: React.FC = () => {
-  const theme = useTheme();
+  // const theme = useTheme(); // Removed unused variable
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -94,41 +94,9 @@ const UploadPage: React.FC = () => {
     };
   }, []);
 
-  // File selection handling
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      const selectedFile = acceptedFiles[0];
+  // Removed onDrop and useDropzone hook as PDFUploader component handles this now
 
-      // Validate file type
-      if (!SUPPORTED_FILE_TYPES.includes(selectedFile.type)) {
-        setError(`Unsupported file type. Please upload a PDF file.`);
-        setSnackbarOpen(true);
-        return;
-      }
-
-      // Validate file size
-      if (selectedFile.size > MAX_FILE_SIZE) {
-        setError(`File is too large. Maximum size is ${MAX_FILE_SIZE / 1000000}MB.`);
-        setSnackbarOpen(true);
-        return;
-      }
-
-      setFile(selectedFile);
-      setActiveStep(1);
-      setError(null);
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-    },
-    maxFiles: 1,
-    disabled: uploading || isPolling
-  });
-
-  // File upload handling
+  // File upload handling (kept for reference, but likely handled within PDFUploader now)
   const handleUpload = async () => {
     if (!file) return;
 
