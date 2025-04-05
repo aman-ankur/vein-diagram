@@ -9,13 +9,18 @@
   - Efficient rendering with virtual DOM
   - Rich ecosystem of compatible libraries
 
-### Plotly.js
-- **Justification**: Industry-standard visualization library that provides high-quality interactive charts
+### D3.js
+- **Justification**: Powerful library for creating custom, dynamic, and interactive data visualizations. Allows fine-grained control over rendering.
 - **Key Features**:
-  - Extensive chart types (line, scatter, network graphs)
-  - Built-in interactivity (zoom, pan, tooltips)
-  - Responsive design support
-  - Animation capabilities
+  - Data binding to the DOM.
+  - Wide range of visualization techniques.
+  - Control over transitions and interactions.
+
+### Material UI
+- **Justification**: Provides pre-built React components following Material Design principles, speeding up UI development for certain sections (e.g., Account page). Offers theming capabilities.
+- **Key Features**:
+  - Comprehensive set of UI components.
+  - Theming and customization options (`styled` API).
 
 ### Tailwind CSS
 - **Justification**: Utility-first CSS framework for rapid styling without custom CSS
@@ -41,14 +46,14 @@
   - Built-in validation with Pydantic models
   - Native support for Python type hints
 
-## Data Processing
+## Data Processing & AI
 
-### PyPDF2
-- **Justification**: Pure Python library for PDF text extraction
+### PyMuPDF (fitz)
+- **Justification**: Efficient and robust library for PDF text and image extraction. Preferred over PyPDF2 for better handling of various PDF structures.
 - **Key Features**:
-  - No external dependencies
-  - Handles text-based PDFs efficiently
-  - Simple API for document processing
+  - Fast text extraction.
+  - Image extraction capabilities.
+  - Metadata access.
 
 ### Tesseract OCR (with pytesseract)
 - **Justification**: Leading open-source OCR engine for extracting text from images
@@ -64,15 +69,23 @@
   - Ability to extract structured data from unstructured text
   - Research-backed insights generation
 
-## Database
+## Database & Auth
 
-### SQLite
-- **Justification**: Lightweight, file-based database requiring no setup, ideal for rapid MVP development
+### PostgreSQL (via Supabase)
+- **Justification**: Robust, production-ready relational database. Supabase provides a managed instance with a generous free tier.
 - **Key Features**:
-  - Zero configuration required
-  - Suitable for development and initial production
-  - Single file storage simplifies deployment
-  - SQL interface for robust querying
+  - ACID compliant.
+  - Supports complex queries and JSON data types.
+  - Scalable.
+  - Managed backups and extensions via Supabase.
+
+### Supabase Auth
+- **Justification**: Provides a complete authentication solution (Email/Pass, OAuth) as a service, integrating well with the Supabase database.
+- **Key Features**:
+  - Secure user management.
+  - JWT handling.
+  - Social logins (Google).
+  - Row Level Security (integrates with Postgres).
 
 ## Deployment
 
@@ -83,16 +96,18 @@
   - Consistent environment across development and production
   - Simple scaling for future growth
 
-### Vercel/Netlify (Frontend)
-- **Justification**: Zero-configuration deployment platforms for React applications
+### Vercel (Frontend)
+- **Justification**: Optimized platform for deploying frontend applications (React/Vite). Seamless Git integration and global CDN.
 - **Key Features**:
-  - Automatic CI/CD from Git
-  - Global CDN for fast loading
-  - Free tier sufficient for MVP
+  - Automatic CI/CD from Git.
+  - Global CDN for performance.
+  - Preview deployments.
+  - Generous free tier.
 
-### Heroku/Render (Backend)
-- **Justification**: Simplified deployment for Python backend services
+### Render (Backend)
+- **Justification**: Simplified deployment for Dockerized backend services with Git integration and managed infrastructure. Offers a suitable free tier for starting.
 - **Key Features**:
-  - Easy deployment from Git
-  - Managed infrastructure
-  - Free tier available for MVP
+  - Direct Docker deployment from Git.
+  - Managed infrastructure (Web Service).
+  - Environment variable management.
+  - Custom start commands (for migrations).
