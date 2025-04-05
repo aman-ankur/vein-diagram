@@ -11,7 +11,9 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 -   **Framework/Library**: React 18+
 -   **Language**: TypeScript
 -   **Build Tool**: Vite
--   **Styling**: Tailwind CSS
+-   **Styling**: Tailwind CSS, Material UI (including Styled Components)
+-   **UI Components**: Material UI
+-   **Drag & Drop**: dnd-kit
 -   **API Communication**: Axios (via `services/api.ts`)
 -   **Testing**: Jest & React Testing Library
 -   **Visualization**: D3.js (primarily), potentially others like Recharts/Chart.js for simpler charts.
@@ -56,7 +58,7 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 -   **Service Layer**: API interactions are encapsulated within service files (`services/`), promoting separation of concerns. Components call service functions rather than making direct API calls.
 -   **Context API for Global State**: `ProfileContext` is used to manage and provide the active profile state throughout the component tree, avoiding prop drilling for this essential global concern.
 -   **Utility Functions**: Common, reusable logic (e.g., formatting, calculations specific to biomarkers) is extracted into utility files (`utils/`). Favorite-specific utils are less relevant now.
--   **Styled Components Pattern**: Used in parts of the application (especially `AccountPage.tsx`) to create reusable, themeable UI components with Material UI's `styled` API.
+-   **Styled Components Pattern**: Used notably in `AccountPage.tsx` to create reusable, themeable UI components leveraging Material UI's `styled` API.
 
 ## Data Flow (Typical Page)
 
@@ -77,21 +79,16 @@ The frontend is a Single Page Application (SPA) built using **React** and **Type
 
 ## Styling
 
--   **Tailwind CSS**: Utility-first CSS framework is the primary method for styling. Class names are applied directly in the JSX.
--   **Material UI**: Also used for components and styling in parts of the application:
-    -   **Styled Components**: Used in the `AccountPage.tsx` to create custom, themeable UI components
-    -   **Theme Integration**: Material UI theme is accessed via `useTheme()` hook and used for consistent styling
-    -   **Responsive Props**: Material UI's responsive styling syntax used for adaptive layouts (e.g., `sx={{ flexDirection: { xs: 'column', md: 'row' } }}`)
--   **Global Styles**: A base stylesheet (`styles/`) might define global resets, base styles, or custom Tailwind configurations.
+-   **Primary Framework**: **Tailwind CSS** is used for utility-first styling, applied directly via class names in JSX.
+-   **Component Library & Theming**: **Material UI** is used for pre-built components (like Cards, Lists, Avatars, especially in `AccountPage.tsx`) and provides a theming layer (`useTheme`).
+-   **Custom Styling**: Material UI's **Styled Components API** (`styled`) is used in specific areas (`AccountPage.tsx`) to create highly customized, reusable, theme-aware components.
+-   **Responsive Design**: Achieved using both Tailwind's responsive prefixes (e.g., `md:flex`) and Material UI's `sx` prop with breakpoint objects (e.g., `sx={{ flexDirection: { xs: 'column', md: 'row' } }}`).
+-   **Global Styles**: A base stylesheet (`styles/`) might define global resets or base Tailwind configurations.
 
-### Important Styling Gotchas
+### Styling Integration Considerations
 
--   **Material UI and Tailwind CSS Integration**: The application uses both Material UI and Tailwind CSS. This can lead to styling conflicts and unexpected behavior in some components. When customizing or creating components:
-    -   Material UI components use their own styling system (with `sx` prop and theme) and will override many Tailwind classes
-    -   For standalone components like login/signup pages, consider using only one styling approach consistently
-    -   When working with existing components, check if they use Material UI's styling system before applying Tailwind classes
-    -   For completely new UI elements that need to match the existing design system, prefer using the dominant styling approach of the parent container
-    -   For components with styling conflicts, consider the approach used in `AccountPage.tsx` which relies fully on Material UI's styling system
+-   **Tailwind vs. Material UI**: Using both requires careful management. Material UI's component styles (via `sx` prop or `styled`) often take precedence over Tailwind utility classes applied to the same element.
+-   **Consistency**: When creating new components, adopt the dominant styling approach of the surrounding context (Tailwind or Material UI/Styled Components) to maintain consistency. The `AccountPage.tsx` serves as an example of a Material UI-centric approach.
 
 ## Testing
 

@@ -6,19 +6,20 @@
 - **React**: JavaScript library for building user interfaces
 - **TypeScript**: Typed superset of JavaScript for improved developer experience
 - **Vite**: Modern frontend build tool and development server
-- **Tailwind CSS**: Utility-first CSS framework for rapid UI development
-- **Material UI**: React component library implementing Google's Material Design (used alongside Tailwind CSS)
-- **Jest**: JavaScript testing framework for unit and component testing
-- **React Testing Library**: Testing utilities for React components
-- **Axios**: Promise-based HTTP client for API communication
-- **dnd-kit**: Library for drag-and-drop interactions (used for favorite reordering)
+- **Tailwind CSS**: Utility-first CSS framework for rapid UI development.
+- **Material UI**: React component library (used for components like Cards, Lists, Avatars, and provides theming).
+- **Jest**: JavaScript testing framework for unit and component testing.
+- **React Testing Library**: Testing utilities for React components.
+- **Axios**: Promise-based HTTP client for API communication.
+- **dnd-kit**: Library for drag-and-drop interactions (used for favorite reordering).
 
 ### Backend Stack
 - **Python**: Core programming language for the backend
 - **FastAPI**: Modern, high-performance web framework for building APIs
-- **SQLAlchemy**: SQL toolkit and Object-Relational Mapping (ORM) library for database interaction
-- **Pydantic**: Data validation and settings management using Python type annotations
-- **Pytest**: Testing framework for Python code
+- **SQLAlchemy**: SQL toolkit and Object-Relational Mapping (ORM) library for database interaction.
+- **Pydantic**: Data validation and settings management using Python type annotations.
+- **Pytest**: Testing framework for Python code.
+- **Production Server**: Gunicorn (as process manager), Uvicorn (as ASGI worker), uvloop (event loop), httptools (HTTP parser).
 - **PDF Processing Libraries**:
 - **PyMuPDF (fitz)**: Core library for PDF parsing and text extraction (`pymupdf` in requirements).
 - **pdfplumber**: Used for detailed PDF content extraction, especially tables.
@@ -26,21 +27,28 @@
 - **pdf2image**: Converts PDF pages to images for OCR.
 - **HTTPX**: Asynchronous HTTP client for communicating with external APIs (like Claude).
 - **Alembic**: Database migration tool for SQLAlchemy.
+- **psycopg2-binary**: PostgreSQL database adapter for Python.
+
+### Database
+- **PostgreSQL**: Hosted via **Supabase** (handles all application data: profiles, pdfs, biomarkers).
 
 ### Data Visualization
 - **D3.js**: Primary library for custom, dynamic, interactive data visualizations.
 - **Recharts/Chart.js**: Potentially used for simpler, standard chart types if needed.
 
-### External APIs
-- **Claude API**: Anthropic's AI model for generating biomarker insights and explanations.
-- **Supabase Auth**: Backend-as-a-Service for handling user authentication (email/password, social logins like Google). See `authentication_details.md`.
+### Authentication
+- **Supabase Auth**: Backend-as-a-Service handles user authentication (email/password, social logins like Google). See `authentication_details.md`.
 
-### Development Tools
+### External APIs
+- **Claude API**: Anthropic's AI model for generating biomarker insights, summaries, and data extraction.
+
+### Development & Deployment Tools
 - **Git**: Version control system
 - **npm**: Package management for frontend dependencies
-- **pip/venv**: Package management and virtual environments for Python dependencies
-- **ESLint/Prettier**: Code linting and formatting for JavaScript/TypeScript
-- **Black/isort**: Code formatting for Python
+- **pip/venv**: Package management and virtual environments for Python dependencies.
+- **Docker**: Containerization for consistent environments and deployment.
+- **ESLint/Prettier**: Code linting and formatting for JavaScript/TypeScript.
+- **Black/isort**: Code formatting for Python.
 
 ## Development Setup
 
@@ -149,18 +157,27 @@ vein-diagram/
 
 ### Critical Backend Dependencies (Illustrative - check `requirements.txt`)
 ```
-fastapi==0.9x.x || 0.1xx.x
-uvicorn==0.2x.x
-sqlalchemy==2.x.x
-pydantic==1.10.x || 2.x.x
-pymupdf==1.2x.x # PyMuPDF (fitz)
-pdfplumber==0.x.x
-pytesseract==0.3.x
-pytest==7.x.x
-httpx==0.2x.x
-python-multipart==0.0.x
-# Potentially database driver (psycopg2-binary, asyncpg)
-# Potentially alembic for migrations
+fastapi                 # Web framework
+sqlalchemy              # ORM
+alembic                 # Database migrations
+psycopg2-binary         # Postgres driver
+pydantic                # Data validation
+# PDF Processing
+pymupdf                 # fitz
+pdfplumber
+pytesseract
+pdf2image
+# AI & HTTP
+anthropic / httpx       # Claude API interaction
+# Production Server (often installed separately or in Dockerfile)
+gunicorn
+uvicorn[standard]       # Includes uvloop, httptools if available
+# Testing
+pytest
+httpx                   # For TestClient
+# Other
+python-multipart        # Form data
+# ... other dependencies from requirements.txt
 ```
 
 ## Integration Points
@@ -178,14 +195,18 @@ python-multipart==0.0.x
 - Temporary storage (`backend/uploads/`?) for PDFs during processing.
 - Log files (`backend/logs/`).
 
-## Deployment Considerations
+## Deployment Considerations (Render + Vercel)
 
-### Hosting Requirements
-- Frontend: Static site hosting (Netlify, Vercel, AWS S3/CloudFront).
-- Backend: Python application hosting (e.g., Docker container on AWS ECS, Google Cloud Run, Heroku, Render) with FastAPI support (ASGI server like Uvicorn/Gunicorn).
-- Database: Managed SQL database (e.g., PostgreSQL on AWS RDS, Google Cloud SQL).
+### Hosting
+- **Frontend:** Deployed via **Vercel** (connected to Git repository). Handles build process and serves static assets via CDN. Requires environment variables for Supabase keys and the backend API URL.
+- **Backend:** Deployed via **Render** as a Dockerized Web Service (Free Tier initially).
+    - **Region:** Singapore (chosen for proximity to India).
+    - **Database:** Uses **Supabase PostgreSQL** (external).
+    *   **Build:** Uses `backend/Dockerfile`.
+    *   **Start Command:** Uses a custom `start.sh` script executed via Render's "Docker Command" setting (`./start.sh`) to handle migrations and server startup reliably. See `deployment_render.md`.
+- **Database:** Managed PostgreSQL provided by **Supabase**.
 
-### Scaling Strategy
+### Scaling Strategy (Potential Future)
 - Horizontal scaling of backend API containers.
 - Potentially separate, scalable worker processes/services for CPU-intensive PDF processing (using Celery, RQ, or cloud-native queues).
 - CDN for frontend assets.
@@ -196,3 +217,27 @@ python-multipart==0.0.x
 - API performance monitoring (APM tools).
 - Frontend error tracking (Sentry, LogRocket).
 - Infrastructure monitoring (CPU, memory, disk).
+
+## Production Deployment Summary (Render + Supabase)
+
+The application backend is successfully deployed as a Dockerized web service on **Render**, using the **Singapore** region for optimal performance for users in India.
+
+-   **Database:** All application data (Profiles, PDFs, Biomarkers) is stored in the project's **Supabase PostgreSQL** database. Authentication is also handled by Supabase Auth.
+-   **Deployment Configuration (Render UI):**
+    -   **Service Type:** Web Service (Free Tier initially).
+    *   **Environment:** Docker, using `backend/Dockerfile`.
+    *   **Root Directory:** `backend`.
+    *   **Region:** Singapore (Asia Pacific).
+    *   **Start Command:** `sh -c 'python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT'` (Ensures database schema migrations run before the application starts, using Python module execution for reliability).
+    *   **Environment Variables:** All secrets (Supabase DB URL, Supabase JWT Secret, Anthropic API Key) and production settings (`DEBUG=False`, `LOG_LEVEL=INFO`) are configured securely via Render's environment variable management.
+-   **Database Migration:** The initial database schema setup in Supabase Postgres is handled automatically during deployment by the `alembic upgrade head` part of the Start Command. (Note: No migration of *data* from local SQLite was performed, starting with an empty production database).
+-   **Key Learnings/Gotchas:**
+    *   Use environment variables for all configuration/secrets.
+    *   Use a production-ready database (Supabase Postgres) instead of SQLite.
+    *   Ensure the database connection string is compatible with the hosting environment (e.g., using Supabase Pooler if needed, though direct connection worked here).
+    *   Automate schema migrations (Alembic via Start Command).
+    *   Use `sh -c '...'` in Render's Docker Command field to correctly chain commands like migrations and server startup.
+    *   Use `python -m <module>` to reliably execute installed Python tools like `alembic` and `uvicorn` within the container.
+    *   Configure logging for production (typically `stdout`/`stderr` for cloud platforms).
+    *   Configure CORS correctly for frontend integration.
+    *   Implement health checks (`/health` endpoint) for monitoring.
