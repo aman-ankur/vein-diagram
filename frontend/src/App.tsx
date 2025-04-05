@@ -45,6 +45,7 @@ import BiomarkerHistoryPage from './pages/BiomarkerHistoryPage';
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage.tsx'));
 import APIStatusIndicator from './components/APIStatusIndicator';
 import { checkApiAvailability } from './services/api';
+import { startKeepAliveService } from './services/keepAliveService';
 
 // Auth imports
 import { AuthProvider } from './contexts/AuthContext';
@@ -220,17 +221,28 @@ const NavBar: React.FC<{
 
 function AppContent() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  // const [apiAvailable, setApiAvailable] = useState<boolean | null>(null); // Removed - unused variable
+  const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
   const { user } = useAuth();
+
+  // Initialize keep-alive service
+  useEffect(() => {
+    // Start the keep-alive service when the app loads
+    const stopKeepAliveService = startKeepAliveService();
+    
+    // Clean up function to stop the interval when component unmounts
+    return () => {
+      stopKeepAliveService();
+    };
+  }, []);
 
   // Check API availability on mount
   useEffect(() => {
     const checkApi = async () => {
       try {
         const isAvailable = await checkApiAvailability();
-        // setApiAvailable(isAvailable); // Removed - unused variable
+        setApiAvailable(isAvailable);
 
         if (!isAvailable) {
           setErrorMessage('Unable to connect to the backend server. Some features may be limited.');
@@ -238,7 +250,7 @@ function AppContent() {
         }
       } catch (error) {
         console.error('Error checking API:', error);
-        // setApiAvailable(false); // Removed - state variable was removed
+        setApiAvailable(false);
         setErrorMessage('Network error. Please check your connection.');
         setShowErrorSnackbar(true);
       }
