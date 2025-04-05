@@ -191,11 +191,13 @@ async def get_pdf_status(file_id: str, db: Session = Depends(get_db)):
             
             # Check if this was a recent upload that might not be in the database yet
             if file_id and len(file_id) > 10:  # Basic validation that it's a reasonable ID
+                # Use current time as fallback for upload_date
+                current_time = datetime.utcnow()
                 return PDFStatusResponse(
                     file_id=file_id,
                     filename="Unknown",
                     status="not_found",
-                    upload_date=None,
+                    upload_date=current_time,
                     processed_date=None,
                     error_message="PDF not found in database. It may have been deleted or not yet uploaded.",
                     profile_id=None,

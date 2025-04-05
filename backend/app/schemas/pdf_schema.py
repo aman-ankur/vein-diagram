@@ -80,7 +80,7 @@ class PDFStatusResponse(BaseModel):
     """Schema for PDF status response."""
     file_id: str
     filename: str
-    upload_date: datetime
+    upload_date: Optional[datetime] = None
     status: str
     processed_date: Optional[datetime] = None
     error_message: Optional[str] = None
