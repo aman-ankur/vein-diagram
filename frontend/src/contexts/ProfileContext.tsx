@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { Profile } from '../types/Profile';
-import { getProfile } from '../services/profileService';
+import { getProfile, getProfiles } from '../services/profileService';
 
 interface ProfileContextType {
   activeProfile: Profile | null;
@@ -47,11 +47,35 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       const profile = await getProfile(profileId);
       setActiveProfile(profile);
       localStorage.setItem('activeProfileId', profileId);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(`Error fetching profile ${profileId}:`, err);
-      setError('Failed to load profile. Please try again.');
+      
+      // Check if it's a 404 error (profile might have been deleted or merged)
+      const errorMessage = String(err).toLowerCase();
+      if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        console.warn(`Profile ${profileId} not found. It may have been deleted or merged into another profile.`);
+        setError('The selected profile is no longer available. It may have been deleted or merged into another profile.');
+      } else {
+        setError('Failed to load profile. Please try again.');
+      }
+      
+      // Always clear invalid profile ID from storage
       setActiveProfile(null);
       localStorage.removeItem('activeProfileId');
+      
+      // Attempt to fetch available profiles to select a new active profile
+      try {
+        // Import directly from the service, not using dynamic import
+        const profilesResponse = await getProfiles();
+        if (profilesResponse.profiles && profilesResponse.profiles.length > 0) {
+          console.log('Auto-selecting first available profile:', profilesResponse.profiles[0].id);
+          // Set the first available profile as active
+          setActiveProfile(profilesResponse.profiles[0]);
+          localStorage.setItem('activeProfileId', profilesResponse.profiles[0].id);
+        }
+      } catch (fetchError) {
+        console.error('Failed to auto-select a profile:', fetchError);
+      }
     } finally {
       setLoading(false);
     }

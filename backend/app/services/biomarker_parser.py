@@ -26,6 +26,10 @@ from app.services.biomarker_dictionary import (
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
+# Setup logs directory
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+
 # Claude API URL
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 
@@ -259,11 +263,12 @@ Lab report page text:
                 logger.debug(f"[JSON_EXTRACTION] Extracted JSON string from Claude response: {len(json_str)} characters")
                 
                 # Save the raw JSON for debugging
-                debug_raw_json_path = os.path.join(log_dir, f"raw_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
                 try:
-                    with open(debug_raw_json_path, "w") as f:
-                        f.write(json_str)
-                    logger.debug(f"[RAW_JSON_SAVED] Raw JSON saved to {debug_raw_json_path}")
+                    if 'log_dir' in globals() or 'log_dir' in locals():
+                        debug_raw_json_path = os.path.join(log_dir, f"raw_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                        with open(debug_raw_json_path, "w") as f:
+                            f.write(json_str)
+                        logger.debug(f"[RAW_JSON_SAVED] Raw JSON saved to {debug_raw_json_path}")
                 except Exception as e:
                     logger.error(f"[RAW_JSON_SAVE_ERROR] Could not save raw JSON: {str(e)}")
                 
@@ -347,9 +352,14 @@ Lab report page text:
                 logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
                 return fallback_results, {} # Return empty metadata dict
         except json.JSONDecodeError as json_error:
-            debug_json_path = os.path.join(log_dir, f"invalid_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-            with open(debug_json_path, "w") as f:
-                f.write(json_str if 'json_str' in locals() else response_content)
+            try:
+                if 'log_dir' in globals() or 'log_dir' in locals():
+                    debug_json_path = os.path.join(log_dir, f"invalid_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                    with open(debug_json_path, "w") as f:
+                        f.write(json_str if 'json_str' in locals() else response_content)
+            except Exception as e:
+                logger.error(f"[DEBUG_JSON_SAVE_ERROR] Could not save invalid JSON for debugging: {str(e)}")
+                
             logger.error(f"[JSON_PARSING_ERROR] Could not parse Claude API response as JSON: {str(json_error)}")
             logger.debug(f"[CLAUDE_RESPONSE] Raw response for page of {filename}: {response_content[:100]}...")
 
@@ -1263,10 +1273,12 @@ def _repair_json(json_str: str) -> str:
     
     # Save the repaired JSON for debugging
     try:
-        debug_repaired_json_path = os.path.join(log_dir, f"repaired_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
-        with open(debug_repaired_json_path, "w") as f:
-            f.write(json_str)
-        logger.debug(f"[REPAIRED_JSON_SAVED] Repaired JSON saved to {debug_repaired_json_path}")
+        # Check if log_dir is defined in the scope
+        if 'log_dir' in globals() or 'log_dir' in locals():
+            debug_repaired_json_path = os.path.join(log_dir, f"repaired_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+            with open(debug_repaired_json_path, "w") as f:
+                f.write(json_str)
+            logger.debug(f"[REPAIRED_JSON_SAVED] Repaired JSON saved to {debug_repaired_json_path}")
     except Exception as save_error:
         logger.error(f"[SAVE_ERROR] Could not save repaired JSON: {str(save_error)}")
     
@@ -1384,11 +1396,12 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
             response_data = response.json()
             
             # Save the raw fallback response for debugging
-            debug_fallback_response_path = os.path.join(log_dir, f"fallback_response_raw_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
             try:
-                with open(debug_fallback_response_path, "w") as f:
-                    json.dump(response_data, f, indent=2)
-                logger.debug(f"[FALLBACK_RESPONSE_SAVED] Raw fallback response saved to {debug_fallback_response_path}")
+                if 'log_dir' in globals() or 'log_dir' in locals():
+                    debug_fallback_response_path = os.path.join(log_dir, f"fallback_response_raw_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                    with open(debug_fallback_response_path, "w") as f:
+                        json.dump(response_data, f, indent=2)
+                    logger.debug(f"[FALLBACK_RESPONSE_SAVED] Raw fallback response saved to {debug_fallback_response_path}")
             except Exception as e:
                 logger.error(f"[FALLBACK_RESPONSE_SAVE_ERROR] Could not save fallback response: {str(e)}")
             
@@ -1401,11 +1414,12 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
                     break
             
             # Save the text content for easier debugging
-            debug_fallback_text_path = os.path.join(log_dir, f"fallback_text_response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
             try:
-                with open(debug_fallback_text_path, "w") as f:
-                    f.write(text_content)
-                logger.debug(f"[FALLBACK_TEXT_SAVED] Fallback text response saved to {debug_fallback_text_path}")
+                if 'log_dir' in globals() or 'log_dir' in locals():
+                    debug_fallback_text_path = os.path.join(log_dir, f"fallback_text_response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+                    with open(debug_fallback_text_path, "w") as f:
+                        f.write(text_content)
+                    logger.debug(f"[FALLBACK_TEXT_SAVED] Fallback text response saved to {debug_fallback_text_path}")
             except Exception as e:
                 logger.error(f"[FALLBACK_TEXT_SAVE_ERROR] Could not save fallback text: {str(e)}")
             
@@ -1422,11 +1436,12 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
                 json_str = json_match.group(0)
                 
                 # Save the extracted JSON for debugging
-                debug_fallback_json_path = os.path.join(log_dir, f"fallback_extracted_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
                 try:
-                    with open(debug_fallback_json_path, "w") as f:
-                        f.write(json_str)
-                    logger.debug(f"[FALLBACK_JSON_SAVED] Extracted fallback JSON saved to {debug_fallback_json_path}")
+                    if 'log_dir' in globals() or 'log_dir' in locals():
+                        debug_fallback_json_path = os.path.join(log_dir, f"fallback_extracted_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                        with open(debug_fallback_json_path, "w") as f:
+                            f.write(json_str)
+                        logger.debug(f"[FALLBACK_JSON_SAVED] Extracted fallback JSON saved to {debug_fallback_json_path}")
                 except Exception as e:
                     logger.error(f"[FALLBACK_JSON_SAVE_ERROR] Could not save fallback JSON: {str(e)}")
                 
@@ -1435,11 +1450,12 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
                     repaired_json = _repair_json(json_str)
                     
                     # Save the repaired JSON for debugging
-                    debug_fallback_repaired_path = os.path.join(log_dir, f"fallback_repaired_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
                     try:
-                        with open(debug_fallback_repaired_path, "w") as f:
-                            f.write(repaired_json)
-                        logger.debug(f"[FALLBACK_REPAIRED_JSON_SAVED] Repaired fallback JSON saved to {debug_fallback_repaired_path}")
+                        if 'log_dir' in globals() or 'log_dir' in locals():
+                            debug_fallback_repaired_path = os.path.join(log_dir, f"fallback_repaired_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                            with open(debug_fallback_repaired_path, "w") as f:
+                                f.write(repaired_json)
+                            logger.debug(f"[FALLBACK_REPAIRED_JSON_SAVED] Repaired fallback JSON saved to {debug_fallback_repaired_path}")
                     except Exception as e:
                         logger.error(f"[FALLBACK_REPAIRED_SAVE_ERROR] Could not save repaired fallback JSON: {str(e)}")
                     
@@ -1477,11 +1493,12 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
                     logger.info(f"[FALLBACK_API_EXTRACTION] Extracted {len(processed_biomarkers)} biomarkers with fallback method")
                     
                     # Save the processed biomarkers for debugging
-                    debug_processed_biomarkers_path = os.path.join(log_dir, f"fallback_processed_biomarkers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
                     try:
-                        with open(debug_processed_biomarkers_path, "w") as f:
-                            json.dump(processed_biomarkers, f, indent=2)
-                        logger.debug(f"[FALLBACK_PROCESSED_SAVED] Processed biomarkers saved to {debug_processed_biomarkers_path}")
+                        if 'log_dir' in globals() or 'log_dir' in locals():
+                            debug_processed_biomarkers_path = os.path.join(log_dir, f"fallback_processed_biomarkers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                            with open(debug_processed_biomarkers_path, "w") as f:
+                                json.dump(processed_biomarkers, f, indent=2)
+                            logger.debug(f"[FALLBACK_PROCESSED_SAVED] Processed biomarkers saved to {debug_processed_biomarkers_path}")
                     except Exception as e:
                         logger.error(f"[FALLBACK_PROCESSED_SAVE_ERROR] Could not save processed biomarkers: {str(e)}")
                     

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from fuzzywuzzy import fuzz
 from app.models.profile_model import Profile
 from dateutil import parser
+from app.schemas.profile_schema import ProfileMatchScore, ProfileResponse
 
 # Configure logging
 logging.basicConfig(
@@ -153,23 +154,28 @@ def calculate_profile_match_score(profile: Profile, metadata: Dict[str, Any]) ->
     logger.info(f"Profile match score: {final_score:.2f} for profile {profile.id} ({profile.name})")
     return final_score
 
-def find_matching_profiles(db: Session, metadata: Dict[str, Any], threshold: float = 0.6) -> List[Tuple[Profile, float]]:
+async def find_matching_profiles(metadata: Dict[str, Any], db: Session, user_id: str = None, threshold: float = 0.6):
     """
     Find profiles that match the extracted metadata with confidence scores.
     
     Args:
-        db: Database session
         metadata: Extracted metadata from PDF
+        db: Database session
+        user_id: Optional user ID to filter profiles by
         threshold: Minimum confidence score to include in results (0.0 to 1.0)
         
     Returns:
-        List of tuples containing (Profile, confidence_score) sorted by confidence in descending order
+        List of ProfileMatchScore objects sorted by confidence in descending order
     """
     logger.info(f"Finding matching profiles for metadata: {metadata}")
     
-    # Get all profiles from database
-    profiles = db.query(Profile).all()
-    logger.debug(f"Found {len(profiles)} total profiles in database")
+    # Get profiles from database, filtered by user_id if provided
+    if user_id:
+        profiles = db.query(Profile).filter(Profile.user_id == user_id).all()
+        logger.debug(f"Found {len(profiles)} profiles for user {user_id}")
+    else:
+        profiles = db.query(Profile).all()
+        logger.debug(f"Found {len(profiles)} total profiles in database")
     
     # Preprocess metadata
     processed_metadata = preprocess_profile_metadata(metadata)
@@ -180,21 +186,40 @@ def find_matching_profiles(db: Session, metadata: Dict[str, Any], threshold: flo
     for profile in profiles:
         score = calculate_profile_match_score(profile, processed_metadata)
         if score >= threshold:
-            profile_scores.append((profile, score))
+            # Create a ProfileResponse for this profile
+            profile_response = ProfileResponse(
+                id=profile.id,
+                name=profile.name,
+                date_of_birth=profile.date_of_birth,
+                gender=profile.gender,
+                patient_id=profile.patient_id,
+                created_at=profile.created_at,
+                last_modified=profile.last_modified,
+                favorite_biomarkers=profile.favorite_biomarkers or [],
+                user_id=profile.user_id,
+                biomarker_count=0,  # These can be populated later if needed
+                pdf_count=0
+            )
+            
+            profile_scores.append(ProfileMatchScore(
+                profile=profile_response,
+                confidence=score
+            ))
     
     # Sort by score in descending order
-    profile_scores.sort(key=lambda x: x[1], reverse=True)
+    profile_scores.sort(key=lambda x: x.confidence, reverse=True)
     
     logger.info(f"Found {len(profile_scores)} matching profiles above threshold {threshold}")
     return profile_scores
 
-def create_profile_from_metadata(db: Session, metadata: Dict[str, Any]) -> Optional[Profile]:
+def create_profile_from_metadata(db: Session, metadata: Dict[str, Any], user_id: Optional[str] = None) -> Optional[Profile]:
     """
     Create a new profile from extracted metadata.
     
     Args:
         db: Database session
         metadata: Extracted metadata dictionary
+        user_id: Optional user ID to associate with the profile
         
     Returns:
         Profile object or None if creation failed
@@ -233,7 +258,8 @@ def create_profile_from_metadata(db: Session, metadata: Dict[str, Any]) -> Optio
             name=name,
             date_of_birth=date_of_birth,
             gender=gender,
-            patient_id=patient_id
+            patient_id=patient_id,
+            user_id=user_id
         )
         
         db.add(profile)

@@ -11,7 +11,7 @@ class PDF(Base):
     """
     __tablename__ = "pdfs"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     file_id = Column(String, unique=True, index=True)
     filename = Column(String)
     file_path = Column(String)
