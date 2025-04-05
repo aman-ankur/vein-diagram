@@ -1,90 +1,127 @@
 from logging.config import fileConfig
-
+import os
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-
 from alembic import context
+from urllib.parse import urlparse, urlunparse
+
+# Import the Base model and other models
+from app.db.database import Base
+from app.models.profile_model import Profile
+from app.models.pdf_model import PDF
+from app.models.biomarker_model import Biomarker
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Get the database URL from environment variable with SQLite as default
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vein_diagram.db")
+
+# If using Supabase, modify the URL to maintain the pooler configuration
+if 'supabase' in DATABASE_URL:
+    # Parse the original URL
+    parsed = urlparse(DATABASE_URL)
+    # Only remove 'db.' from hostname if it exists
+    host = parsed.hostname.replace('db.', '')
+    # Reconstruct the URL maintaining the original port and query parameters
+    netloc = f"{parsed.username}:{parsed.password}@{host}:{parsed.port}"
+    DATABASE_URL = urlunparse((
+        parsed.scheme,
+        netloc,
+        parsed.path,
+        parsed.params,
+        parsed.query,
+        parsed.fragment
+    ))
+
+# Determine if we're using SQLite
+is_sqlite = DATABASE_URL.startswith("sqlite")
+
+# Override sqlalchemy.url from alembic.ini with environment variable
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# Import your Base model - adjust the path if necessary
-from app.db.database import Base 
-
-# Define target_metadata using the imported Base
 target_metadata = Base.metadata
 
-# Note: Specific models don't necessarily need to be imported here globally
-# if Base is correctly defined and models inherit from it.
-# We will import them within run_migrations_online to be sure.
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
-
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
-    """
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        # Add compare_type=True to detect column type changes
+        compare_type=True,
+        # Add compare_server_default=True to detect default value changes
+        compare_server_default=True,
+        # Add render_as_batch=True for SQLite support of ALTER
+        render_as_batch=is_sqlite
     )
 
     with context.begin_transaction():
         context.run_migrations()
 
-
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
+    """Run migrations in 'online' mode."""
+    # Configure the database connection
+    engine_config = config.get_section(config.config_ini_section)
+    
+    if is_sqlite:
+        # SQLite-specific configuration
+        engine_config.update({
+            'sqlalchemy.url': DATABASE_URL,
+            'sqlalchemy.connect_args': {'check_same_thread': False}
+        })
+    else:
+        # PostgreSQL-specific configuration
+        engine_config.update({
+            'sqlalchemy.url': DATABASE_URL,
+            'sqlalchemy.connect_args': {
+                'connect_timeout': 30,
+                'keepalives': 1,
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5,
+                'application_name': 'vein-diagram-alembic'
+            }
+        })
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        engine_config,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
-    # Import models within the online context to ensure they are registered
-    # when Alembic checks metadata against the database.
-    from app.models.profile_model import Profile
-    from app.models.pdf_model import PDF
-    from app.models.biomarker_model import Biomarker, BiomarkerDictionary
-    
     with connectable.connect() as connection:
-        # Pass the metadata explicitly here as well
         context.configure(
-            connection=connection, 
-            target_metadata=target_metadata # target_metadata should now be aware of all models
+            connection=connection,
+            target_metadata=target_metadata,
+            # Add compare_type=True to detect column type changes
+            compare_type=True,
+            # Add compare_server_default=True to detect default value changes
+            compare_server_default=True,
+            # Add render_as_batch=True for SQLite support of ALTER
+            render_as_batch=is_sqlite,
+            # Add transaction_per_migration=True for better error handling
+            transaction_per_migration=True,
+            # Add include_schemas=True to support schema-based migrations
+            include_schemas=True if not is_sqlite else False
         )
 
-        with context.begin_transaction():
-            context.run_migrations()
-
+        try:
+            with context.begin_transaction():
+                context.run_migrations()
+        except Exception as e:
+            # Log the error and re-raise
+            import logging
+            logging.error(f"Error during migration: {str(e)}")
+            raise
 
 if context.is_offline_mode():
     run_migrations_offline()

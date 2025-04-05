@@ -1,41 +1,53 @@
-# Git files
-.git/
-.gitignore
-
-# Python cache and compiled files
-__pycache__/
+# Python
+__pycache__
 *.pyc
 *.pyo
 *.pyd
 .Python
-
-# Virtual environment folders
 env/
 venv/
-vein-d/ # Specific to this project
+.env
+*.sqlite3
+*.db
 
-# Environment variables / Secrets
-.env*
+# Git
+.git
+.gitignore
 
-# IDE / Editor specific files
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Test related files/folders
-tests/
-htmlcov/
+# Logs
+logs/
+*.log
+
+# Local development
+docker-compose.yml
+docker-compose.*.yml
+
+# Test cache
 .pytest_cache/
-*.log # Exclude log files if any are generated locally
+.coverage
+htmlcov/
 
-# Database files (if any local ones exist)
-*.db
-*.sqlite3
-
-# OS specific files
+# Temporary files
+*.tmp
 .DS_Store
-Thumbs.db
 
-# Other potentially large or unnecessary files
-uploads/* # Exclude local uploads if not needed in image
-db_backups/*
-*.bak # Backup files
+# Virtual Environment
+ENV/
+vein-d/
+
+# Unit test / coverage reports
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Other
+*.DS_Store
+uploads/
+temp/
+*.pdf
