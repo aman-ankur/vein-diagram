@@ -6,26 +6,24 @@ Vein Diagram follows a modern client-server architecture with clear separation o
 
 ```mermaid
 graph TD
-    Client[Frontend Client on Vercel] <--> API[Backend API on Render]
-    API <--> DB[(Supabase Postgres DB)]
-    API <--> Claude[Claude AI API]
-    Client --> SupabaseAuth[Supabase Auth]
-    API --> SupabaseAuth
+    Client[Frontend Client on Vercel] --- API[Backend API on Render]
+    API --- DB[(Supabase Postgres DB)]
+    API --- Claude[Claude AI API]
+    Client --- SupabaseAuth[Supabase Auth]
+    API --- SupabaseAuth
 
     subgraph Frontend
-        direction LR
-        UI[React UI Components] --> State[State Management (Profile Context)]
-        UI --> Services[API Services (profile, healthScore, etc.)]
+        UI[React UI Components] --- State[State Management]
+        UI --- Services[API Services]
     end
 
-    subgraph Backend on Render
-        direction LR
-        Routes[API Routes] --> Services[Business Logic Services]
-        Services --> Models[Data Models]
-        Services --> PDFProcessing[PDF Processing Engine]
-        Services --> Config[Configuration]
-        Models --> DB[(Supabase Postgres DB)]
-        Services --> Claude[Claude AI API]
+    subgraph Backend
+        Routes[API Routes] --- Services[Business Logic]
+        Services --- Models[Data Models]
+        Services --- PDFProcessing[PDF Processing]
+        Services --- Config[Configuration]
+        Models --- DB
+        Services --- Claude
     end
 
     %% Authentication Note: Supabase Auth handles user management and JWT issuance.
@@ -87,159 +85,93 @@ graph TD
 
 ## Component Relationships
 
-### Frontend Component Hierarchy (Simplified Example)
+### Frontend Component Hierarchy
+
 ```mermaid
 graph TD
     App --> Layout
-    Layout --> Header(Header - incl. Profile Selector?)
+    Layout --> Header[Header]
     Layout --> Footer
     Layout --> MainContent
 
-    subgraph MainContent
-        direction LR
-        UploadPage[Upload Page (Select Profile)]
-        VisualizationPage[Visualization Page (Profile Context)]
-        HistoryPage[Biomarker History Page (Profile Context)]
-        ProfileMgmtPage[Profile Management Page]
-    end
+    MainContent --> DashboardPage
+    MainContent --> UploadPage
+    MainContent --> VisualizationPage
+    MainContent --> ProfilePage
 
-    MainContent --> DashboardPage[Dashboard Page (Profile Context)]
+    DashboardPage --> BiomarkerGrid
+    DashboardPage --> HealthScore
+    DashboardPage --> Summary
 
-    ProfileMgmtPage --> ProfileList
-    ProfileMgmtPage --> ProfileForm
+    VisualizationPage --> Charts
+    VisualizationPage --> Table
+    VisualizationPage --> Filters
 
-    VisualizationPage --> FavoriteBiomarkersGrid
-    VisualizationPage --> BiomarkerVisualization(Biomarker Visualization)
-    VisualizationPage --> BiomarkerTable(Biomarker Table - Add/Remove Fav)
-    VisualizationPage --> SmartSummaryTab[Smart Summary Tab (Redesigned)]
-
-    DashboardPage --> FavoriteBiomarkersGrid
-    DashboardPage --> HealthScoreOverview(Health Score Overview)
-    DashboardPage --> AI_Summary[AI Summary]
-    DashboardPage --> CategoryStatus[Category Status]
-
-    FavoriteBiomarkersGrid --> BiomarkerTile(Biomarker Tile - Add/Remove Fav)
-    FavoriteBiomarkersGrid --> AddBiomarkerTile --> AddFavoriteModal
-
-    UploadPage --> PDFUploader
+    ProfilePage --> ProfileForm
+    ProfilePage --> BiomarkerPrefs
 ```
 
-### Backend Component Relationships (Simplified Example)
+### Backend Component Relationships
+
 ```mermaid
 graph TD
-    subgraph API_Routes
-        direction LR
-        PDFRoutes[pdf_routes.py]
-        BiomarkerRoutes[biomarker_routes.py]
-    ProfileRoutes[profile_routes.py (incl. /favorites endpoints)]
-    HealthScoreRoutes[health_score_routes.py]
+    subgraph API
+        PDFRoutes[PDF Routes]
+        BiomarkerRoutes[Biomarker Routes]
+        ProfileRoutes[Profile Routes]
     end
 
     subgraph Services
-        direction LR
-        PDFService[pdf_service.py]
-        BiomarkerService[biomarker_service.py (implicit)]
-        ProfileService[profile_service.py (implicit)]
-        HealthScoreService[health_score_service.py]
-        LLMService[llm_service.py]
-        MetadataParser[metadata_parser.py]
-        BiomarkerParser[biomarker_parser.py]
-    end
-
-    subgraph Parsers
-        direction LR
-        BiomarkerParser[biomarker_parser.py]
-        MetadataParser[metadata_parser.py]
+        PDFService[PDF Service]
+        BiomarkerService[Biomarker Service]
+        ProfileService[Profile Service]
+        AIService[AI Service]
     end
 
     subgraph Models
-        direction LR
-        PDFModel[pdf_model.py]
-        BiomarkerModel[biomarker_model.py]
-        ProfileModel[profile_model.py (with favorite_biomarkers)]
+        PDF[PDF Model]
+        Biomarker[Biomarker Model]
+        Profile[Profile Model]
     end
 
-    API_Routes --> Services
-    Services --> LLMService
+    API --> Services
     Services --> Models
-    Models --> Database[(Database)]
-
-    PDFRoutes --> PDFService
-    BiomarkerRoutes --> BiomarkerService
-    ProfileRoutes --> ProfileService
-    HealthScoreRoutes --> HealthScoreService
-
-    PDFService --> MetadataParser
-    PDFService --> BiomarkerParser
-    PDFService --> ProfileService # To link PDF to profile
-    BiomarkerService --> LLMService # For insights
-    ProfileService --> Models # Profile CRUD & Favorite management
-    HealthScoreService --> Models # Needs biomarker data
-    HealthScoreService --> Config # Needs optimal_ranges.json
+    Models --> DB[(Database)]
 ```
 
 ## Data Flow
 
-### PDF Processing Flow (Refactored - with Profile, Filtering, Sequential Processing)
+### PDF Processing Flow
+
 ```mermaid
 sequenceDiagram
-    participant User
     participant Frontend
-    participant BackendAPI
+    participant API
     participant PDFService
-    participant MetadataParser
-    participant BiomarkerParser
-    participant Database
+    participant Parser
+    participant DB
 
-    User->>Frontend: Select Profile
-    User->>Frontend: Upload PDF
-    Frontend->>BackendAPI: POST /api/pdfs/upload (with profile_id)
-    BackendAPI->>PDFService: process_pdf_background(pdf_id, db_session)
-    PDFService->>Database: Get PDF record
-    PDFService->>PDFService: extract_text_from_pdf(file_path) [All Pages]
-    PDFService->>Database: Save full extracted text (temp)
-    PDFService->>MetadataParser: extract_metadata_with_claude(first_few_pages_text)
-    MetadataParser->>Database: Update PDF metadata (patient info, date, etc.)
-    PDFService->>PDFService: filter_relevant_pages(all_pages_text_dict)
-    alt Relevant pages found
-        PDFService->>PDFService: process_pages_sequentially(relevant_pages)
-        loop For each relevant page
-            PDFService->>BiomarkerParser: extract_biomarkers_with_claude(page_text)
-            BiomarkerParser-->>PDFService: page_biomarkers
-        end
-        PDFService->>PDFService: De-duplicate biomarkers
-        PDFService->>Database: Store final biomarkers (linked to pdf_id, profile_id)
-        PDFService->>Database: Update PDF parsing_confidence
-    else No relevant pages
-        PDFService->>PDFService: Log warning, skip biomarker saving
-    end
-    PDFService->>Database: Update PDF status to 'processed' or 'error'
-    %% Note: Frontend polls /api/pdfs/status/{file_id} separately
+    Frontend->>API: Upload PDF
+    API->>PDFService: Process PDF
+    PDFService->>Parser: Extract Data
+    Parser-->>PDFService: Biomarkers
+    PDFService->>DB: Save Results
+    API-->>Frontend: Status
 ```
 
-### Visualization Data Flow (with Profile)
+### Visualization Flow
+
 ```mermaid
 sequenceDiagram
-    participant User
     participant Frontend
-    participant BackendAPI
-    participant Database
-    participant LLMService
+    participant API
+    participant DB
+    participant AIService
 
-    User->>Frontend: Select Profile
-    User->>Frontend: Navigate to Visualization Page
-    Frontend->>BackendAPI: GET /api/profiles/{profile_id}/biomarkers
-    BackendAPI->>Database: Query biomarker data for profile_id
-    Database->>BackendAPI: Return data
-    BackendAPI->>Frontend: Biomarker data (filtered by profile)
-    Frontend->>Frontend: Render visualization
-    Frontend->>BackendAPI: GET /api/profiles/{profile_id}/favorites
-    BackendAPI->>Database: Query favorite biomarkers for profile_id
-    Database->>BackendAPI: Return favorites list
-    BackendAPI->>Frontend: Favorite biomarkers data
-    Frontend->>Frontend: Highlight/display favorites
-    Frontend->>BackendAPI: GET /api/biomarkers/{biomarker_name}/insights
-    BackendAPI->>LLMService: Request biomarker insights
-    LLMService->>BackendAPI: Return insights
-    BackendAPI->>Frontend: Biomarker insights
-    Frontend->>User: Display visualization with insights & favorites
+    Frontend->>API: Request Data
+    API->>DB: Query Biomarkers
+    DB-->>API: Results
+    API->>AIService: Get Insights
+    AIService-->>API: Analysis
+    API-->>Frontend: Visualization Data
+```
