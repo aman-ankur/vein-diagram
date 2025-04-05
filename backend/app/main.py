@@ -66,6 +66,8 @@ origins = [
     "http://localhost:5173",  # Vite default dev server
     "https://veindiagram.com", # Production domain
     "https://www.veindiagram.com", # Production domain with www
+    "https://vein-diagram-m2qjunh4t-aman-ankurs-projects.vercel.app", # Vercel preview deployment
+    "https://vein-diagram.vercel.app", # Vercel production domain
     os.getenv("FRONTEND_URL", ""),  # Production frontend URL
 ]
 
