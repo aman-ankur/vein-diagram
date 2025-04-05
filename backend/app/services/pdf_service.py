@@ -411,8 +411,20 @@ def process_pdf_background(pdf_id: int, db_session=None):
         
         logger.info(f"Parsing metadata from first {num_pages_for_metadata} pages' text for PDF {pdf_id}")
         from app.services.metadata_parser import extract_metadata_with_claude
-        metadata = extract_metadata_with_claude(metadata_text.strip(), pdf.filename)
-
+        
+        # Properly handle the async function
+        try:
+            # We need to handle the async function without asyncio.run() as we might be in a context
+            # where an event loop is already running
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            metadata = loop.run_until_complete(extract_metadata_with_claude(metadata_text.strip(), pdf.filename))
+            loop.close()
+            logger.info(f"Successfully extracted metadata")
+        except Exception as metadata_error:
+            logger.error(f"Error extracting metadata: {str(metadata_error)}")
+            metadata = {}
+        
         # Update PDF with extracted metadata (existing logic)
         if metadata:
             logger.info(f"Extracted metadata for PDF {pdf_id}: {metadata}")
