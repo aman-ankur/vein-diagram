@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { Profile, ProfileListResponse } from '../types/Profile';
-import { getProfile } from '../services/profileService';
+import { Profile } from '../types/Profile';
+import { getProfile, getProfiles } from '../services/profileService';
 
 interface ProfileContextType {
   activeProfile: Profile | null;
@@ -65,7 +65,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       
       // Attempt to fetch available profiles to select a new active profile
       try {
-        const { getProfiles } = await import('../services/profileService');
+        // Import directly from the service, not using dynamic import
         const profilesResponse = await getProfiles();
         if (profilesResponse.profiles && profilesResponse.profiles.length > 0) {
           console.log('Auto-selecting first available profile:', profilesResponse.profiles[0].id);
