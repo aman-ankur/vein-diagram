@@ -1,5 +1,9 @@
 # Vein Diagram
 
+<div align="center">
+  <img src="public/vein_diagram_4.png" alt="Vein Diagram Logo" width="200"/>
+</div>
+
 Vein Diagram transforms blood test PDFs into insightful visualizations, helping users track biomarkers, identify trends, and understand their health data over time using AI-powered analysis.
 
 ## Key Features
