@@ -221,7 +221,7 @@ const NavBar: React.FC<{
 
 function AppContent() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+  const [, setApiAvailable] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
   const { user } = useAuth();
