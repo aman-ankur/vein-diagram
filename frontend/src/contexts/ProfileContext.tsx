@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { Profile } from '../types/Profile';
 import { getProfile, getProfiles } from '../services/profileService';
+import { useAuth } from './AuthContext'; // Import auth context to get current user
 
 interface ProfileContextType {
   activeProfile: Profile | null;
@@ -20,24 +21,47 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth(); // Get the current authenticated user
 
-  // Load active profile from localStorage on mount
+  // Helper to get user-specific localStorage key
+  const getProfileStorageKey = () => {
+    return user?.id ? `activeProfileId_${user.id}` : null;
+  };
+
+  // Load active profile from localStorage on mount or user change
   useEffect(() => {
-    const storedProfileId = localStorage.getItem('activeProfileId');
+    // Clear active profile when user changes
+    setActiveProfile(null);
+    
+    // Only try to load a profile if we have a user
+    if (!user?.id) return;
+    
+    const storageKey = getProfileStorageKey();
+    if (!storageKey) return;
+    
+    const storedProfileId = localStorage.getItem(storageKey);
     if (storedProfileId) {
       setActiveProfileById(storedProfileId).catch(err => {
         console.error('Failed to load stored profile:', err);
         // Clear invalid profile ID from storage
-        localStorage.removeItem('activeProfileId');
+        localStorage.removeItem(storageKey);
       });
     }
-  }, []);
+  }, [user?.id]); // Re-run when user ID changes
 
   // Set active profile by ID
   const setActiveProfileById = async (profileId: string | null): Promise<void> => {
+    const storageKey = getProfileStorageKey();
+    
     if (!profileId) {
       setActiveProfile(null);
-      localStorage.removeItem('activeProfileId');
+      if (storageKey) localStorage.removeItem(storageKey);
+      return;
+    }
+
+    // Don't proceed if no user is logged in
+    if (!storageKey) {
+      setError('You must be logged in to select a profile');
       return;
     }
 
@@ -46,7 +70,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setError(null);
       const profile = await getProfile(profileId);
       setActiveProfile(profile);
-      localStorage.setItem('activeProfileId', profileId);
+      localStorage.setItem(storageKey, profileId);
     } catch (err: unknown) {
       console.error(`Error fetching profile ${profileId}:`, err);
       
@@ -61,7 +85,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       
       // Always clear invalid profile ID from storage
       setActiveProfile(null);
-      localStorage.removeItem('activeProfileId');
+      if (storageKey) localStorage.removeItem(storageKey);
       
       // Attempt to fetch available profiles to select a new active profile
       try {
@@ -71,7 +95,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
           console.log('Auto-selecting first available profile:', profilesResponse.profiles[0].id);
           // Set the first available profile as active
           setActiveProfile(profilesResponse.profiles[0]);
-          localStorage.setItem('activeProfileId', profilesResponse.profiles[0].id);
+          if (storageKey) localStorage.setItem(storageKey, profilesResponse.profiles[0].id);
         }
       } catch (fetchError) {
         console.error('Failed to auto-select a profile:', fetchError);
