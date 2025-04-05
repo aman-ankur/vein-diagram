@@ -1,5 +1,5 @@
-import React from 'react';
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
+// React import removed - unused
+import { render, screen, waitFor, within } from '@testing-library/react'; // fireEvent removed - unused
 import userEvent from '@testing-library/user-event'; // Use userEvent for better interaction simulation
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';

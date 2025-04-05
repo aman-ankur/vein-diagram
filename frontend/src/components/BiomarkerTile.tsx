@@ -23,7 +23,7 @@ import RemoveIcon from '@mui/icons-material/Remove'; // Stable trend
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'; // Unknown trend/status
 import ScienceIcon from '@mui/icons-material/Science'; // Generic biomarker icon
 import BloodtypeIcon from '@mui/icons-material/Bloodtype'; // Example: Hematology
-import MonitorHeartIcon from '@mui/icons-material/MonitorHeart'; // Example: Cardiovascular
+// MonitorHeartIcon removed - unused
 import BubbleChartIcon from '@mui/icons-material/BubbleChart'; // Example: Hormones/Endocrine
 import WaterDropIcon from '@mui/icons-material/WaterDrop'; // Example: Lipids
 import CloseIcon from '@mui/icons-material/Close'; // Icon for delete button

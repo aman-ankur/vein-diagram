@@ -1,0 +1,29 @@
+name: Keep Render Instance Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # Run every 10 minutes
+  # Also run this workflow on push to main branch to verify it works
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API Health Endpoint
+        run: |
+          curl -X GET https://vein-diagram-api.onrender.com/health || true
+          echo "Ping completed at $(date)"
+      
+      - name: Verify API Status
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://vein-diagram-api.onrender.com/health)
+          if [[ "$RESPONSE" -ge 200 && "$RESPONSE" -lt 300 ]]; then
+            echo "✅ API is responding with status code $RESPONSE"
+          else
+            echo "⚠️ API returned status code $RESPONSE"
+            # Don't fail the workflow, as this could be during cold start
+          fi 

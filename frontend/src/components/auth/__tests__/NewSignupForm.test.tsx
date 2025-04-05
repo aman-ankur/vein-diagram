@@ -1,12 +1,27 @@
-import React from 'react';
+// React import removed - unused
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '../../../contexts/AuthContext';
 import NewSignupForm from '../NewSignupForm';
 import { supabase } from '../../../services/supabaseClient';
 
-// Mock the supabase client
-const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+// Mock the supabase client and its methods
+jest.mock('../../../services/supabaseClient', () => ({
+  supabase: {
+    auth: {
+      signUp: jest.fn(),
+      signInWithOAuth: jest.fn(),
+      // Add other methods if needed by AuthProvider/NewSignupForm
+      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
+    },
+  },
+}));
+
+// Type assertion for the mocked functions
+const mockSignUp = supabase.auth.signUp as jest.Mock;
+const mockSignInWithOAuth = supabase.auth.signInWithOAuth as jest.Mock;
+
 
 const renderSignupForm = () => {
   return render(
@@ -80,10 +95,10 @@ describe('NewSignupForm', () => {
 
   it('handles successful signup', async () => {
     // Mock successful signup response
-    mockSupabase.auth.signUp.mockResolvedValueOnce({
+    mockSignUp.mockResolvedValueOnce({
       data: { user: { id: '123', email: 'test@example.com' }, session: null },
       error: null
-    } as any);
+    });
 
     renderSignupForm();
     
@@ -108,7 +123,7 @@ describe('NewSignupForm', () => {
     
     // Verify Supabase was called with correct credentials
     await waitFor(() => {
-      expect(mockSupabase.auth.signUp).toHaveBeenCalledWith({
+      expect(mockSignUp).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'password123'
       });
@@ -117,10 +132,10 @@ describe('NewSignupForm', () => {
 
   it('handles signup error', async () => {
     // Mock signup error response
-    mockSupabase.auth.signUp.mockResolvedValueOnce({
+    mockSignUp.mockResolvedValueOnce({
       data: { user: null, session: null },
       error: { message: 'Email already registered' }
-    } as any);
+    });
 
     renderSignupForm();
     
@@ -168,10 +183,10 @@ describe('NewSignupForm', () => {
 
   it('handles Google sign in', async () => {
     // Mock Google sign in
-    mockSupabase.auth.signInWithOAuth.mockResolvedValueOnce({
-      data: { provider: 'google' },
+    mockSignInWithOAuth.mockResolvedValueOnce({
+      data: { provider: 'google', url: 'http://example.com/auth/google' }, // Added url as it's often part of the response
       error: null
-    } as any);
+    });
 
     renderSignupForm();
     
@@ -181,9 +196,9 @@ describe('NewSignupForm', () => {
     
     // Verify Supabase was called
     await waitFor(() => {
-      expect(mockSupabase.auth.signInWithOAuth).toHaveBeenCalledWith({
+      expect(mockSignInWithOAuth).toHaveBeenCalledWith({
         provider: 'google'
       });
     });
   });
-}); 
+});

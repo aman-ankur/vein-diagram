@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Card, Avatar, Divider, Space, Row, Col, Progress, Form, Input, DatePicker, Select, Typography, Alert } from 'antd';
-import { UserOutlined, CheckCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
-import { Profile, ProfileMatch, ProfileMetadata } from '../types/Profile';
+import { UserOutlined, PlusCircleOutlined } from '@ant-design/icons'; // Removed CheckCircleOutlined
+import { ProfileMatch, ProfileMetadata } from '../types/Profile'; // Removed Profile
 import moment from 'moment';
 
 const { Title, Text } = Typography;
@@ -20,7 +20,7 @@ interface ProfileMatchingModalProps {
 
 const ProfileMatchingModal: React.FC<ProfileMatchingModalProps> = ({
   visible,
-  pdfId,
+  // pdfId, // Removed unused prop
   matches,
   metadata,
   onCancel,
@@ -281,4 +281,4 @@ const ProfileMatchingModal: React.FC<ProfileMatchingModalProps> = ({
   );
 };
 
-export default ProfileMatchingModal; 
+export default ProfileMatchingModal;

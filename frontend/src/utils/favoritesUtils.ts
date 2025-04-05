@@ -1,19 +1,11 @@
-import {
-  DEFAULT_FAVORITE_BIOMARKERS,
-  FAVORITES_STORAGE_PREFIX,
-  MAX_FAVORITE_BIOMARKERS,
-} from '../config';
+// Imports removed as they are unused
+// import {
+//   DEFAULT_FAVORITE_BIOMARKERS,
+//   FAVORITES_STORAGE_PREFIX,
+//   MAX_FAVORITE_BIOMARKERS,
+// } from '../config';
 
-/**
- * Generates the localStorage key for a given profile ID.
- * @param profileId - The ID of the profile.
- * @returns The localStorage key string.
- */
-const getFavoritesStorageKey = (profileId: string): string => {
-  // This function might still be useful if other parts of the app use it,
-  // but it's no longer used for the primary favorite storage mechanism.
-  return `${FAVORITES_STORAGE_PREFIX}${profileId}`;
-};
+// Removed unused function getFavoritesStorageKey
 
 // NOTE: The following functions are removed as favorite management is now handled
 // by the backend API via profileService.ts

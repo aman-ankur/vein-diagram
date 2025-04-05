@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react'; // Removed useEffect
 import {
   Box,
-  Paper,
+  // Paper removed - unused
   Table,
   TableBody,
   TableCell,
@@ -22,8 +22,8 @@ import {
   alpha,
   Button,
   TableSortLabel,
-  CircularProgress,
-  Avatar,
+  // CircularProgress removed - unused
+  // Avatar removed - unused
   Grid // Added Grid import
 } from '@mui/material';
 import {
@@ -33,11 +33,11 @@ import {
   Refresh as RefreshIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
-  FilterList as FilterListIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
-  Check as CheckIcon,
-  Timeline as TimelineIcon,
+  // FilterListIcon removed - unused
+  // ErrorIcon removed - unused
+  Warning as WarningIcon, // Keep WarningIcon as it's used in StatusChip
+  // CheckIcon removed - unused
+  // TimelineIcon removed - unused
   History as HistoryIcon,
   Psychology as PsychologyIcon,
   MoreVert as MoreVertIcon,
@@ -45,14 +45,14 @@ import {
   StarBorder as StarBorderIcon,
   Star as StarIcon
 } from '@mui/icons-material';
-import { SvgIcon, Menu, MenuItem } from '@mui/material';
+import { Menu, MenuItem } from '@mui/material'; // Removed SvgIcon import
 import type { Biomarker } from '../types/biomarker';
 
 // Re-export the Biomarker type
 export type { Biomarker };
 
 interface BiomarkerTableProps {
-  fileId?: string;
+  // fileId?: string; // Removed unused prop
   biomarkers?: Biomarker[];
   isLoading?: boolean;
   error?: string | null;
@@ -85,9 +85,9 @@ const columns: Column[] = [
   { id: 'referenceRange', label: 'Reference Range', minWidth: 120, align: 'center' },
   { id: 'status', label: 'Status', minWidth: 100, align: 'center' },
   { id: 'category', label: 'Category', minWidth: 120, align: 'center', sortable: true },
-  { id: 'reportDate', label: 'Report Date', minWidth: 120, align: 'center', 
+  { id: 'reportDate', label: 'Report Date', minWidth: 120, align: 'center',
     format: (value: string) => value ? new Date(value).toLocaleDateString() : 'N/A',
-    sortable: true 
+    sortable: true
   },
   { id: 'actions', label: 'Actions', minWidth: 150, align: 'center' },
 ];
@@ -98,40 +98,40 @@ const isOutsideRange = (biomarker: Biomarker): boolean | undefined => {
   if (biomarker.isAbnormal !== undefined) {
     return biomarker.isAbnormal;
   }
-  
+
   // If we have numeric reference range bounds, use those (check for null/undefined)
   if (biomarker.reference_range_low != null && biomarker.reference_range_high != null) {
     return biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high;
   }
-  
+
   // Otherwise, try to parse from the reference range text
   if (!biomarker.referenceRange) {
     return undefined;
   }
 
   const referenceRange = biomarker.referenceRange.trim();
-  
+
   // Try to parse ranges in format "X-Y"
   const dashMatch = referenceRange.match(/^(\d+\.?\d*)\s*-\s*(\d+\.?\d*)$/);
   if (dashMatch) {
     const [_, min, max] = dashMatch;
     return biomarker.value < parseFloat(min) || biomarker.value > parseFloat(max);
   }
-  
+
   // Try to parse ranges in format "< X" or "<= X"
   const lessThanMatch = referenceRange.match(/^<\s*=?\s*(\d+\.?\d*)$/);
   if (lessThanMatch) {
     const [_, max] = lessThanMatch;
     return biomarker.value > parseFloat(max);
   }
-  
+
   // Try to parse ranges in format "> X" or ">= X"
   const greaterThanMatch = referenceRange.match(/^>\s*=?\s*(\d+\.?\d*)$/);
   if (greaterThanMatch) {
     const [_, min] = greaterThanMatch;
     return biomarker.value < parseFloat(min);
   }
-  
+
   // Couldn't determine range
   return undefined;
 };
@@ -139,15 +139,15 @@ const isOutsideRange = (biomarker: Biomarker): boolean | undefined => {
 // Updated StatusChip component with more subtle design
 const StatusChip: React.FC<{ biomarker: Biomarker }> = ({ biomarker }) => {
   const theme = useTheme();
-  const isAbnormal = biomarker.isAbnormal !== undefined 
-    ? biomarker.isAbnormal 
+  const isAbnormal = biomarker.isAbnormal !== undefined
+    ? biomarker.isAbnormal
     : isOutsideRange(biomarker);
-  
+
   if (isAbnormal === undefined) {
     return (
-      <Chip 
-        size="small" 
-        label="Unknown" 
+      <Chip
+        size="small"
+        label="Unknown"
         sx={{
           backgroundColor: alpha(theme.palette.grey[500], 0.12),
           color: theme.palette.text.secondary,
@@ -158,12 +158,13 @@ const StatusChip: React.FC<{ biomarker: Biomarker }> = ({ biomarker }) => {
       />
     );
   }
-  
+
   return isAbnormal ? (
     <Tooltip title="Outside normal range">
-      <Chip 
-        size="small" 
-        label="Abnormal" 
+      <Chip
+        size="small"
+        label="Abnormal"
+        icon={<WarningIcon sx={{ fontSize: '1rem', color: theme.palette.error.main }} />} // Ensure icon is used if needed
         sx={{
           backgroundColor: alpha(theme.palette.error.main, 0.12),
           color: theme.palette.error.main,
@@ -175,8 +176,8 @@ const StatusChip: React.FC<{ biomarker: Biomarker }> = ({ biomarker }) => {
     </Tooltip>
   ) : (
     <Tooltip title="Within normal range">
-      <Chip 
-        size="small" 
+      <Chip
+        size="small"
         label="Normal"
         sx={{
           backgroundColor: alpha(theme.palette.success.main, 0.12),
@@ -198,7 +199,7 @@ const ActionIconButton: React.FC<{
   color?: string;
 }> = ({ icon, tooltip, onClick, color }) => {
   const theme = useTheme();
-  
+
   return (
     <Tooltip title={tooltip}>
       <IconButton
@@ -232,37 +233,37 @@ const BiomarkerRow: React.FC<{
   isFavoriteLimitReached?: boolean;
   onReplaceFavoriteRequest?: (biomarkerName: string) => void;
   showSource?: boolean;
-}> = ({ 
-  biomarker, 
-  onViewHistory, 
-  onExplainWithAI, 
-  onDeleteBiomarker, 
+}> = ({
+  biomarker,
+  onViewHistory,
+  onExplainWithAI,
+  onDeleteBiomarker,
   onToggleFavorite,
   isFavoriteChecker,
   isFavoriteLimitReached,
   onReplaceFavoriteRequest,
-  showSource = false 
+  showSource = false
 }) => {
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(anchorEl);
   const theme = useTheme();
-  
+
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
-  
+
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
-  
+
   const handleDeleteClick = () => {
     handleMenuClose();
     if (onDeleteBiomarker && biomarker.id) {
       onDeleteBiomarker(biomarker.id);
     }
   };
-  
+
   const handleFavoriteToggle = () => {
     handleMenuClose();
     if (onToggleFavorite) {
@@ -276,28 +277,28 @@ const BiomarkerRow: React.FC<{
       }
     }
   };
-  
+
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
-  
+
   const getSourceDisplayName = () => {
     if (!biomarker.fileName) return 'Unknown';
-    
+
     // Just return the filename without the path and extension
     const filename = biomarker.fileName.split('/').pop() || '';
     return filename.replace(/\.[^.]+$/, '');
   };
-  
+
   const isFavorite = isFavoriteChecker ? isFavoriteChecker(biomarker.name) : false;
-  
+
   return (
     <>
-      <TableRow 
-        sx={{ 
-          '&:hover': { 
+      <TableRow
+        sx={{
+          '&:hover': {
             backgroundColor: alpha(theme.palette.primary.main, 0.04),
           },
           cursor: 'pointer',
@@ -315,7 +316,7 @@ const BiomarkerRow: React.FC<{
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        
+
         <TableCell component="th" scope="row">
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -326,19 +327,19 @@ const BiomarkerRow: React.FC<{
             </Box>
           </Box>
         </TableCell>
-        
+
         <TableCell align="right">
           <Typography variant="body2" fontWeight={600}>
             {typeof biomarker.value === 'number' ? biomarker.value.toFixed(2) : biomarker.value}
           </Typography>
         </TableCell>
-        
+
         <TableCell align="center">
           <Typography variant="body2" color="text.secondary">
             {biomarker.unit || '-'}
           </Typography>
         </TableCell>
-        
+
         <TableCell align="center">
           <Typography variant="body2" color="text.secondary">
             {biomarker.referenceRange || (
@@ -348,16 +349,16 @@ const BiomarkerRow: React.FC<{
             )}
           </Typography>
         </TableCell>
-        
+
         <TableCell align="center">
           <StatusChip biomarker={biomarker} />
         </TableCell>
-        
+
         <TableCell align="center">
-          <Chip 
-            label={biomarker.category || 'General'} 
+          <Chip
+            label={biomarker.category || 'General'}
             size="small"
-            sx={{ 
+            sx={{
               backgroundColor: alpha(theme.palette.primary.main, 0.08),
               color: theme.palette.primary.main,
               fontWeight: 500,
@@ -366,13 +367,13 @@ const BiomarkerRow: React.FC<{
             }}
           />
         </TableCell>
-        
+
         <TableCell align="center">
           <Typography variant="body2" color="text.secondary">
             {biomarker.reportDate ? formatDate(biomarker.reportDate) : '-'}
           </Typography>
         </TableCell>
-        
+
         <TableCell align="center">
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             {/* Favorite Toggle Button */}
@@ -384,16 +385,16 @@ const BiomarkerRow: React.FC<{
                     e.stopPropagation(); // Prevent row collapse/expand
                     handleFavoriteToggle();
                   }}
-                  sx={{ 
+                  sx={{
                     color: isFavorite ? theme.palette.warning.main : theme.palette.text.disabled,
-                    mr: 0.5 
+                    mr: 0.5
                   }}
                 >
                   {isFavorite ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
                 </IconButton>
               </Tooltip>
             )}
-            
+
             {/* AI Explain Button */}
             {onExplainWithAI && (
               <ActionIconButton
@@ -401,7 +402,7 @@ const BiomarkerRow: React.FC<{
                 tooltip="Explain with AI" // Keep only one tooltip prop
                 onClick={() => { // Remove event parameter 'e'
                   // e.stopPropagation(); // No event to stop propagation on
-                  onExplainWithAI(biomarker); 
+                  onExplainWithAI(biomarker);
                 }}
                 color={theme.palette.secondary.main}
               />
@@ -456,13 +457,13 @@ const BiomarkerRow: React.FC<{
           </Box>
         </TableCell>
       </TableRow>
-      
+
       <TableRow>
         <TableCell colSpan={9} sx={{ py: 0, borderBottom: open ? `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none' }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box sx={{ 
-              py: 3, 
-              px: 2, 
+            <Box sx={{
+              py: 3,
+              px: 2,
               backgroundColor: alpha(theme.palette.background.paper, 0.4),
               borderRadius: 2
             }}>
@@ -471,9 +472,9 @@ const BiomarkerRow: React.FC<{
                   <Typography variant="subtitle2" gutterBottom component="div" color="primary.main">
                     Biomarker Details
                   </Typography>
-                  <Box sx={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '1fr 1fr', 
+                  <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
                     gap: 2,
                     '& .detail-label': {
                       color: theme.palette.text.secondary,
@@ -486,27 +487,27 @@ const BiomarkerRow: React.FC<{
                   }}>
                     <Typography className="detail-label">Name:</Typography>
                     <Typography className="detail-value">{biomarker.name}</Typography>
-                    
+
                     <Typography className="detail-label">Category:</Typography>
                     <Typography className="detail-value">{biomarker.category || 'General'}</Typography>
-                    
+
                     <Typography className="detail-label">Value:</Typography>
                     <Typography className="detail-value">
                       {typeof biomarker.value === 'number' ? biomarker.value.toFixed(2) : biomarker.value} {biomarker.unit || ''}
                     </Typography>
-                    
+
                     <Typography className="detail-label">Status:</Typography>
                     <Typography className="detail-value">
                       <StatusChip biomarker={biomarker} />
                     </Typography>
-                    
+
                     {biomarker.reportDate && (
                       <>
                         <Typography className="detail-label">Report Date:</Typography>
                         <Typography className="detail-value">{formatDate(biomarker.reportDate)}</Typography>
                       </>
                     )}
-                    
+
                     {showSource && biomarker.fileName && (
                       <>
                         <Typography className="detail-label">Source:</Typography>
@@ -515,16 +516,16 @@ const BiomarkerRow: React.FC<{
                     )}
                   </Box>
                 </Grid>
-                
+
                 <Grid item xs={12} md={6}>
                   {/* Removed description section */}
-                  
-                  <Box sx={{ 
+
+                  <Box sx={{
                     mt: 0, // Removed dependency on description
-                    display: 'flex', 
-                    gap: 1, 
+                    display: 'flex',
+                    gap: 1,
                     flexWrap: 'wrap',
-                    justifyContent: { xs: 'center', md: 'flex-start' } 
+                    justifyContent: { xs: 'center', md: 'flex-start' }
                   }}>
                     {onExplainWithAI && (
                       <Button
@@ -532,7 +533,7 @@ const BiomarkerRow: React.FC<{
                         variant="contained"
                         startIcon={<PsychologyIcon />}
                         onClick={() => onExplainWithAI(biomarker)}
-                        sx={{ 
+                        sx={{
                           borderRadius: '10px',
                           textTransform: 'none',
                           bgcolor: theme.palette.secondary.main,
@@ -544,14 +545,14 @@ const BiomarkerRow: React.FC<{
                         Explain with AI
                       </Button>
                     )}
-                    
+
                     {onViewHistory && (
                       <Button
                         size="small"
                         variant="outlined"
                         startIcon={<HistoryIcon />}
                         onClick={() => onViewHistory(biomarker)}
-                        sx={{ 
+                        sx={{
                           borderRadius: '10px',
                           textTransform: 'none',
                           borderColor: alpha(theme.palette.primary.main, 0.5)
@@ -573,7 +574,7 @@ const BiomarkerRow: React.FC<{
 
 // Updated BiomarkerTable component
 const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
-  fileId,
+  // fileId, // Removed unused prop
   biomarkers = [],
   isLoading = false,
   error = null,
@@ -592,9 +593,9 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   // Allow orderBy to be a key of Biomarker OR 'status'
-  const [orderBy, setOrderBy] = useState<keyof Biomarker | 'status'>('name'); 
+  const [orderBy, setOrderBy] = useState<keyof Biomarker | 'status'>('name');
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
-  
+
   const filteredBiomarkers = biomarkers.filter((biomarker) => {
     const searchFields = [
       biomarker.name,
@@ -603,75 +604,75 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
       String(biomarker.value),
       biomarker.unit
     ].filter(Boolean);
-    
-    return searchFields.some(field => 
+
+    return searchFields.some(field =>
       field && field.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
-  
+
   const sortedBiomarkers = [...filteredBiomarkers].sort((a, b) => {
     const isAsc = order === 'asc';
-    
+
     // Handle special case for sorting by 'status'
     if (orderBy === 'status') {
       const aStatus = a.isAbnormal || isOutsideRange(a) || false;
       const bStatus = b.isAbnormal || isOutsideRange(b) || false;
       return isAsc ? (aStatus === bStatus ? 0 : aStatus ? 1 : -1) : (aStatus === bStatus ? 0 : aStatus ? -1 : 1);
     }
-    
+
     // Default sorting for other fields (ensure orderBy is a valid key here)
     const validOrderBy = orderBy as keyof Biomarker; // Cast because we handled 'status'
     const aValue = a[validOrderBy] as string | number;
     const bValue = b[validOrderBy] as string | number;
-    
+
     if (typeof aValue === 'number' && typeof bValue === 'number') {
       return isAsc ? aValue - bValue : bValue - aValue;
     }
-    
+
     const aString = String(aValue || '').toLowerCase();
     const bString = String(bValue || '').toLowerCase();
-    
+
     return isAsc ? aString.localeCompare(bString) : bString.localeCompare(aString);
   });
-  
+
   const handleRequestSort = (property: keyof Biomarker) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     // Allow setting orderBy to 'status'
-    setOrderBy(property as keyof Biomarker | 'status'); 
+    setOrderBy(property as keyof Biomarker | 'status');
   };
-  
+
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
     setPage(0);
   };
-  
-  const handleChangePage = (event: unknown, newPage: number) => {
+
+  const handleChangePage = (_event: unknown, newPage: number) => { // Removed unused event param
     setPage(newPage);
   };
-  
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => { // Kept event param as it's used
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
-  
+
   // Simplified getColumns as 'viewHistory' was never a column id
   const getColumns = (): Column[] => {
     return columns;
   };
-  
+
   const paginatedBiomarkers = sortedBiomarkers.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
-  
+
   return (
     <Box>
       {/* Search, Filter, Refresh Bar */}
-      <Box sx={{ 
-        p: 2, 
-        display: 'flex', 
-        alignItems: 'center', 
+      <Box sx={{
+        p: 2,
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: 2
@@ -688,7 +689,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
                 <SearchIcon fontSize="small" />
               </InputAdornment>
             ),
-            sx: { 
+            sx: {
               borderRadius: '10px',
               bgcolor: alpha(theme.palette.background.paper, 0.5),
               '& fieldset': {
@@ -698,7 +699,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
           }}
           sx={{ minWidth: 250 }}
         />
-        
+
         <Box sx={{ display: 'flex', gap: 1 }}>
           {onRefresh && (
             <Button
@@ -718,17 +719,17 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
           )}
         </Box>
       </Box>
-      
+
       {isLoading && (
         <LinearProgress sx={{ height: 2 }} />
       )}
-      
+
       {error && (
-        <Alert 
-          severity="error" 
-          sx={{ 
-            mx: 2, 
-            mt: 1, 
+        <Alert
+          severity="error"
+          sx={{
+            mx: 2,
+            mt: 1,
             mb: 2,
             borderRadius: '10px'
           }}
@@ -736,7 +737,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
           {error}
         </Alert>
       )}
-      
+
       {!isLoading && biomarkers.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 5 }}>
           <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -753,14 +754,14 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
               <TableHead>
                 <TableRow sx={{ '& th': { borderBottom: `2px solid ${alpha(theme.palette.divider, 0.1)}` } }}>
                   <TableCell sx={{ width: 48 }}></TableCell>
-                  
+
                   {getColumns().map((column) => (
                     <TableCell
                       key={column.id}
                       align={column.align}
                       style={{ minWidth: column.minWidth }}
                       sortDirection={orderBy === column.id ? order : false}
-                      sx={{ 
+                      sx={{
                         color: theme.palette.text.secondary,
                         fontWeight: 600,
                         fontSize: '0.82rem'
@@ -788,7 +789,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
                   ))}
                 </TableRow>
               </TableHead>
-              
+
               <TableBody>
                 {paginatedBiomarkers.length > 0 ? (
                   paginatedBiomarkers.map((biomarker) => (
@@ -817,7 +818,7 @@ const BiomarkerTable: React.FC<BiomarkerTableProps> = ({
               </TableBody>
             </Table>
           </TableContainer>
-          
+
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within, act } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react'; // Removed act
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../main'; // Adjust path if needed
 import BiomarkerTable, { Biomarker } from './BiomarkerTable';

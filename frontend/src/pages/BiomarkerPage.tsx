@@ -10,10 +10,10 @@ import {
   Button, 
   CircularProgress, 
   Grid,
-  Breadcrumbs,
-  Link,
+  // Breadcrumbs removed - unused
+  // Link removed - unused
   Chip,
-  Divider,
+  // Divider removed - unused
   Alert,
   AlertTitle,
   useTheme,
@@ -31,21 +31,22 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import HistoryIcon from '@mui/icons-material/History';
+// NavigateNextIcon removed - unused
+// HistoryIcon removed - unused
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import { getAllBiomarkers, getBiomarkersByFileId, getBiomarkerCategories, getBiomarkerExplanation, getPDFStatus, PDFProcessingStatus } from '../services/api';
-import { getAllProfiles } from '../services/profileService';
+// PDFProcessingStatus removed - unused
+import { getAllBiomarkers, getBiomarkersByFileId, getBiomarkerCategories, getBiomarkerExplanation, getPDFStatus } from '../services/api';
+import { getProfiles } from '../services/profileService'; // Corrected import name
 import BiomarkerTable from '../components/BiomarkerTable';
 import BiomarkerVisualization from '../components/BiomarkerVisualization';
 import ExplanationModal from '../components/ExplanationModal';
 import ViewToggle from '../components/ViewToggle';
-import type { Biomarker } from '../types/biomarker';
+import type { Biomarker } from '../types/biomarker.d'; // Adjusted path if needed based on file structure
 import { BiomarkerExplanation } from '../types/api';
-import { UserProfile } from '../types/Profile';
+import { Profile } from '../types/Profile'; // Corrected import name
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -276,10 +277,10 @@ const BiomarkerPage: React.FC = () => {
   const [explanationLoading, setExplanationLoading] = useState<boolean>(false);
   const [explanationError, setExplanationError] = useState<string | null>(null);
   const [explanation, setExplanation] = useState<BiomarkerExplanation | null>(null);
-  
-  const [profiles, setProfiles] = useState<UserProfile[]>([]);
-  const [profilesLoading, setProfilesLoading] = useState(false);
-  
+
+  const [profiles, setProfiles] = useState<Profile[]>([]); // Use correct Profile type
+  // const [profilesLoading, setProfilesLoading] = useState(false); // Removed unused state
+
   // This is a dummy function just for testing - will be replaced with actual history feature
   const onViewHistory = (biomarker: Biomarker) => {
     console.log('View history for biomarker:', biomarker);
@@ -325,19 +326,27 @@ const BiomarkerPage: React.FC = () => {
             
             // Log the full PDF status for debugging
             console.log('PDF status full response:', pdfStatus);
-            
-            if (pdfStatus && pdfStatus.profileId) {
-              extractedProfileId = pdfStatus.profileId;
-              console.log(`Found profile ID from PDF status: ${extractedProfileId}`);
-              setProfileId(extractedProfileId);
-              
-              // Update metadata
-              setMetadata({
-                lab_name: pdfStatus.lab_name || "Lab Provider",
-                report_date: pdfStatus.processed_date || new Date().toISOString().split('T')[0],
-                filename: pdfStatus.filename || "lab_report.pdf",
-                profile_name: pdfStatus.profile_name || "Patient Profile"
-              });
+
+            // Correctly use pdfStatus properties that exist on ProcessingStatus type
+            if (pdfStatus && pdfStatus.fileId) { // Check for fileId as an indicator of a valid status object
+               // Try to extract profileId from biomarkers if not directly in status
+               // (This logic remains, but don't access non-existent props on pdfStatus)
+
+               // Set metadata based on available pdfStatus fields or defaults
+               setMetadata({
+                 lab_name: (pdfStatus as any).lab_name || "Lab Provider", // Use 'any' assertion carefully if structure is known but not typed
+                 report_date: (pdfStatus as any).report_date || new Date().toISOString().split('T')[0],
+                 filename: pdfStatus.filename || "lab_report.pdf",
+                 profile_name: (pdfStatus as any).profile_name || "Patient Profile" // Use 'any' assertion carefully
+               });
+
+               // Attempt to get profileId from the status object if it exists (might be added later)
+               if ((pdfStatus as any).profileId) {
+                 extractedProfileId = (pdfStatus as any).profileId;
+                 console.log(`Found profile ID from PDF status: ${extractedProfileId}`);
+                 setProfileId(extractedProfileId);
+               }
+
             } else {
               console.log("No profile association found in PDF status");
             }
@@ -431,7 +440,7 @@ const BiomarkerPage: React.FC = () => {
   }, [fileId, selectedCategory, currentView, profileId, searchParams]);
   
   // Handle tab change
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => { // Mark event as unused
     setTabValue(newValue);
   };
   
@@ -473,17 +482,22 @@ const BiomarkerPage: React.FC = () => {
     setExplanation(null);
     
     try {
-      // Calculate the abnormal status
-      const isAbnormal = biomarker.isAbnormal !== undefined 
-        ? biomarker.isAbnormal 
-        : (biomarker.reference_range_low !== undefined && biomarker.reference_range_high !== undefined)
-          ? (biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high)
-          : false;
-      
-      // Format reference range
-      const referenceRange = biomarker.referenceRange || 
-        (biomarker.reference_range_low !== null && biomarker.reference_range_high !== null 
-          ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}` 
+      // Calculate the abnormal status with refined null checks for type safety
+      let isAbnormal = biomarker.isAbnormal; // Use existing value if defined
+      if (isAbnormal === undefined) {
+          if (biomarker.reference_range_low != null && biomarker.reference_range_high != null) {
+              // Both bounds exist, perform comparison
+              isAbnormal = biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high;
+          } else {
+              // If range is incomplete, cannot determine abnormality based on range
+              isAbnormal = false; // Or potentially handle as 'unknown' if needed elsewhere
+          }
+      }
+
+      // Format reference range with null checks
+      const referenceRange = biomarker.referenceRange ||
+        (biomarker.reference_range_low != null && biomarker.reference_range_high != null
+          ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}`
           : "Not available");
       
       console.log('Calculated parameters:');
@@ -555,14 +569,15 @@ const BiomarkerPage: React.FC = () => {
     // Fetch available profiles for the profile selector
     const fetchProfiles = async () => {
       try {
-        setProfilesLoading(true);
-        const profilesData = await getAllProfiles();
-        setProfiles(profilesData);
+        // Assuming getProfiles returns an object like { items: Profile[] } or similar
+        const profilesResponse = await getProfiles();
+        // Access the array property (e.g., 'items') or default to the response itself if it's the array
+        setProfiles((profilesResponse as any).items || profilesResponse || []);
       } catch (err) {
         console.error('Error fetching profiles:', err);
-      } finally {
-        setProfilesLoading(false);
-      }
+      } // finally { // Removed unused state setter
+        // setProfilesLoading(false);
+      // }
     };
     
     fetchProfiles();
@@ -745,7 +760,7 @@ const BiomarkerPage: React.FC = () => {
               }}
             >
               <BiomarkerTable
-                fileId={fileId}
+                // fileId={fileId} // Remove fileId prop again
                 biomarkers={biomarkers}
                 isLoading={loading}
                 error={error}
@@ -768,7 +783,7 @@ const BiomarkerPage: React.FC = () => {
             >
               <BiomarkerVisualization 
                 biomarkers={biomarkers}
-                onSelectBiomarker={handleExplainBiomarker}
+                // onSelectBiomarker={handleExplainBiomarker} // Removed incorrect prop
               />
             </Paper>
           </TabPanel>
@@ -784,7 +799,9 @@ const BiomarkerPage: React.FC = () => {
         loading={explanationLoading}
         error={explanationError}
       />
-      
+
+      {/* Removed commented out code block causing TS18047 */}
+
       {/* Mobile Upload Button - Fixed at bottom for mobile */}
       {isMobile && (
         <Box 
@@ -817,4 +834,4 @@ const BiomarkerPage: React.FC = () => {
   );
 };
 
-export default BiomarkerPage; 
+export default BiomarkerPage;

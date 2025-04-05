@@ -1,10 +1,10 @@
-import axios from 'axios';
-import { API_BASE_URL } from '../config';
+// axios removed - unused
+// API_BASE_URL removed - unused (using api instance)
 import { Profile } from '../types/Profile';
 import api from './api';
 
-const API_URL = `${API_BASE_URL}/pdf`;
-const API_PATH = '/pdf';
+// API_URL removed - unused
+const API_PATH = '/pdf'; // Use relative path with api instance
 
 /**
  * Upload a PDF file with optional profile ID
@@ -93,4 +93,4 @@ export const assignPDFToProfile = async (fileId: string, profileId: string): Pro
     console.error(`Error assigning PDF ${fileId} to profile ${profileId}:`, error);
     throw error;
   }
-}; 
+};
