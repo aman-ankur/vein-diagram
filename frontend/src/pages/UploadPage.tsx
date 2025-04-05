@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react'; // Removed useCallback again
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -23,7 +23,7 @@ import {
 import { CheckCircle as CheckCircleIcon } from '@mui/icons-material'; // Removed CloudUploadIcon, ErrorIcon
 import { uploadPDF, getPDFStatus } from '../services/api';
 import { getUploadHistory, saveUploadHistory } from '../services/localStorage';
-import { MAX_FILE_SIZE, SUPPORTED_FILE_TYPES, STATUS_CHECK_INTERVAL } from '../config';
+import { STATUS_CHECK_INTERVAL } from '../config'; // Keep MAX_FILE_SIZE, SUPPORTED_FILE_TYPES removed
 import { FilePreview } from '../components/FilePreview';
 import { UploadResponse, ProcessingStatus } from '../types/pdf';
 import PDFUploader from '../components/PDFUploader';

@@ -196,7 +196,7 @@ const HomePage: React.FC = () => { // Corrected type error: FC requires return t
     };
   }, []);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => { // Keep event marked as unused again
     setTabValue(newValue);
   };
 
