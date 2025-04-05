@@ -212,13 +212,14 @@ async def find_matching_profiles(metadata: Dict[str, Any], db: Session, user_id:
     logger.info(f"Found {len(profile_scores)} matching profiles above threshold {threshold}")
     return profile_scores
 
-def create_profile_from_metadata(db: Session, metadata: Dict[str, Any]) -> Optional[Profile]:
+def create_profile_from_metadata(db: Session, metadata: Dict[str, Any], user_id: Optional[str] = None) -> Optional[Profile]:
     """
     Create a new profile from extracted metadata.
     
     Args:
         db: Database session
         metadata: Extracted metadata dictionary
+        user_id: Optional user ID to associate with the profile
         
     Returns:
         Profile object or None if creation failed
@@ -257,7 +258,8 @@ def create_profile_from_metadata(db: Session, metadata: Dict[str, Any]) -> Optio
             name=name,
             date_of_birth=date_of_birth,
             gender=gender,
-            patient_id=patient_id
+            patient_id=patient_id,
+            user_id=user_id
         )
         
         db.add(profile)

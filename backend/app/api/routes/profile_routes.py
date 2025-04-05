@@ -527,11 +527,11 @@ async def associate_pdf_with_profile(
             # Apply any updates from request
             if request.metadata_updates:
                 for key, value in request.metadata_updates.items():
-                    if key in metadata.__dict__:
-                        setattr(metadata, key, value)
+                    if key in metadata:
+                        metadata[key] = value
             
             # Create profile from metadata
-            profile = create_profile_from_metadata(metadata, db, user_id)
+            profile = create_profile_from_metadata(db, metadata, user_id)
         
         # If neither option was specified or successful, raise an error
         if not profile:
