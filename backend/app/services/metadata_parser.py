@@ -62,7 +62,7 @@ def with_timeout(timeout_seconds, default_return=None):
         return wrapper
     return decorator
 
-def extract_metadata_with_claude(text: str, filename: str) -> Dict[str, Any]:
+async def extract_metadata_with_claude(text: str, filename: str) -> Dict[str, Any]:
     """
     Extract metadata from PDF text using Claude API.
     
@@ -137,7 +137,7 @@ Here is the lab report text fragment to extract metadata from:
         
         # Use the timeout wrapper for the API call
         @with_timeout(timeout_seconds=45, default_return=None)  # 45 second timeout
-        def call_claude_api():
+        async def call_claude_api():
             # Use a faster model
             response = client.messages.create(
                 model="claude-3-sonnet-20240229", 
@@ -151,7 +151,7 @@ Here is the lab report text fragment to extract metadata from:
             return response
         
         # Call the API with timeout
-        response = call_claude_api()
+        response = await call_claude_api()
         
         # If the call timed out, return an empty dict
         if response is None:
