@@ -174,3 +174,43 @@ def test_extract_metadata_api_error(mock_preprocess, mock_anthropic_client):
     
     # Should return empty dict on API error
     assert metadata == {} 
+
+@patch('app.services.metadata_parser.logging')
+def test_extract_metadata_invalid_text_type(mock_logging):
+    """Test that extract_metadata_with_claude handles non-string text input."""
+    # Test with a PDF object (simulating the bug we fixed)
+    class MockPDF:
+        def __init__(self):
+            self.extracted_text = "Sample text"
+            self.filename = "test.pdf"
+    
+    pdf_obj = MockPDF()
+    
+    metadata = extract_metadata_with_claude(pdf_obj, "test_invalid_type.pdf")
+    
+    # Should return empty dict for invalid type
+    assert metadata == {}
+    # Check that proper error logging occurred
+    mock_logging.error.assert_called_with(f"[TYPE_ERROR] extract_metadata_with_claude expected text as string, got {type(pdf_obj)}")
+
+@patch('app.services.metadata_parser.logging')
+def test_extract_metadata_empty_text(mock_logging):
+    """Test that extract_metadata_with_claude handles empty text input."""
+    # Test with empty string
+    metadata = extract_metadata_with_claude("", "test_empty_text.pdf")
+    
+    # Should return empty dict for empty text
+    assert metadata == {}
+    # Check that proper warning logging occurred
+    mock_logging.warning.assert_called_with("[EMPTY_TEXT] extract_metadata_with_claude received empty text for test_empty_text.pdf")
+
+@patch('app.services.metadata_parser.logging')
+def test_extract_metadata_none_text(mock_logging):
+    """Test that extract_metadata_with_claude handles None text input."""
+    # Test with None
+    metadata = extract_metadata_with_claude(None, "test_none_text.pdf")
+    
+    # Should return empty dict for None text
+    assert metadata == {}
+    # Check that proper error logging occurred
+    mock_logging.error.assert_called_with(f"[TYPE_ERROR] extract_metadata_with_claude expected text as string, got {type(None)}") 

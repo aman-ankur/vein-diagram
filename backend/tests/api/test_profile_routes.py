@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from uuid import uuid4, UUID
 from datetime import datetime
+from unittest.mock import patch
 
 # Assuming your FastAPI app instance is accessible, adjust import as needed
 # from app.main import app # Or wherever your FastAPI app is defined
@@ -62,6 +63,37 @@ def test_profiles(db_session: Session):
     db_session.refresh(profile3)
     
     return {"source1": profile1, "source2": profile2, "target": profile3}
+
+# Fixture to create a test PDF with extracted text for testing
+@pytest.fixture
+def test_pdf_with_extracted_text(db_session: Session):
+    """Create a test PDF with extracted text for testing."""
+    pdf = PDF(
+        file_id="test_extracted_text_pdf",
+        filename="test_extracted.pdf",
+        status="processed",
+        extracted_text="Sample extracted text for testing",
+        report_date=datetime.utcnow()
+    )
+    db_session.add(pdf)
+    db_session.commit()
+    db_session.refresh(pdf)
+    return pdf
+
+# Fixture to create a test PDF without extracted text for testing error handling
+@pytest.fixture
+def test_pdf_without_text(db_session: Session):
+    """Create a test PDF without extracted text for testing error handling."""
+    pdf = PDF(
+        file_id="test_no_text_pdf",
+        filename="test_no_text.pdf",
+        status="uploaded",  # Not processed yet
+        extracted_text=None
+    )
+    db_session.add(pdf)
+    db_session.commit()
+    db_session.refresh(pdf)
+    return pdf
 
 # --- Test Cases ---
 
@@ -138,6 +170,49 @@ def test_merge_profiles_endpoint_success(client: TestClient, db_session: Session
     assert glucose_markers[0].pdf_id == pdf1.id # Ensure the one kept is the original bm1
     assert hdl_markers[0].pdf_id == pdf2.id
 
+# Mocking extract_metadata_with_claude to avoid actual API calls
+@pytest.mark.asyncio
+@patch('app.api.routes.profile_routes.extract_metadata_with_claude')
+async def test_match_profile_with_extracted_text(mock_extract, client: TestClient, db_session: Session, test_pdf_with_extracted_text):
+    """Test that the profile matching endpoint correctly uses the PDF's extracted text."""
+    # Arrange
+    mock_extract.return_value = {
+        "lab_name": "Test Lab",
+        "patient_name": "John Doe"
+    }
+    
+    request_data = {
+        "pdf_id": test_pdf_with_extracted_text.file_id,
+        "user_id": "test-user-id"
+    }
+    
+    # Act
+    response = client.post("/api/profiles/match", json=request_data)
+    
+    # Assert
+    assert response.status_code == 200
+    # Verify extract_metadata_with_claude was called with the correct parameters
+    mock_extract.assert_called_once_with(
+        test_pdf_with_extracted_text.extracted_text,
+        test_pdf_with_extracted_text.filename
+    )
+
+@pytest.mark.asyncio
+async def test_match_profile_without_extracted_text(client: TestClient, db_session: Session, test_pdf_without_text):
+    """Test that the profile matching endpoint correctly handles PDFs without extracted text."""
+    # Arrange
+    request_data = {
+        "pdf_id": test_pdf_without_text.file_id,
+        "user_id": "test-user-id"
+    }
+    
+    # Act
+    response = client.post("/api/profiles/match", json=request_data)
+    
+    # Assert
+    assert response.status_code == 400
+    assert "PDF text has not been extracted yet" in response.json()["detail"]
+    assert f"Current status: {test_pdf_without_text.status}" in response.json()["detail"]
 
 # TODO: Add more integration tests:
 # - Test merge failure (e.g., target not found, source not found) -> Check 404/400 status codes
