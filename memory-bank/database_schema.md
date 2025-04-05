@@ -143,3 +143,19 @@ erDiagram
 -   A `Biomarker` belongs to one `PDF` and one `Profile`.
 -   Deleting a `Profile` unlinks associated `PDFs` and `Biomarkers` (sets `profile_id` to NULL).
 -   Deleting a `PDF` also deletes all its associated `Biomarkers` (due to `cascade="all, delete-orphan"`).
+
+## Implementation Notes
+
+### Auto-incrementing IDs
+The application handles database sequences differently based on the database type:
+- **PostgreSQL**: Uses `SEQUENCE` objects to manage auto-incrementing IDs
+- **SQLite**: Uses the `sqlite_sequence` table
+
+Both implementations are handled transparently in the application code, ensuring proper ID generation regardless of the database backend used.
+
+### Profile Merging
+When profiles are merged:
+1. All biomarkers from source profiles are transferred to the target profile
+2. All PDFs associated with source profiles are reassigned to the target profile
+3. Source profiles are deleted after successful data transfer
+4. Transactions ensure data integrity during the merge process

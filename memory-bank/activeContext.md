@@ -82,6 +82,13 @@ Significant recent developments include:
     *   Corrected props passed to `ExplanationModal` in `VisualizationPage`.
     *   **Completed redesign of the "Smart Summary" tab** in `VisualizationPage` for a more cohesive, modern aesthetic inspired by the Dashboard page (muted colors, outlined cards, refined typography and layout).
 
+6. **Enhanced Error Handling & Database Fixes**:
+   * **Improved profile merge functionality** to properly delete source profiles and ensure transaction integrity.
+   * **Enhanced profile context error handling** to gracefully recover when profiles are deleted or merged.
+   * **Fixed database sequence issues** by adding database-type detection (SQLite vs PostgreSQL) and implementing appropriate sequence reset logic.
+   * **Improved PDF status response handling** to prevent validation errors when PDFs are not found.
+   * **Fixed favicon format** for better browser compatibility.
+
 ## Next Steps
 
 The immediate priorities are:
@@ -206,3 +213,9 @@ The immediate priorities are:
     *   **Impact**: Blocks progress on dashboard UI refinement and feature completion.
     *   **Mitigation**: Further investigation needed (build process, routing conflicts, conditional rendering elsewhere). Caching and server restart did not resolve.
     *   **Status**: **Blocker**. Needs investigation (build, cache, routing, conditional rendering).
+
+4. **Profile Merging Post-State**:
+   * **Issue**: After merging profiles, localStorage references to deleted profiles can cause 404 errors.
+   * **Impact**: Users may experience errors when returning to the app after profile merges.
+   * **Mitigation**: Implemented automatic recovery that selects an available profile when the previous selection is no longer available.
+   * **Status**: Resolved with enhanced error handling in ProfileContext.
