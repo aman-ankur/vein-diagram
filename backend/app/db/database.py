@@ -99,11 +99,25 @@ def get_db() -> Generator:
     try:
         yield db
     except Exception as e:
-        logger.error(f"Database session error: {str(e)}")
-        db.rollback()
+        # Log the error but don't reraise for certain exceptions to allow graceful API responses
+        error_message = str(e)
+        logger.error(f"Database session error: {error_message}")
+        
+        # Only rollback if it's an active transaction error
+        # but not for "not found" type errors that might be handled gracefully by the API
+        if "not found" not in error_message.lower() and "404" not in error_message:
+            try:
+                db.rollback()
+            except Exception as rollback_error:
+                logger.error(f"Error during session rollback: {str(rollback_error)}")
+        
+        # Reraise the exception for proper error handling
         raise
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception as close_error:
+            logger.error(f"Error closing database session: {str(close_error)}")
 
 def init_db() -> None:
     """

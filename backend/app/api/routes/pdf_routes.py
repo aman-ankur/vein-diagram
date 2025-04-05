@@ -179,27 +179,59 @@ async def get_pdf_status(file_id: str, db: Session = Depends(get_db)):
     Returns:
         PDFStatusResponse: The status of the file processing
     """
-    pdf = db.query(PDFModel).filter(PDFModel.file_id == file_id).first()
-    
-    if not pdf:
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    return PDFStatusResponse(
-        file_id=pdf.file_id,
-        filename=pdf.filename,
-        status=pdf.status,
-        upload_date=pdf.upload_date,
-        processed_date=pdf.processed_date,
-        error_message=pdf.error_message if pdf.status == "error" else None,
-        profile_id=pdf.profile_id,
-        lab_name=pdf.lab_name,
-        patient_name=pdf.patient_name,
-        patient_id=pdf.patient_id,
-        patient_age=pdf.patient_age,
-        patient_gender=pdf.patient_gender,
-        report_date=pdf.report_date,
-        parsing_confidence=pdf.parsing_confidence
-    )
+    try:
+        # Log the request
+        logger.info(f"Checking status for PDF with file_id: {file_id}")
+        
+        # Try to find the PDF in the database
+        pdf = db.query(PDFModel).filter(PDFModel.file_id == file_id).first()
+        
+        if not pdf:
+            logger.warning(f"PDF with file_id {file_id} not found in database")
+            
+            # Check if this was a recent upload that might not be in the database yet
+            if file_id and len(file_id) > 10:  # Basic validation that it's a reasonable ID
+                return PDFStatusResponse(
+                    file_id=file_id,
+                    filename="Unknown",
+                    status="not_found",
+                    upload_date=None,
+                    processed_date=None,
+                    error_message="PDF not found in database. It may have been deleted or not yet uploaded.",
+                    profile_id=None,
+                    lab_name=None,
+                    patient_name=None,
+                    patient_id=None,
+                    patient_age=None,
+                    patient_gender=None,
+                    report_date=None,
+                    parsing_confidence=None
+                )
+            else:
+                # Invalid file_id format
+                raise HTTPException(status_code=400, detail="Invalid file ID format")
+        
+        # Return the PDF status
+        logger.info(f"Returning status for PDF {file_id}: {pdf.status}")
+        return PDFStatusResponse(
+            file_id=pdf.file_id,
+            filename=pdf.filename,
+            status=pdf.status,
+            upload_date=pdf.upload_date,
+            processed_date=pdf.processed_date,
+            error_message=pdf.error_message if pdf.status == "error" else None,
+            profile_id=pdf.profile_id,
+            lab_name=pdf.lab_name,
+            patient_name=pdf.patient_name,
+            patient_id=pdf.patient_id,
+            patient_age=pdf.patient_age,
+            patient_gender=pdf.patient_gender,
+            report_date=pdf.report_date,
+            parsing_confidence=pdf.parsing_confidence
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving PDF status for {file_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving PDF status: {str(e)}")
 
 @router.get("/list", response_model=PDFListResponse)
 async def list_pdfs(db: Session = Depends(get_db)):
@@ -251,21 +283,34 @@ async def delete_pdf(file_id: str, db: Session = Depends(get_db)):
     Returns:
         dict: A message indicating success
     """
-    pdf = db.query(PDFModel).filter(PDFModel.file_id == file_id).first()
-    
-    if not pdf:
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    # Delete the file from disk if it exists
-    if os.path.exists(pdf.file_path):
-        try:
-            os.remove(pdf.file_path)
-        except Exception as e:
-            logger.error(f"Error deleting file {pdf.file_path}: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
-    
-    # Delete the record from the database
-    db.delete(pdf)
-    db.commit()
-    
-    return {"message": f"File {pdf.filename} deleted successfully"}
+    try:
+        # Log the request
+        logger.info(f"Attempting to delete PDF with file_id: {file_id}")
+        
+        pdf = db.query(PDFModel).filter(PDFModel.file_id == file_id).first()
+        
+        if not pdf:
+            logger.warning(f"PDF with file_id {file_id} not found in database for deletion")
+            # Return a success message even if not found, as the end result is the same (file is not in system)
+            return {"message": f"File with ID {file_id} is not in the system"}
+        
+        # Delete the file from disk if it exists
+        if os.path.exists(pdf.file_path):
+            try:
+                os.remove(pdf.file_path)
+                logger.info(f"Deleted file from disk: {pdf.file_path}")
+            except Exception as e:
+                logger.error(f"Error deleting file {pdf.file_path}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
+        else:
+            logger.warning(f"File {pdf.file_path} not found on disk")
+        
+        # Delete the record from the database
+        db.delete(pdf)
+        db.commit()
+        logger.info(f"Successfully deleted PDF record for {file_id}")
+        
+        return {"message": f"File {pdf.filename} deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error during PDF deletion for {file_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting PDF: {str(e)}")
