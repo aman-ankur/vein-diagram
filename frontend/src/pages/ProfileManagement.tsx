@@ -275,6 +275,15 @@ const ProfileManagement: React.FC = () => {
       setLoading(true); // Indicate loading state
       await mergeProfiles(payload); 
       showAlert('Profiles merged successfully', 'success'); 
+      
+      // Check if the current active profile is one of the source profiles that was merged
+      const activeProfileId = localStorage.getItem('activeProfileId');
+      if (activeProfileId && sourceProfileIds.includes(activeProfileId)) {
+        // Update active profile to the target profile
+        console.log(`Active profile ${activeProfileId} was merged into ${targetProfileId}. Updating active profile.`);
+        localStorage.setItem('activeProfileId', targetProfileId);
+      }
+      
       setMergeDialogOpen(false);
       setSelectedProfiles(new Set()); // Clear selection
       setTargetProfileId(null); // Reset target
