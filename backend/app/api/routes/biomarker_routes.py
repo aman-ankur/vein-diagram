@@ -42,77 +42,89 @@ def get_biomarkers_by_file_id(
     Returns:
         List of biomarkers
     """
-    # Get the user_id from the authenticated user
-    user_id = current_user.get("user_id")
-    
-    # Check if the PDF exists
-    pdf = db.query(PDF).filter(PDF.file_id == file_id).first()
-    if not pdf:
-        raise HTTPException(status_code=404, detail=f"PDF with ID {file_id} not found")
-    
-    # Start with a base query
-    query = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id).options(joinedload(Biomarker.pdf))
-    
-    # Apply profile filter if provided
-    if profile_id:
-        try:
-            # Convert string to UUID
-            profile_uuid = UUID(profile_id)
-            
-            # Check if profile belongs to the current user
-            profile = db.query(Profile).filter(
-                Profile.id == profile_uuid,
-                Profile.user_id == user_id
-            ).first()
-            
-            if not profile:
-                raise HTTPException(status_code=404, detail="Profile not found or not accessible")
-            
-            query = query.filter(Biomarker.profile_id == profile_uuid)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
-    
-    # Execute the query
-    biomarkers = query.all()
-    
-    # Process the biomarker objects to properly handle PDF relationship
-    result = []
-    for biomarker in biomarkers:
-        # Create a dictionary for the biomarker
-        biomarker_dict = {
-            "id": biomarker.id,
-            "pdf_id": biomarker.pdf_id,
-            "name": biomarker.name,
-            "original_name": biomarker.original_name,
-            "original_value": biomarker.original_value,
-            "original_unit": biomarker.original_unit,
-            "value": biomarker.value,
-            "unit": biomarker.unit,
-            "reference_range_low": biomarker.reference_range_low,
-            "reference_range_high": biomarker.reference_range_high,
-            "reference_range_text": biomarker.reference_range_text,
-            "category": biomarker.category,
-            "is_abnormal": biomarker.is_abnormal,
-            "notes": biomarker.notes,
-            "extracted_date": biomarker.extracted_date,
-            "validated": biomarker.validated,
-            "validated_by": biomarker.validated_by,
-            "validated_date": biomarker.validated_date,
-            "pdf": None
-        }
+    try:
+        # Log the request
+        logger.info(f"Getting biomarkers for PDF with file_id: {file_id}, profile_id: {profile_id}")
         
-        # If pdf relationship is loaded, add it to the result
-        if biomarker.pdf:
-            biomarker_dict["pdf"] = {
-                "file_id": biomarker.pdf.file_id,
-                "filename": biomarker.pdf.filename,
-                "report_date": biomarker.pdf.report_date
+        # Get the user_id from the authenticated user
+        user_id = current_user.get("user_id")
+        
+        # Check if the PDF exists
+        pdf = db.query(PDF).filter(PDF.file_id == file_id).first()
+        if not pdf:
+            logger.warning(f"PDF with ID {file_id} not found, returning empty biomarkers list")
+            return []  # Return empty list instead of 404
+        
+        # Start with a base query
+        query = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id).options(joinedload(Biomarker.pdf))
+        
+        # Apply profile filter if provided
+        if profile_id:
+            try:
+                # Convert string to UUID
+                profile_uuid = UUID(profile_id)
+                
+                # Check if profile belongs to the current user
+                profile = db.query(Profile).filter(
+                    Profile.id == profile_uuid,
+                    Profile.user_id == user_id
+                ).first()
+                
+                if not profile:
+                    logger.warning(f"Profile {profile_id} not found or not accessible for user {user_id}, returning empty list")
+                    return []  # Return empty list instead of 404
+                
+                query = query.filter(Biomarker.profile_id == profile_uuid)
+            except ValueError:
+                logger.error(f"Invalid profile ID format: {profile_id}")
+                raise HTTPException(status_code=400, detail=f"Invalid profile ID format: {profile_id}")
+        
+        # Execute the query
+        biomarkers = query.all()
+        logger.info(f"Found {len(biomarkers)} biomarkers for PDF {file_id}")
+        
+        # Process the biomarker objects to properly handle PDF relationship
+        result = []
+        for biomarker in biomarkers:
+            # Create a dictionary for the biomarker
+            biomarker_dict = {
+                "id": biomarker.id,
+                "pdf_id": biomarker.pdf_id,
+                "name": biomarker.name,
+                "original_name": biomarker.original_name,
+                "original_value": biomarker.original_value,
+                "original_unit": biomarker.original_unit,
+                "value": biomarker.value,
+                "unit": biomarker.unit,
+                "reference_range_low": biomarker.reference_range_low,
+                "reference_range_high": biomarker.reference_range_high,
+                "reference_range_text": biomarker.reference_range_text,
+                "category": biomarker.category,
+                "is_abnormal": biomarker.is_abnormal,
+                "notes": biomarker.notes,
+                "extracted_date": biomarker.extracted_date,
+                "validated": biomarker.validated,
+                "validated_by": biomarker.validated_by,
+                "validated_date": biomarker.validated_date,
+                "pdf": None
             }
+            
+            # If pdf relationship is loaded, add it to the result
+            if biomarker.pdf:
+                biomarker_dict["pdf"] = {
+                    "file_id": biomarker.pdf.file_id,
+                    "filename": biomarker.pdf.filename,
+                    "report_date": biomarker.pdf.report_date
+                }
+            
+            result.append(biomarker_dict)
         
-        result.append(biomarker_dict)
-    
-    # Return the processed results
-    return result
+        # Return the processed results
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching biomarkers for PDF {file_id}: {str(e)}")
+        # Re-raise for now, but with a more specific message
+        raise HTTPException(status_code=500, detail=f"Error fetching biomarkers: {str(e)}")
 
 @router.get("/biomarkers", response_model=List[BiomarkerResponse])
 def get_all_biomarkers(
