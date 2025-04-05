@@ -13,7 +13,7 @@ class Biomarker(Base):
     """
     __tablename__ = "biomarkers"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     pdf_id = Column(Integer, ForeignKey("pdfs.id"))
     profile_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=True)
     
@@ -61,7 +61,7 @@ class BiomarkerDictionary(Base):
     """
     __tablename__ = "biomarker_dictionary"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     standard_name = Column(String, unique=True, index=True)
     alternate_names = Column(Text)  # Stored as JSON string of alternate names
     standard_unit = Column(String)
