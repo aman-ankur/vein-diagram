@@ -34,7 +34,8 @@ export function startKeepAliveService(): () => void {
  */
 async function pingBackend(): Promise<void> {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`, {
+    // Use void to explicitly ignore the response
+    await fetch(`${API_BASE_URL}/health`, {
       method: 'GET',
       mode: 'no-cors', // Prevents CORS issues
       cache: 'no-cache',
