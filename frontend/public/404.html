@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <title>Redirecting...</title>
   <script>
-    // Get the current path excluding the domain
-    const path = window.location.pathname + window.location.search;
+    // Store the requested path in sessionStorage
+    sessionStorage.setItem('redirectPath', window.location.pathname + window.location.search);
     
-    // Redirect to the root but maintain the path for client-side routing
-    window.location.href = '/#' + path;
+    // Redirect to the root
+    window.location.replace('/');
   </script>
 </head>
 <body>
