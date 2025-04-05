@@ -352,9 +352,7 @@ function renderApp() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <BrowserRouter>
-            <ProfileProvider>
-              <App />
-            </ProfileProvider>
+            <App />
           </BrowserRouter>
         </ThemeProvider>
       </React.StrictMode>
