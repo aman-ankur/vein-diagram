@@ -26,6 +26,10 @@ from app.services.biomarker_dictionary import (
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
+# Setup logs directory
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+
 # Claude API URL
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 

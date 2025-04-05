@@ -130,39 +130,89 @@ async def startup_db_client():
         # Fix the pdfs table sequence
         try:
             from sqlalchemy import text
-            from app.db.database import SessionLocal
+            from app.db.database import SessionLocal, DATABASE_URL
             
             db = SessionLocal()
-            # SQL to fix the sequence
-            fix_sequence_sql = text("""
-            DO $$
-            DECLARE
-                max_id INTEGER;
-            BEGIN
-                -- Get the maximum id from the pdfs table
-                SELECT COALESCE(MAX(id), 0) INTO max_id FROM pdfs;
-                
-                -- Drop the existing sequence
-                EXECUTE 'DROP SEQUENCE IF EXISTS pdfs_id_seq CASCADE';
-                
-                -- Create a new sequence starting from max_id + 1
-                EXECUTE 'CREATE SEQUENCE pdfs_id_seq START WITH ' || (max_id + 1);
-                
-                -- Set the sequence as the default for the id column
-                EXECUTE 'ALTER TABLE pdfs ALTER COLUMN id SET DEFAULT nextval(''pdfs_id_seq'')';
-                
-                -- Set the sequence ownership to the pdfs.id column
-                EXECUTE 'ALTER SEQUENCE pdfs_id_seq OWNED BY pdfs.id';
-                
-                RAISE NOTICE 'Reset pdfs_id_seq to start from %', (max_id + 1);
-            END $$;
-            """)
             
-            db.execute(fix_sequence_sql)
-            db.commit()
-            logger.info("Fixed pdfs table sequence successfully")
+            # Check if we're using SQLite or PostgreSQL
+            if DATABASE_URL.startswith("sqlite"):
+                # SQLite-specific sequence reset
+                sqlite_fix_sql = [
+                    text("UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM pdfs) WHERE name = 'pdfs'"),
+                    text("UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM biomarkers) WHERE name = 'biomarkers'"),
+                    text("UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM biomarker_dictionary) WHERE name = 'biomarker_dictionary'")
+                ]
+                
+                for sql in sqlite_fix_sql:
+                    db.execute(sql)
+                
+                db.commit()
+                logger.info("Fixed SQLite sequences for pdfs, biomarkers, and biomarker_dictionary tables")
+            else:
+                # PostgreSQL sequence fix
+                fix_sequence_sql = text("""
+                DO $$
+                DECLARE
+                    max_id INTEGER;
+                BEGIN
+                    -- Get the maximum id from the pdfs table
+                    SELECT COALESCE(MAX(id), 0) INTO max_id FROM pdfs;
+                    
+                    -- Drop the existing sequence
+                    EXECUTE 'DROP SEQUENCE IF EXISTS pdfs_id_seq CASCADE';
+                    
+                    -- Create a new sequence starting from max_id + 1
+                    EXECUTE 'CREATE SEQUENCE pdfs_id_seq START WITH ' || (max_id + 1);
+                    
+                    -- Set the sequence as the default for the id column
+                    EXECUTE 'ALTER TABLE pdfs ALTER COLUMN id SET DEFAULT nextval(''pdfs_id_seq'')';
+                    
+                    -- Set the sequence ownership to the pdfs.id column
+                    EXECUTE 'ALTER SEQUENCE pdfs_id_seq OWNED BY pdfs.id';
+                    
+                    RAISE NOTICE 'Reset pdfs_id_seq to start from %', (max_id + 1);
+                    
+                    -- Fix biomarkers sequence as well
+                    SELECT COALESCE(MAX(id), 0) INTO max_id FROM biomarkers;
+                    
+                    -- Drop the existing sequence
+                    EXECUTE 'DROP SEQUENCE IF EXISTS biomarkers_id_seq CASCADE';
+                    
+                    -- Create a new sequence starting from max_id + 1
+                    EXECUTE 'CREATE SEQUENCE biomarkers_id_seq START WITH ' || (max_id + 1);
+                    
+                    -- Set the sequence as the default for the id column
+                    EXECUTE 'ALTER TABLE biomarkers ALTER COLUMN id SET DEFAULT nextval(''biomarkers_id_seq'')';
+                    
+                    -- Set the sequence ownership to the biomarkers.id column
+                    EXECUTE 'ALTER SEQUENCE biomarkers_id_seq OWNED BY biomarkers.id';
+                    
+                    RAISE NOTICE 'Reset biomarkers_id_seq to start from %', (max_id + 1);
+                    
+                    -- Also fix the biomarker_dictionary sequence
+                    SELECT COALESCE(MAX(id), 0) INTO max_id FROM biomarker_dictionary;
+                    
+                    -- Drop the existing sequence
+                    EXECUTE 'DROP SEQUENCE IF EXISTS biomarker_dictionary_id_seq CASCADE';
+                    
+                    -- Create a new sequence starting from max_id + 1
+                    EXECUTE 'CREATE SEQUENCE biomarker_dictionary_id_seq START WITH ' || (max_id + 1);
+                    
+                    -- Set the sequence as the default for the id column
+                    EXECUTE 'ALTER TABLE biomarker_dictionary ALTER COLUMN id SET DEFAULT nextval(''biomarker_dictionary_id_seq'')';
+                    
+                    -- Set the sequence ownership to the biomarker_dictionary.id column
+                    EXECUTE 'ALTER SEQUENCE biomarker_dictionary_id_seq OWNED BY biomarker_dictionary.id';
+                    
+                    RAISE NOTICE 'Reset biomarker_dictionary_id_seq to start from %', (max_id + 1);
+                END $$;
+                """)
+                
+                db.execute(fix_sequence_sql)
+                db.commit()
+                logger.info("Fixed PostgreSQL sequences for pdfs, biomarkers, and biomarker_dictionary tables")
         except Exception as seq_error:
-            logger.warning(f"Failed to fix pdfs sequence: {str(seq_error)}")
+            logger.warning(f"Failed to fix database sequences: {str(seq_error)}")
             # Don't raise the error, allow the application to start anyway
         
     except Exception as e:
