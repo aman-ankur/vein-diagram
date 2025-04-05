@@ -5,7 +5,6 @@ import { CssBaseline, ThemeProvider, createTheme, responsiveFontSizes } from '@m
 import App from './App';
 import './styles/index.css';
 import './styles/global.css';
-import { ProfileProvider } from './contexts/ProfileContext';
 
 // Create a modern, elegant dark theme inspired by reading apps
 const baseTheme = createTheme({
@@ -352,9 +351,7 @@ function renderApp() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <BrowserRouter>
-            <ProfileProvider>
-              <App />
-            </ProfileProvider>
+            <App />
           </BrowserRouter>
         </ThemeProvider>
       </React.StrictMode>

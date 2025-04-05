@@ -82,12 +82,18 @@ Significant recent developments include:
     *   Corrected props passed to `ExplanationModal` in `VisualizationPage`.
     *   **Completed redesign of the "Smart Summary" tab** in `VisualizationPage` for a more cohesive, modern aesthetic inspired by the Dashboard page (muted colors, outlined cards, refined typography and layout).
 
-6. **Enhanced Error Handling & Database Fixes**:
+7. **Enhanced Error Handling & Database Fixes**:
    * **Improved profile merge functionality** to properly delete source profiles and ensure transaction integrity.
    * **Enhanced profile context error handling** to gracefully recover when profiles are deleted or merged.
    * **Fixed database sequence issues** by adding database-type detection (SQLite vs PostgreSQL) and implementing appropriate sequence reset logic.
    * **Improved PDF status response handling** to prevent validation errors when PDFs are not found.
    * **Fixed favicon format** for better browser compatibility.
+
+8. **User Experience & Authentication Improvements**:
+   * **Fixed SPA routing** for direct URL access and page refreshes on deployed application.
+   * **Enhanced Google sign-in** to always show account selection screen for multi-account users.
+   * **Added user-scoped profile storage** to prevent cross-account profile access.
+   * **Fixed component provider hierarchy** to ensure proper AuthProvider/ProfileProvider relationship.
 
 ## Next Steps
 
