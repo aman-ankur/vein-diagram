@@ -6,9 +6,11 @@ Vein Diagram follows a modern client-server architecture with clear separation o
 
 ```mermaid
 graph TD
-    Client[Frontend Client] <--> API[Backend API]
-    API <--> DB[Database]
+    Client[Frontend Client on Vercel] <--> API[Backend API on Render]
+    API <--> DB[(Supabase Postgres DB)]
     API <--> Claude[Claude AI API]
+    Client --> SupabaseAuth[Supabase Auth]
+    API --> SupabaseAuth
 
     subgraph Frontend
         direction LR
@@ -16,19 +18,19 @@ graph TD
         UI --> Services[API Services (profile, healthScore, etc.)]
     end
 
-    subgraph Backend
+    subgraph Backend on Render
         direction LR
-        Routes[API Routes] --> Services[Business Logic Services (incl. Profile/Favorite/HealthScore Logic)]
-        Services --> Models[Data Models (Profile incl. favorite_biomarkers)]
+        Routes[API Routes] --> Services[Business Logic Services]
+        Services --> Models[Data Models]
         Services --> PDFProcessing[PDF Processing Engine]
-        Services --> Config[Configuration (optimal_ranges.json)]
-        Models --> DB[(Database)]
+        Services --> Config[Configuration]
+        Models --> DB[(Supabase Postgres DB)]
         Services --> Claude[Claude AI API]
     end
 
-    %% Authentication Note: User authentication is handled via Supabase Auth, 
-    %% integrating with both frontend (AuthContext) and backend (JWT validation).
-    %% See authentication_details.md for full flows (Signup, Login, OAuth, Reset).
+    %% Authentication Note: Supabase Auth handles user management and JWT issuance.
+    %% Frontend interacts directly for login/signup. Backend validates JWTs.
+    %% See authentication_details.md for full flows.
 ```
 
 ### Frontend Architecture
@@ -39,10 +41,10 @@ graph TD
 - **State Management**: Handling application state, including the **active user profile**.
 
 ### Backend Architecture
-- **FastAPI framework**: Modern, high-performance Python web framework.
+- **FastAPI framework**: Modern, high-performance Python web framework hosted on Render.
 - **Service-oriented design**: Business logic encapsulated in service modules (e.g., `pdf_service.py`, `profile_service.py` - implicitly).
 - **PDF processing pipeline**: Specialized components for extracting data from PDFs, now **linked to user profiles**.
-- **Data persistence layer**: Database models (`biomarker_model.py`, `pdf_model.py`, `profile_model.py`) and access patterns using SQLAlchemy.
+- **Data persistence layer**: Uses **SQLAlchemy** ORM with **Supabase PostgreSQL** as the database. Models defined in `app/models/`. Migrations handled by **Alembic**.
 - **Profile & Favorite Logic**: Specific services and routes handle profile CRUD and favorite biomarker management.
 
 ## Key Technical Decisions
