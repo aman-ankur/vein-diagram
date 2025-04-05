@@ -6,7 +6,7 @@ import { Box, CircularProgress, Typography, Alert, Paper, Container } from '@mui
 const AuthCallbackPage = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-  const [processing, setProcessing] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -43,7 +43,7 @@ const AuthCallbackPage = () => {
       } catch (err: any) {
         console.error('Auth callback error:', err);
         setError(err.message || 'Authentication failed');
-        setProcessing(false);
+        setLoading(false);
         
         // Redirect to login after a short delay
         setTimeout(() => {
@@ -89,13 +89,17 @@ const AuthCallbackPage = () => {
           ) : (
             <>
               <Typography variant="h5" gutterBottom>
-                Completing Authentication
+                {loading ? "Completing Authentication" : "Authentication Complete"}
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-                <CircularProgress />
-              </Box>
+              {loading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+                  <CircularProgress />
+                </Box>
+              )}
               <Typography variant="body1">
-                Please wait while we complete the sign-in process...
+                {loading 
+                  ? "Please wait while we complete the sign-in process..." 
+                  : "Redirecting you to the dashboard..."}
               </Typography>
             </>
           )}
