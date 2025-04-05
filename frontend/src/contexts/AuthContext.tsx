@@ -102,6 +102,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       provider: 'google',
       options: {
         redirectTo: `${redirectUrl}/auth/callback`,
+        queryParams: {
+          prompt: 'select_account',  // Force Google to show the account selection screen
+          access_type: 'online'      // Request fresh token each time
+        }
       },
     });
   };
