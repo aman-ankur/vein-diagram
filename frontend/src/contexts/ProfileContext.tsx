@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { Profile } from '../types/Profile';
+import { Profile, ProfileListResponse } from '../types/Profile';
 import { getProfile } from '../services/profileService';
 
 interface ProfileContextType {
@@ -47,11 +47,11 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       const profile = await getProfile(profileId);
       setActiveProfile(profile);
       localStorage.setItem('activeProfileId', profileId);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(`Error fetching profile ${profileId}:`, err);
       
       // Check if it's a 404 error (profile might have been deleted or merged)
-      const errorMessage = err.toString().toLowerCase();
+      const errorMessage = String(err).toLowerCase();
       if (errorMessage.includes('404') || errorMessage.includes('not found')) {
         console.warn(`Profile ${profileId} not found. It may have been deleted or merged into another profile.`);
         setError('The selected profile is no longer available. It may have been deleted or merged into another profile.');
@@ -66,12 +66,12 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       // Attempt to fetch available profiles to select a new active profile
       try {
         const { getProfiles } = await import('../services/profileService');
-        const profiles = await getProfiles();
-        if (profiles.length > 0) {
-          console.log('Auto-selecting first available profile:', profiles[0].id);
+        const profilesResponse = await getProfiles();
+        if (profilesResponse.profiles && profilesResponse.profiles.length > 0) {
+          console.log('Auto-selecting first available profile:', profilesResponse.profiles[0].id);
           // Set the first available profile as active
-          setActiveProfile(profiles[0]);
-          localStorage.setItem('activeProfileId', profiles[0].id);
+          setActiveProfile(profilesResponse.profiles[0]);
+          localStorage.setItem('activeProfileId', profilesResponse.profiles[0].id);
         }
       } catch (fetchError) {
         console.error('Failed to auto-select a profile:', fetchError);
