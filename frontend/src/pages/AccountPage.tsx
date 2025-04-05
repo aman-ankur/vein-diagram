@@ -5,13 +5,13 @@ import {
   Box,
   Typography,
   Container,
-  Paper,
-  Grid,
+  // Paper removed - unused
+  // Grid removed - unused
   Button,
   Divider,
   Avatar,
   Chip,
-  IconButton,
+  // IconButton removed - unused
   styled,
   useTheme,
   Card,
@@ -32,7 +32,7 @@ import {
   AccountCircle as AccountCircleIcon,
   CalendarToday as CalendarTodayIcon,
   Login as LoginIcon,
-  Security as SecurityIcon,
+  // SecurityIcon removed - unused
   Shield as ShieldIcon,
   Logout as LogoutIcon,
   OpenInNew as OpenInNewIcon,
@@ -445,4 +445,4 @@ const AccountPage: React.FC = () => {
   );
 };
 
-export default AccountPage; 
+export default AccountPage;

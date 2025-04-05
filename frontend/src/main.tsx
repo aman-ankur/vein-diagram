@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { CssBaseline, ThemeProvider, createTheme, responsiveFontSizes, alpha } from '@mui/material';
+import { CssBaseline, ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material'; // Removed alpha
 import App from './App';
 import './styles/index.css';
 import './styles/global.css';
@@ -377,4 +377,4 @@ function renderApp() {
 
 // Start the rendering process
 console.log('Starting React rendering process with enhanced Material UI...');
-renderApp(); 
+renderApp();

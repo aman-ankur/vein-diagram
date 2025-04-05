@@ -1,4 +1,4 @@
-import React from 'react';
+// React import removed - unused
 import { render, screen } from '@testing-library/react';
 import UploadGuide from './UploadGuide';
 
@@ -39,4 +39,4 @@ describe('UploadGuide Component', () => {
     expect(screen.getByText('Privacy & Security')).toBeInTheDocument();
     expect(screen.getByText(/Your lab reports are processed securely/)).toBeInTheDocument();
   });
-}); 
+});

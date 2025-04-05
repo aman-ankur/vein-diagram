@@ -2,12 +2,12 @@ import React from 'react';
 import { 
   Box, 
   Typography, 
-  Paper, 
+  // Paper removed - unused
   Chip,
   useTheme,
   Card,
   CardContent,
-  CardMedia,
+  // CardMedia removed - unused
   Tooltip,
   IconButton
 } from '@mui/material';
@@ -144,4 +144,4 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, onRemove }) => {
   );
 };
 
-export default FilePreview; 
+export default FilePreview;

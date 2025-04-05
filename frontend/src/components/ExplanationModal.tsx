@@ -8,7 +8,7 @@ import {
   Typography, 
   Box, 
   CircularProgress,
-  Divider,
+  // Divider removed - unused
   IconButton,
   useTheme,
   Paper,
@@ -558,4 +558,4 @@ const ExplanationModal: React.FC<ExplanationModalProps> = ({
   );
 };
 
-export default ExplanationModal; 
+export default ExplanationModal;

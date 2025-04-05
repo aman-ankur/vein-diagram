@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Tabs, Tab, CircularProgress, Alert, Button, Grid, List, ListItem, ListItemText, Chip, Tooltip } from '@mui/material';
+import { Box, Typography, Paper, CircularProgress, Alert, Button, Grid, List, ListItem, ListItemText, Chip, Tooltip } from '@mui/material'; // Removed Tabs, Tab
 import type { Biomarker } from '../types/biomarker';
-import Plotly from 'plotly.js-basic-dist';
-import createPlotlyComponent from 'react-plotly.js/factory';
+// Removed unused Plotly import
+// Removed unused createPlotlyComponent import
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import WarningIcon from '@mui/icons-material/Warning';
 
-// Create the Plot component
-const Plot = createPlotlyComponent(Plotly);
+// Removed unused Plot constant
 
 // Example biomarker descriptions for educational content
 const BIOMARKER_INFO: Record<string, { description: string, normalRange: string, impact: string }> = {
@@ -53,29 +52,7 @@ interface BiomarkerVisualizationProps {
   showSource?: boolean;
 }
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other }) => {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`visualization-tabpanel-${index}`}
-      aria-labelledby={`visualization-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-};
+// Removed unused TabPanelProps interface and TabPanel component
 
 /**
  * BiomarkerVisualization component displays biomarker data in visual charts
@@ -88,12 +65,8 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
   onExplainWithAI,
   showSource = false
 }) => {
-  const [tabValue, setTabValue] = useState(0);
+  // Removed unused tabValue state and handleTabChange function
   const [selectedBiomarker, setSelectedBiomarker] = useState<Biomarker | null>(null);
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
 
   // When biomarkers change, select the first one by default
   useEffect(() => {
@@ -121,54 +94,26 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
     return DEFAULT_INFO;
   };
 
-  // Prepare data for charts
-  const prepareBarChartData = () => {
-    const sortedBiomarkers = [...biomarkers]
-      .sort((a, b) => {
-        // If both have reference ranges, sort by percentage of range
-        if (a.reference_range_high !== null && a.reference_range_low !== null &&
-            b.reference_range_high !== null && b.reference_range_low !== null) {
-          const aRange = a.reference_range_high - a.reference_range_low;
-          const bRange = b.reference_range_high - b.reference_range_low;
-          const aPercentage = aRange > 0 ? (a.value - a.reference_range_low) / aRange : 0;
-          const bPercentage = bRange > 0 ? (b.value - b.reference_range_low) / bRange : 0;
-          return bPercentage - aPercentage; // Descending by percentage
-        }
-        // Otherwise sort by abnormal status
-        return (b.isAbnormal ? 1 : 0) - (a.isAbnormal ? 1 : 0);
-      })
-      .slice(0, 10); // Show only top 10 biomarkers
-      
-    return {
-      x: sortedBiomarkers.map(b => b.name),
-      y: sortedBiomarkers.map(b => b.value),
-      marker: {
-        color: sortedBiomarkers.map(b => 
-          b.isAbnormal ? 'rgba(255, 99, 71, 0.7)' : 'rgba(75, 192, 192, 0.7)'
-        ),
-      },
-      type: 'bar',
-    };
-  };
+  // Removed unused prepareBarChartData function
 
   const renderReferenceRangeIndicator = (biomarker: Biomarker) => {
     if (!biomarker) return null;
-    
-    const hasLow = biomarker.reference_range_low !== null;
-    const hasHigh = biomarker.reference_range_high !== null;
-    
+
+    const hasLow = biomarker.reference_range_low != null; // Use != null check
+    const hasHigh = biomarker.reference_range_high != null; // Use != null check
+
     if (!hasLow && !hasHigh) {
       return null;
     }
     
-    const rangeText = biomarker.referenceRange || 
+    const rangeText = biomarker.referenceRange ||
       ((hasLow && hasHigh) ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}` :
-       (hasLow ? `> ${biomarker.reference_range_low}` : `< ${biomarker.reference_range_high}`));
-       
-    const isOutOfRange = biomarker.isAbnormal || 
-      (hasLow && biomarker.value < biomarker.reference_range_low) ||
-      (hasHigh && biomarker.value > biomarker.reference_range_high);
-    
+       (hasLow ? `> ${biomarker.reference_range_low}` : `< ${biomarker.reference_range_high ?? 'N/A'}`)); // Added nullish coalescing
+
+    const isOutOfRange = biomarker.isAbnormal ||
+      (hasLow && biomarker.value < (biomarker.reference_range_low ?? -Infinity)) || // Added nullish coalescing
+      (hasHigh && biomarker.value > (biomarker.reference_range_high ?? Infinity)); // Added nullish coalescing
+
     return (
       <Box sx={{ mt: 1, mb: 3, display: 'flex', alignItems: 'center' }}>
         <Typography variant="body2" sx={{ mr: 2 }}>
@@ -205,8 +150,9 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
               left: `${Math.max(Math.min(
                 hasLow && hasHigh ? 
                   // Scale value between low and high to 20%-80% of the bar
-                  20 + (biomarker.value - biomarker.reference_range_low) / 
-                  (biomarker.reference_range_high - biomarker.reference_range_low) * 60 : 50
+                  // Added nullish coalescing for safety, although hasLow/hasHigh should guard this
+                  20 + (biomarker.value - (biomarker.reference_range_low ?? 0)) /
+                  ((biomarker.reference_range_high ?? biomarker.value) - (biomarker.reference_range_low ?? 0)) * 60 : 50
               , 95), 5)}%`,
               transform: 'translateX(-50%)',
               top: 0,
@@ -217,24 +163,7 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
     );
   };
 
-  // Create visualization for selected biomarker trends
-  const renderTrendChart = (biomarker: Biomarker) => {
-    // This is a placeholder for actual trend visualization
-    // In a real implementation, we would fetch historical data for this biomarker
-    
-    return (
-      <Box sx={{ mt: 3, p: 3, border: '1px dashed #ccc', borderRadius: 1, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          Trend visualization for {biomarker.name} would appear here.
-          {showSource && (
-            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-              Source data would include all measurements from different lab reports.
-            </Typography>
-          )}
-        </Typography>
-      </Box>
-    );
-  };
+  // Removed unused renderTrendChart function
 
   // If loading or error, show appropriate message
   if (isLoading) {
@@ -274,11 +203,22 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
               {biomarkers.map((biomarker) => (
                 <ListItem
                   key={biomarker.id}
-                  button
-                  selected={selectedBiomarker?.id === biomarker.id}
+                  // Removed 'button' prop
+                  // Removed 'selected' prop to fix TS error
                   onClick={() => setSelectedBiomarker(biomarker)}
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: 'action.hover' },
+                    // Apply selected background color conditionally
+                    ...(selectedBiomarker?.id === biomarker.id && {
+                      backgroundColor: 'action.selected',
+                      '&:hover': {
+                        backgroundColor: 'action.selected', // Keep selected color on hover
+                      },
+                    }),
+                  }}
                 >
-                  <ListItemText 
+                  <ListItemText
                     primary={biomarker.name} 
                     secondary={`${biomarker.value} ${biomarker.unit}`} 
                   />
@@ -384,4 +324,4 @@ const BiomarkerVisualization: React.FC<BiomarkerVisualizationProps> = ({
   );
 };
 
-export default BiomarkerVisualization; 
+export default BiomarkerVisualization;
