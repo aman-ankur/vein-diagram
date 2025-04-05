@@ -11,8 +11,8 @@ import {
   Button, 
   Stack,
   Collapse, // Import Collapse
-  IconButton, // Import IconButton
-  styled, // Import styled for rotating icon
+  // IconButton removed - unused
+  // styled removed - unused
   alpha // Import alpha for opacity
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'; // Import ExpandMore icon
