@@ -14,11 +14,18 @@ When attempting to sign in with Google authentication on the Vercel-deployed fro
    http://localhost:3000/#access_token=eyJhbGci...
    ```
 
+3. After fixing the redirect URL, being stuck on the auth callback page:
+   ```
+   https://vein-diagram-m2qjunh4t-aman-ankurs-projects.vercel.app/auth/callback#access_token=eyJhbGci...
+   ```
+
 ## Root Cause
 
 1. Supabase authentication was configured to redirect back to the local development URL (`http://localhost:3000`) rather than the production Vercel domain.
 
 2. The application code was using `window.location.origin` for redirect URLs, which doesn't account for different environments (development vs. production).
+
+3. The `AuthCallbackPage` component wasn't properly handling the authentication flow or processing the hash fragment correctly.
 
 ## Solution
 
@@ -31,7 +38,7 @@ When attempting to sign in with Google authentication on the Vercel-deployed fro
    - `https://vein-diagram-m2qjunh4t-aman-ankurs-projects.vercel.app/auth/callback`
 4. Save changes
 
-### 2. Update Application Code
+### 2. Update Authentication Redirect URLs
 
 Modify `frontend/src/contexts/AuthContext.tsx` to use an environment variable for the redirect URL:
 
@@ -63,7 +70,63 @@ const resetPassword = async (email: string) => {
 };
 ```
 
-### 3. Create Environment-Specific Configuration
+### 3. Fix the Auth Callback Handler
+
+Update `frontend/src/pages/AuthCallbackPage.tsx` to properly handle the Supabase authentication callback:
+
+```typescript
+const handleAuthCallback = async () => {
+  try {
+    console.log("Auth callback page loaded");
+    
+    // Extract the hash fragment from the URL (used by Supabase auth)
+    const hashFragment = window.location.hash;
+    console.log("Hash fragment present:", !!hashFragment);
+    
+    if (!hashFragment) {
+      throw new Error('No auth hash fragment found in URL');
+    }
+
+    // The correct way to handle the OAuth callback with Supabase
+    // is to call getSession(), which will parse the hash and set up the session
+    console.log("Calling supabase.auth.getSession()");
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error("Session error:", sessionError);
+      throw sessionError;
+    }
+
+    console.log("Session retrieved successfully:", !!data.session);
+    
+    if (!data.session) {
+      throw new Error('No session data returned from Supabase');
+    }
+
+    console.log("Authentication successful, redirecting to dashboard");
+    // Redirect to dashboard upon successful authentication
+    navigate('/dashboard', { replace: true });
+  } catch (err: any) {
+    console.error('Auth callback error:', err);
+    setError(err.message || 'Authentication failed');
+    setProcessing(false);
+    
+    // Redirect to login after a short delay
+    setTimeout(() => {
+      navigate('/login', { replace: true });
+    }, 5000);
+  }
+};
+```
+
+Key improvements include:
+- Adding detailed logging for better debugging
+- Properly handling the session data returned from Supabase
+- Using `{ replace: true }` with navigation to prevent back-button issues
+- Increasing the error timeout to give users time to see the error message
+- Checking explicitly for session data existence
+
+### 4. Create Environment-Specific Configuration
 
 Create a `.env.production` file with the proper production values:
 
@@ -79,7 +142,7 @@ VITE_SUPABASE_URL=https://qbhopetkwddrqqlsucqi.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### 4. Configure Vercel Environment Variables
+### 5. Configure Vercel Environment Variables
 
 Add the following environment variables in the Vercel project settings:
 
@@ -88,7 +151,7 @@ Add the following environment variables in the Vercel project settings:
 3. `VITE_SUPABASE_URL` = `https://qbhopetkwddrqqlsucqi.supabase.co`
 4. `VITE_SUPABASE_ANON_KEY` = `your-anon-key`
 
-### 5. Re-deploy the Application
+### 6. Re-deploy the Application
 
 Deploy the updated code to Vercel.
 
@@ -106,4 +169,5 @@ After implementing these changes:
 1. **Environment-Specific Configuration**: Always use environment variables for URLs and configuration that differs between environments.
 2. **Authentication Redirect Testing**: Test authentication flows in each environment before deployment.
 3. **Supabase Configuration**: Update Supabase URL configuration when deploying to new domains.
-4. **Logging**: Add logging around authentication flows to help diagnose issues. 
+4. **Logging**: Add detailed logging around authentication flows to help diagnose issues.
+5. **Auth Callback Handling**: Ensure callback pages properly process hash fragments and session data. 
