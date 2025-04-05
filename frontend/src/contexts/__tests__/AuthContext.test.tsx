@@ -1,4 +1,4 @@
-import React from 'react';
+// React import removed - unused
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';
 import { supabase } from '../../services/supabaseClient';
@@ -13,9 +13,9 @@ const mockEnv = {
 
 // Test component that uses the auth context
 const TestComponent = () => {
-  const { isLoading, user, error } = useAuth();
-  
-  if (isLoading) return <div>Loading...</div>;
+  const { loading, user, error } = useAuth(); // Changed isLoading to loading
+
+  if (loading) return <div>Loading...</div>; // Changed isLoading to loading
   if (error) return <div>Error: {error}</div>;
   if (user) return <div>User: {user.email}</div>;
   return <div>Not authenticated</div>;
@@ -24,12 +24,13 @@ const TestComponent = () => {
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock import.meta.env for each test
-    global.import = {
+    // Mock import.meta.env for each test - Using 'any' to bypass stricter type checks in test environment
+    // A more robust solution might involve Jest module mocking if this causes issues.
+    (global as any).import = {
       meta: {
         env: mockEnv
       }
-    } as ImportMeta;
+    };
   });
 
   afterEach(() => {
@@ -141,4 +142,4 @@ describe('AuthContext', () => {
       expect(screen.getByText('Not authenticated')).toBeInTheDocument();
     });
   });
-}); 
+});

@@ -39,7 +39,7 @@ const ViewToggle: React.FC<ViewToggleProps> = ({
   const theme = useTheme();
 
   const handleChange = (
-    event: React.MouseEvent<HTMLElement>,
+    _event: React.MouseEvent<HTMLElement>, // Mark event as unused
     newView: 'current' | 'history' | null
   ) => {
     if (newView !== null) {
@@ -177,4 +177,4 @@ const ViewToggle: React.FC<ViewToggleProps> = ({
   );
 };
 
-export default ViewToggle; 
+export default ViewToggle;

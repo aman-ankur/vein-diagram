@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react'; // Removed useMemo
 import {
   Container,
   Typography,
@@ -7,18 +7,18 @@ import {
   CircularProgress,
   Alert,
   Grid,
-  TextField,
+  // TextField removed - unused
   MenuItem,
   Select,
   FormControl,
   InputLabel,
   Button,
   SelectChangeEvent,
-  TextFieldProps // Import TextFieldProps
+  // TextFieldProps removed - unused
 } from '@mui/material';
 import { useParams } from 'react-router-dom';
-// Remove DatePicker and related imports
-import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
+// Removed date-fns imports as they are no longer used after removing date filters
+// import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 
 // Adjust BiomarkerTable import if Biomarker type is defined elsewhere
 import BiomarkerTable from '../components/BiomarkerTable';
@@ -295,16 +295,8 @@ const BiomarkerHistoryPage: React.FC = () => {
           <ExplanationModal
             open={explanationModalOpen}
             onClose={handleCloseExplanationModal}
-            biomarkerName={currentBiomarker.name}
-            biomarkerValue={currentBiomarker.value}
-            biomarkerUnit={currentBiomarker.unit}
-            referenceRange={
-              currentBiomarker.referenceRange ?? 
-              (typeof currentBiomarker.reference_range_low === 'number' && typeof currentBiomarker.reference_range_high === 'number'
-                ? `${currentBiomarker.reference_range_low}-${currentBiomarker.reference_range_high}`
-                : "Not available")
-            }
-            isLoading={explanationLoading}
+            biomarker={currentBiomarker} // Pass the whole biomarker object
+            loading={explanationLoading} // Use 'loading' prop
             error={explanationError}
             explanation={explanation}
           />

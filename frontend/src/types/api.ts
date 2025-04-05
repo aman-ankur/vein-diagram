@@ -1,4 +1,5 @@
-import { Biomarker } from './pdf';
+// Biomarker import removed - unused
+// import { Biomarker } from './pdf';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -64,4 +65,4 @@ export interface UserProfile {
   weight?: number;
   created_at: string;
   updated_at: string;
-} 
+}

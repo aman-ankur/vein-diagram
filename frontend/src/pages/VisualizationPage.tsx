@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Paper, 
-  Grid, 
-  CircularProgress, 
-  Tabs, 
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Grid,
+  CircularProgress,
+  Tabs,
   Tab,
   Alert,
   Button,
   useTheme,
   Tooltip,
-  IconButton,
+  // IconButton removed - unused
   Select,
   MenuItem,
   FormControl,
@@ -26,13 +26,12 @@ import {
   Snackbar, // Added for feedback
   alpha
 } from '@mui/material';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom'; // Removed useParams
 import BarChartIcon from '@mui/icons-material/BarChart';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import HistoryIcon from '@mui/icons-material/History'; // Import HistoryIcon
 import TimelineIcon from '@mui/icons-material/Timeline';
 import CategoryIcon from '@mui/icons-material/Category';
-import SummarizeIcon from '@mui/icons-material/Summarize'; // Re-added SummarizeIcon
 import RefreshIcon from '@mui/icons-material/Refresh'; // Keep RefreshIcon if used in error handling
 import UpdateIcon from '@mui/icons-material/Update'; // Add UpdateIcon for the generate button
 import PsychologyIcon from '@mui/icons-material/Psychology'; // AI brain icon
@@ -46,7 +45,7 @@ import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 
 import { getBiomarkersByFileId, getAllBiomarkers, getBiomarkerExplanation, deleteBiomarkerEntry } from '../services/api'; // Added deleteBiomarkerEntry
 import { getProfiles, generateHealthSummary } from '../services/profileService'; // Import generateHealthSummary
-import { Biomarker } from '../types/biomarker';
+import { Biomarker } from '../types/biomarker'; // Corrected path
 import { Profile } from '../types/Profile'; // Import Profile type
 import BiomarkerTable from '../components/BiomarkerTable';
 import ExplanationModal from '../components/ExplanationModal';
@@ -61,11 +60,11 @@ import {
 import { parseISO, compareDesc } from 'date-fns'; // Import date-fns functions
 import AddFavoriteModal from '../components/AddFavoriteModal'; // Import the modal
 import ReplaceFavoriteModal from '../components/ReplaceFavoriteModal'; // Import the new modal
-import { 
-  updateFavoriteOrder, 
+import {
+  updateFavoriteOrder,
   addFavoriteBiomarker, // Import backend service functions
-  removeFavoriteBiomarker 
-} from '../services/profileService'; 
+  removeFavoriteBiomarker
+} from '../services/profileService';
 
 // --- Constants ---
 const MAX_DISPLAY_TILES = 8; // Changed to 8 for a 2x4 grid layout
@@ -128,15 +127,15 @@ const VisualizationPage: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const location = useLocation();
-  
+
   // Get fileId from query parameter instead of path parameter
   const queryParams = new URLSearchParams(location.search);
   const fileId = queryParams.get('fileId');
   const profileIdFromUrl = queryParams.get('profileId');
-  
+
   // Destructure loading state AND setter function from profile context
-  const { activeProfile, loading: profileLoading, setActiveProfileById } = useProfile(); 
-  
+  const { activeProfile, loading: profileLoading, setActiveProfileById } = useProfile();
+
   // Enhanced console logging for debugging
   useEffect(() => {
     console.log("========== VISUALIZATION PAGE DEBUG ==========");
@@ -162,11 +161,11 @@ const VisualizationPage: React.FC = () => {
       });
     }
   }, [fileId, profileIdFromUrl, activeProfile, location.search, profileLoading, setActiveProfileById]);
-  
+
   // State for biomarkers, loading, and error
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
   // Rename local loading state to avoid conflict
-  const [biomarkerLoading, setBiomarkerLoading] = useState<boolean>(true); 
+  const [biomarkerLoading, setBiomarkerLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<number>(0);
   const [chartType, setChartType] = useState<'bar' | 'line' | 'scatter'>('line');
@@ -189,7 +188,7 @@ const VisualizationPage: React.FC = () => {
 
   // State for Add Favorite Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
-  
+
   // State for Replace Favorite Modal
   const [replaceModalOpen, setReplaceModalOpen] = useState<boolean>(false);
   const [biomarkerToReplaceWith, setBiomarkerToReplaceWith] = useState<string | null>(null);
@@ -203,7 +202,7 @@ const VisualizationPage: React.FC = () => {
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   // Allow 'info' and 'warning' severities for the Snackbar Alert
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success'); 
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
 
   // State for health summary generation
   const [isSummaryGenerating, setIsSummaryGenerating] = useState<boolean>(false);
@@ -293,22 +292,19 @@ const VisualizationPage: React.FC = () => {
   useEffect(() => {
     if (activeProfile?.favorite_biomarkers) { // Check the field added to the Profile type
       console.log(`Profile changed to ${activeProfile.id}, loading favorites from profile data.`);
-      console.log(`Profile changed to ${activeProfile.id}, loading favorites from profile data.`);
       setFavoriteNames(activeProfile.favorite_biomarkers);
     } else {
       // Clear favorites if profile is removed or has no favorites
       console.log('No active profile or no favorites in profile, clearing favoriteNames.');
       setFavoriteNames([]);
-      // setProcessedFavoritesData([]); // Removed - calculation happens later
     }
-    // Note: Grid calculation is now handled in the biomarker loading effect
   }, [activeProfile]);
 
 
   // 2. Fetch all biomarkers when profile changes (and is loaded) or fileId changes
   useEffect(() => {
     // Only fetch if profile context is not loading
-    if (!profileLoading) { 
+    if (!profileLoading) {
       fetchBiomarkers();
     }
   }, [fileId, activeProfile, profileLoading]);
@@ -324,7 +320,7 @@ const VisualizationPage: React.FC = () => {
       console.log('Profile active but no biomarkers, clearing grid data.');
       calculateAndSetGridData(favoriteNames); // Will likely result in empty grid
     }
-  }, [biomarkers, biomarkerLoading, activeProfile]); // Rerun if biomarkers, loading state, or profile changes
+  }, [biomarkers, biomarkerLoading, activeProfile, favoriteNames]); // Rerun if biomarkers, loading state, profile, or favoriteNames changes
 
 
   // 4. Fetch available profiles if the list is empty
@@ -364,14 +360,14 @@ const VisualizationPage: React.FC = () => {
   const fetchBiomarkers = async () => {
     setBiomarkerLoading(true); // Use renamed state setter
     setError(null);
-    
+
     try {
       let data: Biomarker[];
       // Prioritize URL profileId over activeProfile.id for consistency
       const profileId = profileIdFromUrl || activeProfile?.id;
-      
-      console.log('Fetching biomarkers with:', { 
-        fileId, 
+
+      console.log('Fetching biomarkers with:', {
+        fileId,
         profileIdFromUrl,
         activeProfileId: activeProfile?.id,
         profileIdToUse: profileId,
@@ -379,26 +375,26 @@ const VisualizationPage: React.FC = () => {
           id: activeProfile.id,
           name: activeProfile.name,
           idType: typeof activeProfile.id
-        } : null 
+        } : null
       });
-      
+
       // Force profileId to be a string to prevent type issues
       const profileIdStr = profileId?.toString();
-      
+
       // Log the value we're actually going to send
-      console.log(`FINAL PROFILE ID TO SEND: "${profileIdStr}" (${typeof profileIdStr})`); 
-      
+      console.log(`FINAL PROFILE ID TO SEND: "${profileIdStr}" (${typeof profileIdStr})`);
+
       if (fileId) {
         try {
           // DIRECT FETCH APPROACH: Bypass the API client completely
-          console.log(`DIRECT FETCH: Using fetch API directly to ensure parameters are included`); 
-          
+          console.log(`DIRECT FETCH: Using fetch API directly to ensure parameters are included`);
+
           // Build URL with profile_id included directly in the URL as a query parameter
           const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
           const url = `${apiBaseUrl}/api/pdf/${fileId}/biomarkers?profile_id=${encodeURIComponent(profileIdStr || '')}`;
-          
-          console.log(`Making direct fetch to: ${url}`); 
-          
+
+          console.log(`Making direct fetch to: ${url}`);
+
           const response = await fetch(url, {
             method: 'GET',
             headers: {
@@ -406,22 +402,22 @@ const VisualizationPage: React.FC = () => {
             },
             credentials: 'include' // Include cookies
           });
-          
+
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          
+
           const jsonData = await response.json();
-          console.log(`Direct fetch response received with ${jsonData.length} biomarkers`); 
-          
+          console.log(`Direct fetch response received with ${jsonData.length} biomarkers`);
+
           // Use the regular mapping function to keep consistency
           data = jsonData.map((item: any) => ({
             id: item.id,
             name: item.name,
             value: item.value,
             unit: item.unit || '',
-            referenceRange: item.reference_range_text || 
-                          (item.reference_range_low !== null && item.reference_range_high !== null ? 
+            referenceRange: item.reference_range_text ||
+                          (item.reference_range_low !== null && item.reference_range_high !== null ?
                             `${item.reference_range_low}-${item.reference_range_high}` : undefined),
             category: item.category || 'Other',
             isAbnormal: item.is_abnormal || false,
@@ -430,19 +426,19 @@ const VisualizationPage: React.FC = () => {
             reportDate: item.pdf?.report_date || item.pdf?.uploaded_date || item.created_at || new Date().toISOString()
           }));
         } catch (fetchError) {
-          console.error(`Direct fetch failed, falling back to API client:`, fetchError); 
+          console.error(`Direct fetch failed, falling back to API client:`, fetchError);
           // Fall back to the regular API client
           console.log(`Calling getBiomarkersByFileId with fileId=${fileId} and profileId=${profileIdStr || 'undefined'}`);
           data = await getBiomarkersByFileId(fileId, profileIdStr);
         }
-        
+
         console.log(`Received ${data.length} biomarkers for file ${fileId}`);
       } else {
         // Fetch all biomarkers only if a profile is active
         if (profileIdStr) {
           console.log(`Calling getAllBiomarkers with profile_id=${profileIdStr} and max limit`);
           // Request the maximum allowed number of biomarkers
-          data = await getAllBiomarkers({ 
+          data = await getAllBiomarkers({
             profile_id: profileIdStr,
             limit: 1000 // Use the maximum allowed limit (1000)
           });
@@ -452,25 +448,25 @@ const VisualizationPage: React.FC = () => {
           data = []; // Set to empty array if no profile
         }
       }
-      
+
       // Log the first couple of biomarkers to see what we're getting
       if (data.length > 0) {
         console.log('Sample biomarker data:', data.slice(0, 2));
       }
-      
+
       // Deduplicate biomarkers (Consider if this is still needed or if backend handles it)
       const uniqueBiomarkers: Biomarker[] = [];
       const uniqueKeys = new Set<string>();
-      
+
       data.forEach(biomarker => {
         // Use a more robust key if ID is available and unique per instance
-        const key = biomarker.id ? biomarker.id.toString() : `${biomarker.name}_${biomarker.value}_${biomarker.unit}_${biomarker.reportDate}`; 
+        const key = biomarker.id ? biomarker.id.toString() : `${biomarker.name}_${biomarker.value}_${biomarker.unit}_${biomarker.reportDate}`;
         if (!uniqueKeys.has(key)) {
           uniqueKeys.add(key);
           uniqueBiomarkers.push(biomarker);
         }
       });
-      
+
       console.log(`After deduplication: ${uniqueBiomarkers.length} unique biomarkers`);
       setBiomarkers(uniqueBiomarkers);
     } catch (error) {
@@ -482,7 +478,7 @@ const VisualizationPage: React.FC = () => {
   };
 
   // Handler for tab change
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => { // Mark event as unused
     setActiveTab(newValue);
   };
 
@@ -500,41 +496,46 @@ const VisualizationPage: React.FC = () => {
   const handleExplainBiomarker = async (biomarker: Biomarker) => {
     console.log('=== EXPLAIN BIOMARKER FUNCTION CALLED ===');
     console.log('Biomarker data received:', biomarker);
-    
+
     // Make sure biomarker has expected fields
     if (!biomarker || !biomarker.name) {
       console.error('Invalid biomarker data received:', biomarker);
       setExplanationError('Cannot explain this biomarker: invalid data');
       return;
     }
-    
+
     console.log('Opening explanation modal for biomarker:', biomarker);
-    
+
     // First open the modal with loading state
     setCurrentBiomarker(biomarker);
     setExplanationModalOpen(true);
     setExplanationLoading(true);
     setExplanationError(null);
     setExplanation(null);
-    
+
     try {
       // Calculate the abnormal status safely
-      const isAbnormal = biomarker.isAbnormal !== undefined
-        ? biomarker.isAbnormal
-        : (typeof biomarker.value === 'number' && typeof biomarker.reference_range_low === 'number' && typeof biomarker.reference_range_high === 'number')
-          ? (biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high)
-          : false; // Default to false if types don't match or ranges are null/undefined
+      let isAbnormal = biomarker.isAbnormal; // Use existing value if defined
+      if (isAbnormal === undefined) {
+          if (biomarker.reference_range_low != null && biomarker.reference_range_high != null) {
+              // Both bounds exist, perform comparison
+              isAbnormal = biomarker.value < biomarker.reference_range_low || biomarker.value > biomarker.reference_range_high;
+          } else {
+              // If range is incomplete, cannot determine abnormality based on range
+              isAbnormal = false; // Or potentially handle as 'unknown' if needed elsewhere
+          }
+      }
 
       // Format reference range safely
       const referenceRange = biomarker.referenceRange ?? // Use nullish coalescing
         (typeof biomarker.reference_range_low === 'number' && typeof biomarker.reference_range_high === 'number'
           ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}`
           : "Not available");
-      
+
       console.log('Calculated parameters:');
       console.log('- isAbnormal:', isAbnormal);
       console.log('- referenceRange:', referenceRange);
-      
+
       // Make API call
       const result = await getBiomarkerExplanation(
         biomarker.id,
@@ -544,31 +545,31 @@ const VisualizationPage: React.FC = () => {
         referenceRange,
         isAbnormal
       );
-      
+
       console.log('Received explanation result:', result);
-      
+
       // Verify result structure
       if (!result || !result.general_explanation || !result.specific_explanation) {
         console.error('Invalid explanation data received:', result);
         setExplanationError('Invalid explanation data received. Please try again.');
         return;
       }
-      
+
       // Update state with result
       setExplanation(result);
     } catch (error) {
       console.error('=== ERROR IN EXPLAIN BIOMARKER HANDLER ===');
       console.error('Error details:', error);
-      
+
       // Set user-friendly error message
       let errorMessage = 'An unexpected error occurred. Please try again later.';
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null && 'message' in error) {
         errorMessage = String(error.message);
       }
-      
+
       console.log('Setting error message:', errorMessage);
       setExplanationError(errorMessage);
     } finally {
@@ -576,7 +577,7 @@ const VisualizationPage: React.FC = () => {
       setExplanationLoading(false);
     }
   };
-  
+
   // Handle closing the explanation modal
   const handleCloseExplanationModal = () => {
     setExplanationModalOpen(false);
@@ -609,7 +610,7 @@ const VisualizationPage: React.FC = () => {
       console.log(`[handleToggleFavorite] Updating state with:`, newFavorites); // Log state update
       setFavoriteNames(newFavorites);
       // --- Trigger grid recalculation ---
-      calculateAndSetGridData(newFavorites); 
+      calculateAndSetGridData(newFavorites);
       // --- End trigger ---
       setSnackbarMessage(`Favorite ${currentIsFavorite ? 'removed' : 'added'}.`);
       setSnackbarSeverity('success');
@@ -647,14 +648,14 @@ const VisualizationPage: React.FC = () => {
   const handleAddFavoriteFromModal = async (biomarkerName: string) => {
     if (!activeProfile?.id) return;
     console.log(`Adding ${biomarkerName} from modal (backend) for profile ${activeProfile.id}`);
-    
+
     // Check limit first
     if (isFavoriteLimitReached) {
       handleReplaceFavoriteRequest(biomarkerName); // Trigger replacement flow
       handleCloseAddModal(); // Close the add modal as replace modal will open
-      return; 
+      return;
     }
-    
+
     try {
       // Call backend service
       const updatedProfile = await addFavoriteBiomarker(activeProfile.id, biomarkerName);
@@ -701,23 +702,23 @@ const VisualizationPage: React.FC = () => {
     try {
       await deleteBiomarkerEntry(biomarkerIdToDelete);
       console.log(`Successfully deleted biomarker entry ID: ${biomarkerIdToDelete}`);
-      
+
       // Update local state
-      setBiomarkers(prevBiomarkers => 
+      setBiomarkers(prevBiomarkers =>
         prevBiomarkers.filter(bm => bm.id !== biomarkerIdToDelete)
       );
-      
+
       // Show success feedback
       setSnackbarMessage('Biomarker entry deleted successfully.');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-      
+
       // Close dialog and reset state
       handleCloseDeleteDialog();
-      
+
       // Optional: Refresh favorite data if the deleted item could affect it
       // (This might already be handled by the useEffect dependency on `biomarkers`)
-      
+
     } catch (err) {
       console.error(`Error deleting biomarker entry ID ${biomarkerIdToDelete}:`, err);
       // Show error feedback
@@ -731,7 +732,7 @@ const VisualizationPage: React.FC = () => {
   // --- End Delete Biomarker Handlers ---
 
   // --- Snackbar Handler ---
-  const handleCloseSnackbar = (event?: React.SyntheticEvent | Event, reason?: string) => {
+  const handleCloseSnackbar = (_event?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') {
       return;
     }
@@ -760,34 +761,34 @@ const VisualizationPage: React.FC = () => {
   };
 
   // Make this async to allow await
-  const handleConfirmReplace = async (favoriteToRemove: string, favoriteToAdd: string) => { 
+  const handleConfirmReplace = async (favoriteToRemove: string, favoriteToAdd: string) => {
     if (!activeProfile?.id) return;
-    
+
     console.log(`Replacing favorite: Removing ${favoriteToRemove}, Adding ${favoriteToAdd}`);
     // Perform the actions: remove old, add new via backend calls
     try {
       // Set loading state if you add one to the modal
-      // setIsLoading(true); 
+      // setIsLoading(true);
       console.log(`Backend remove: ${favoriteToRemove}`);
       await removeFavoriteBiomarker(activeProfile.id, favoriteToRemove);
       console.log(`Backend add: ${favoriteToAdd}`);
-      const updatedProfile = await addFavoriteBiomarker(activeProfile.id, favoriteToAdd);
-      
+      const addResponse = await addFavoriteBiomarker(activeProfile.id, favoriteToAdd);
+
       // Update state with the final list from the backend
-      const newFavorites = updatedProfile.favorite_biomarkers || [];
+      const newFavorites = addResponse.favorite_biomarkers || [];
       setFavoriteNames(newFavorites);
       // --- Trigger grid recalculation ---
       calculateAndSetGridData(newFavorites);
       // --- End trigger ---
-      
+
       // Close the modal
       handleCloseReplaceModal();
-      
+
       // Show success feedback
       setSnackbarMessage(`Replaced ${favoriteToRemove} with ${favoriteToAdd} in favorites.`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-      
+
     } catch (err) {
        console.error(`Error replacing favorite ${favoriteToRemove} with ${favoriteToAdd}:`, err);
        setSnackbarMessage('Failed to replace favorite.');
@@ -798,24 +799,22 @@ const VisualizationPage: React.FC = () => {
     } finally {
        // setIsLoading(false);
     }
-    // NOTE: The closing brace below was incorrectly placed here in the previous step. 
-    // It belongs after the handleFavoriteOrderChange function.
-  }; 
-  
+  };
+
   // Handler for when the favorite order changes via drag-and-drop
   const handleFavoriteOrderChange = async (orderedNames: string[]) => {
     if (!activeProfile?.id) return;
-    
+
     console.log(`Favorite order changed, attempting to save new order for profile ${activeProfile.id}:`, orderedNames);
-    
+
     // --- REMOVED OPTIMISTIC UPDATE ---
-    // setFavoriteNames(orderedNames); 
-    
+    // setFavoriteNames(orderedNames);
+
     try {
       // Call the backend API to persist the new order
       const updatedProfile = await updateFavoriteOrder(activeProfile.id, orderedNames);
       console.log(`Successfully saved new favorite order for profile ${activeProfile.id}`);
-      
+
       // Update state with the confirmed order from the backend
       const newFavorites = updatedProfile.favorite_biomarkers || [];
       setFavoriteNames(newFavorites);
@@ -827,15 +826,15 @@ const VisualizationPage: React.FC = () => {
       // setSnackbarMessage('Favorite order saved.');
       // setSnackbarSeverity('success');
       // setSnackbarOpen(true);
-      
+
     } catch (err) {
       console.error(`Error saving favorite order for profile ${activeProfile.id}:`, err);
       // Show error feedback
       setSnackbarMessage('Failed to save favorite order. Please try again.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
-      
-      // Revert optimistic update if save fails? 
+
+      // Revert optimistic update if save fails?
       // No optimistic update to revert, but maybe refetch profile to be safe?
       // For now, just show error. The state might be inconsistent until next refresh.
     }
@@ -846,28 +845,28 @@ const VisualizationPage: React.FC = () => {
   // Handle generate health summary
   const handleGenerateHealthSummary = async () => {
     if (!activeProfile?.id) return;
-    
+
     // Show snackbar
     setSnackbarMessage('Generating AI health summary...');
     setSnackbarSeverity('info');
     setSnackbarOpen(true);
-    
+
     setIsSummaryGenerating(true);
-    
+
     try {
       // Call the generate summary API
-      const updatedProfile = await generateHealthSummary(activeProfile.id);
-      
+      await generateHealthSummary(activeProfile.id);
+
       // Update the active profile with the new summary
       setActiveProfileById(activeProfile.id); // This will fetch the updated profile
-      
+
       // Show success message
       setSnackbarMessage('AI health summary generation started! Check back in a minute to see your personalized summary.');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
     } catch (error) {
       console.error('Error generating health summary:', error);
-      
+
       // Show error message
       setSnackbarMessage('Failed to generate AI health summary. Please try again later.');
       setSnackbarSeverity('error');
@@ -883,13 +882,13 @@ const VisualizationPage: React.FC = () => {
   if (profileLoading || biomarkerLoading) {
     return (
       <Container maxWidth="lg">
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           justifyContent: 'center',
           minHeight: '50vh',
-          py: 4 
+          py: 4
         }}>
           <CircularProgress size={60} />
           <Typography variant="h6" sx={{ mt: 2 }}>
@@ -905,8 +904,8 @@ const VisualizationPage: React.FC = () => {
     return (
       <Container maxWidth="lg">
         <Paper sx={{ p: 3, mt: 3 }}>
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             action={
               <Button color="inherit" size="small" onClick={handleRetry}>
                 <RefreshIcon sx={{ mr: 1 }} />
@@ -917,8 +916,8 @@ const VisualizationPage: React.FC = () => {
             {error}
           </Alert>
           <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={() => navigate('/upload')}
             >
               Upload New File
@@ -1012,12 +1011,12 @@ const VisualizationPage: React.FC = () => {
       <Container maxWidth="lg">
         <Paper sx={{ p: 3, mt: 3 }}>
           <Alert severity="info">
-            No biomarker data available for this {fileId ? 'file' : 'profile'}. 
+            No biomarker data available for this {fileId ? 'file' : 'profile'}.
             {fileId ? '' : ' Please upload a lab report to get started.'}
           </Alert>
           <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={() => navigate('/upload')}
             >
               Upload Lab Report
@@ -1034,12 +1033,12 @@ const VisualizationPage: React.FC = () => {
   return (
     <Container maxWidth="lg">
       {/* Header Box for Title and Description */}
-      <Box sx={{ mt: 3, mb: 2 }}> 
+      <Box sx={{ mt: 3, mb: 2 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           {fileId ? 'File Analysis' : `Biomarker Overview for ${activeProfile?.name || 'Profile'}`} {/* Show profile name */}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          {fileId 
+          {fileId
             ? `View and analyze biomarkers extracted from ${biomarkers[0]?.fileName || 'your uploaded file'}` // Show filename if available
             : `View all biomarkers across lab reports for ${activeProfile?.name || 'the selected profile'}`
           }
@@ -1049,7 +1048,7 @@ const VisualizationPage: React.FC = () => {
       {/* Box for Profile Selector and History Button */}
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         {/* Profile Selector Dropdown - Render if profile is active */}
-        {activeProfile && ( 
+        {activeProfile && (
           <FormControl sx={{ minWidth: 200 }} size="small"> {/* Removed disabled prop for now */}
             <InputLabel id="profile-select-label">
               {profileListLoading ? "Loading..." : profileListError ? "Error" : "Viewing Profile"}
@@ -1089,14 +1088,14 @@ const VisualizationPage: React.FC = () => {
         )}
         {/* Placeholder if no active profile */}
         {!activeProfile && ( // Show placeholder only if no active profile
-           <Box sx={{ minWidth: 200 }} /> 
+           <Box sx={{ minWidth: 200 }} />
         )}
 
         {/* History Button */}
         <Tooltip
           title={
             activeProfile
-              ? `View the complete biomarker history for profile: ${activeProfile.name}` 
+              ? `View the complete biomarker history for profile: ${activeProfile.name}`
               : "Select a profile to view biomarker history"
           }
         >
@@ -1127,36 +1126,36 @@ const VisualizationPage: React.FC = () => {
             onDeleteFavorite={async (biomarkerName) => { // Make async for await
               // When we delete a favorite from the grid tile's 'x' button
               if (!activeProfile?.id) return;
-            
+
               console.log(`Deleting favorite ${biomarkerName} via delete button`);
-            
+
               // --- REMOVED OPTIMISTIC UPDATE ---
-              // const originalFavoriteNames = [...favoriteNames]; 
+              // const originalFavoriteNames = [...favoriteNames];
               // const updatedFavoritesOptimistic = favoriteNames.filter(name => name !== biomarkerName);
               // setFavoriteNames(updatedFavoritesOptimistic);
-            
+
               // Perform the backend update
               try {
                 const updatedProfile = await removeFavoriteBiomarker(activeProfile.id, biomarkerName);
                 console.log('Delete successful, updated favorites from backend:', updatedProfile.favorite_biomarkers);
-                
+
                 // Update favorites state from backend to ensure sync
                 const newFavorites = updatedProfile.favorite_biomarkers || [];
-                setFavoriteNames(newFavorites); 
+                setFavoriteNames(newFavorites);
                 // --- Trigger grid recalculation ---
                 calculateAndSetGridData(newFavorites);
                 // --- End trigger ---
-                
+
                 setSnackbarMessage(`${biomarkerName} removed from favorites.`);
                 setSnackbarSeverity('success');
                 setSnackbarOpen(true);
               } catch (err) {
                 console.error(`Error deleting favorite ${biomarkerName}:`, err);
-                
+
                 // Revert the optimistic update for favoriteNames (this triggers the useEffect)
                 // No optimistic update to revert, just show error
-                // setFavoriteNames(originalFavoriteNames); 
-                
+                // setFavoriteNames(originalFavoriteNames);
+
                 // Snackbar message
                 setSnackbarMessage('Failed to remove from favorites.');
                 setSnackbarSeverity('error');
@@ -1215,14 +1214,14 @@ const VisualizationPage: React.FC = () => {
 
       {/* Chart Controls */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs 
-          value={activeTab} 
-          onChange={handleTabChange} 
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
           aria-label="biomarker visualization tabs"
           variant="scrollable"
           scrollButtons="auto"
           sx={{
-            '& .MuiTab-root': { 
+            '& .MuiTab-root': {
               minHeight: '72px',
               fontWeight: 500,
               transition: 'all 0.2s ease-in-out',
@@ -1250,8 +1249,8 @@ const VisualizationPage: React.FC = () => {
 
       {/* Table View */}
       <TabPanel value={activeTab} index={0}>
-        <BiomarkerTable 
-          biomarkers={biomarkers} 
+        <BiomarkerTable
+          biomarkers={biomarkers}
           isLoading={biomarkerLoading} // Pass loading state
           error={error} // Pass error state
           onRefresh={handleRetry} // Pass refresh handler
@@ -1268,10 +1267,10 @@ const VisualizationPage: React.FC = () => {
       {/* Smart Summary View - Redesigned */}
       <TabPanel value={activeTab} index={1}>
         <Box sx={{ p: 0 }}> {/* Removed outer Paper, using Box for padding control */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             mb: 3,
             px: 1 // Add slight horizontal padding
           }}>
@@ -1287,7 +1286,7 @@ const VisualizationPage: React.FC = () => {
                 onClick={handleGenerateHealthSummary}
                 disabled={isSummaryGenerating}
                 size="medium" // Slightly larger button
-                sx={{ 
+                sx={{
                   borderRadius: '12px', // More rounded
                   boxShadow: 'none', // Remove default shadow for cleaner look
                   textTransform: 'none', // Keep text normal case
@@ -1303,16 +1302,16 @@ const VisualizationPage: React.FC = () => {
               </Button>
             )}
           </Box>
-          
+
           {/* Redesigned Top Cards */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid item xs={12} md={6}>
-              <Paper 
+              <Paper
                 variant="outlined" // Use outlined variant for subtle look
-                sx={{ 
+                sx={{
                   p: 3, // Increased padding
                   // Use theme background paper color
-                  bgcolor: theme.palette.background.paper, 
+                  bgcolor: theme.palette.background.paper,
                   borderRadius: 3, // More rounded corners
                   height: '100%',
                   display: 'flex',
@@ -1323,12 +1322,12 @@ const VisualizationPage: React.FC = () => {
                   border: `1px solid ${theme.palette.divider}` // Subtle border
                 }}
               >
-                <Typography 
-                  variant="h3" 
-                  fontWeight="bold" 
-                  gutterBottom 
+                <Typography
+                  variant="h3"
+                  fontWeight="bold"
+                  gutterBottom
                   // Use subtle warning color for abnormal count
-                  color={theme.palette.warning.main} 
+                  color={theme.palette.warning.main}
                 >
                   {biomarkers.filter(b => b.isAbnormal).length}
                 </Typography>
@@ -1341,9 +1340,9 @@ const VisualizationPage: React.FC = () => {
               </Paper>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Paper 
+              <Paper
                 variant="outlined" // Use outlined variant
-                sx={{ 
+                sx={{
                   p: 3, // Increased padding
                   bgcolor: theme.palette.background.paper,
                   borderRadius: 3, // More rounded corners
@@ -1381,8 +1380,8 @@ const VisualizationPage: React.FC = () => {
                 mb: 3 // Increased bottom margin
               }}
             >
-              <Box sx={{ 
-                display: 'flex', 
+              <Box sx={{
+                display: 'flex',
                 flexDirection: 'column',
                 gap: 2.5 // Increased gap
               }}>
@@ -1399,13 +1398,13 @@ const VisualizationPage: React.FC = () => {
                       Smart Health Summary
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {activeProfile.summary_last_updated 
-                        ? `Last updated: ${new Date(activeProfile.summary_last_updated).toLocaleString()}` 
+                      {activeProfile.summary_last_updated
+                        ? `Last updated: ${new Date(activeProfile.summary_last_updated).toLocaleString()}`
                         : 'Not generated yet'}
                     </Typography>
                   </Box>
                 </Box>
-                
+
                 {/* Summary Content or Placeholder */}
                 {activeProfile.health_summary ? (
                   <Box sx={{
@@ -1526,7 +1525,7 @@ const VisualizationPage: React.FC = () => {
                   </Box>
                 ) : (
                   // Placeholder styling
-                  <Box sx={{ 
+                  <Box sx={{
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -1547,7 +1546,7 @@ const VisualizationPage: React.FC = () => {
                   </Box>
                 )}
               </Box>
-              
+
               {/* Regenerate Button (only if summary exists) */}
               {activeProfile.health_summary && (
                 <Box sx={{ mt: 2.5, display: 'flex', justifyContent: 'flex-end' }}>
@@ -1565,11 +1564,11 @@ const VisualizationPage: React.FC = () => {
               )}
             </Paper>
           )}
-          
+
           {/* Additional Information / Disclaimer Box - Redesigned */}
-          <Paper 
+          <Paper
             variant="outlined" // Use outlined variant
-            sx={{ 
+            sx={{
               p: 2.5, // Consistent padding
               bgcolor: theme.palette.background.paper, // Use paper background
               borderRadius: 3, // Match card rounding
@@ -1619,7 +1618,7 @@ const VisualizationPage: React.FC = () => {
               </Button>
             </Box>
           </Box>
-          
+
           <Box sx={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography variant="body1" color="text.secondary">
               Chart visualization will be implemented here
@@ -1684,10 +1683,10 @@ const VisualizationPage: React.FC = () => {
           <Button onClick={handleCloseDeleteDialog} disabled={deleteLoading}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleConfirmDelete} 
-            color="error" 
-            autoFocus 
+          <Button
+            onClick={handleConfirmDelete}
+            color="error"
+            autoFocus
             disabled={deleteLoading}
           >
             Delete
@@ -1706,7 +1705,7 @@ const VisualizationPage: React.FC = () => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
-      
+
       {/* Replace Favorite Modal */}
       {activeProfile && (
         <ReplaceFavoriteModal

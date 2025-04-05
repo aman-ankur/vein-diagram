@@ -6,11 +6,11 @@ import {
   TextField, 
   Button, 
   Typography, 
-  Container, 
+  // Container removed - unused
   InputAdornment, 
   IconButton,
   Paper,
-  Divider,
+  // Divider removed - unused
   Stack,
   CircularProgress
 } from '@mui/material';
@@ -570,4 +570,4 @@ const LoginForm: React.FC = () => {
   );
 };
 
-export default LoginForm; 
+export default LoginForm;

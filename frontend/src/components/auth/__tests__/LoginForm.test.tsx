@@ -1,4 +1,4 @@
-import React from 'react';
+// React import removed - unused
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material';
@@ -124,4 +124,4 @@ describe('LoginForm', () => {
     const forgotPasswordLink = screen.getByRole('link', { name: /forgot password/i });
     expect(forgotPasswordLink).toHaveAttribute('href', '/forgot-password');
   });
-}); 
+});

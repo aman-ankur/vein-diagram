@@ -1,4 +1,4 @@
-import React from 'react';
+// React import removed - unused
 import { render, screen } from '@testing-library/react';
 import ProcessingStatus from './ProcessingStatus';
 
@@ -37,4 +37,4 @@ describe('ProcessingStatus Component', () => {
     render(<ProcessingStatus status="timeout" />);
     expect(screen.getByText(/taking longer than expected/i)).toBeInTheDocument();
   });
-}); 
+});

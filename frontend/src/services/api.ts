@@ -1,8 +1,8 @@
-import axios, { AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios'; // Removed AxiosRequestConfig
 import { API_BASE_URL } from '../config';
 // Import the frontend types
-import { Biomarker, UploadResponse, ProcessingStatus } from '../types/pdf'; 
-import { BiomarkerExplanation, ApiError, FileMetadata, UserProfile } from '../types/api';
+import { Biomarker, UploadResponse, ProcessingStatus } from '../types/pdf';
+import { BiomarkerExplanation, ApiError } from '../types/api'; // Removed FileMetadata, UserProfile
 import { supabase } from './supabaseClient';
 import { logger } from '../utils/logger';
 
@@ -177,9 +177,9 @@ export interface ApiResponse<T> {
   status: number;
 }
 
-// Define retry parameters
-const DEFAULT_RETRY_COUNT = 3;
-const DEFAULT_RETRY_DELAY = 1000; // 1 second
+// Define retry parameters (Removed unused constants)
+// const DEFAULT_RETRY_COUNT = 3;
+// const DEFAULT_RETRY_DELAY = 1000; // 1 second
 
 // Utility to check if the device is offline
 const isOffline = (): boolean => {

@@ -188,7 +188,7 @@ export const removeUploadFromHistory = (fileId: string): boolean => {
  * @returns true if successful, false otherwise
  */
 export const saveUserPreference = <T>(key: string, value: T): boolean => {
-  const preferences = storageService.getItem(STORAGE_KEYS.USER_PREFERENCES, {});
+  const preferences = storageService.getItem<Record<string, any>>(STORAGE_KEYS.USER_PREFERENCES, {}); // Add type hint
   preferences[key] = value;
   return storageService.setItem(STORAGE_KEYS.USER_PREFERENCES, preferences);
 };
@@ -200,8 +200,8 @@ export const saveUserPreference = <T>(key: string, value: T): boolean => {
  * @returns The preference value or default value
  */
 export const getUserPreference = <T>(key: string, defaultValue: T): T => {
-  const preferences = storageService.getItem(STORAGE_KEYS.USER_PREFERENCES, {});
-  return (key in preferences) ? preferences[key] : defaultValue;
+  const preferences = storageService.getItem<Record<string, any>>(STORAGE_KEYS.USER_PREFERENCES, {}); // Add type hint
+  return (key in preferences) ? preferences[key] as T : defaultValue; // Add type assertion
 };
 
 /**
@@ -362,4 +362,4 @@ export default {
   clearAppStorage,
   updateItem: updateStorageItem,
   KEYS: STORAGE_KEYS_LOCAL,
-}; 
+};

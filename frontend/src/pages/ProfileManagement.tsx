@@ -22,7 +22,6 @@ import {
   TextField,
   MenuItem,
   IconButton,
-  Grid,
   InputAdornment,
   Snackbar,
   Alert,
@@ -34,7 +33,7 @@ import {
   FormControl, // Import FormControl
   FormLabel // Import FormLabel
 } from '@mui/material';
-import { 
+import {
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   PersonAdd as PersonAddIcon,
@@ -125,7 +124,7 @@ const ProfileManagement: React.FC = () => {
     setSelectedProfiles(new Set()); // Clear selection on search
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => { // Keep event marked as unused again (third time)
     setPage(newPage);
   };
 

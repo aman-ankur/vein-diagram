@@ -11,7 +11,7 @@ import {
   ListItemText,
   Typography,
   Radio,
-  Box,
+  // Box removed - unused
   CircularProgress,
 } from '@mui/material';
 

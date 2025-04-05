@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Button, message, Card, Alert, Spin } from 'antd';
-import { UploadOutlined, InboxOutlined } from '@ant-design/icons';
+import { Upload, message, Card, Alert, Spin } from 'antd'; // Removed Button
+import { InboxOutlined } from '@ant-design/icons'; // Removed UploadOutlined
 import { RcFile } from 'antd/lib/upload';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
@@ -27,7 +27,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess, initialFileI
   const [currentPdfId, setCurrentPdfId] = useState<string | null>(initialFileId || null);
   const [profileMatches, setProfileMatches] = useState<ProfileMatch[]>([]);
   const [extractedMetadata, setExtractedMetadata] = useState<ProfileMetadata>({});
-  const [loadingMatches, setLoadingMatches] = useState<boolean>(false);
+  // const [loadingMatches, setLoadingMatches] = useState<boolean>(false); // Removed unused state
   const [processingAssociation, setProcessingAssociation] = useState<boolean>(false);
 
   // If initialFileId is provided, trigger profile matching immediately
@@ -152,7 +152,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess, initialFileI
   
   const findMatches = async (pdfId: string) => {
     console.log("Starting profile matching for PDF:", pdfId);
-    setLoadingMatches(true);
+    // setLoadingMatches(true); // Removed usage of unused state
     try {
       // Wait until the PDF is fully processed
       let statusCheckAttempts = 0;
@@ -283,7 +283,7 @@ const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadSuccess, initialFileI
       // In a production app, we might want to offer a retry option
       onUploadSuccess(pdfId);
     } finally {
-      setLoadingMatches(false);
+      // setLoadingMatches(false); // Removed usage of unused state
     }
   };
   

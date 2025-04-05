@@ -12,14 +12,14 @@ import {
   IconButton,
   Drawer,
   List,
-  ListItem,
+  // ListItem removed - unused
   ListItemIcon,
   ListItemText,
   ListItemButton,
   CircularProgress,
   Alert,
-  Snackbar,
-  ClickAwayListener
+  Snackbar
+  // ClickAwayListener removed - unused
 } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -45,6 +45,7 @@ import BiomarkerHistoryPage from './pages/BiomarkerHistoryPage';
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage.tsx'));
 import APIStatusIndicator from './components/APIStatusIndicator';
 import { checkApiAvailability } from './services/api';
+import { startKeepAliveService } from './services/keepAliveService';
 
 // Auth imports
 import { AuthProvider } from './contexts/AuthContext';
@@ -220,10 +221,21 @@ const NavBar: React.FC<{
 
 function AppContent() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+  const [, setApiAvailable] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
   const { user } = useAuth();
+
+  // Initialize keep-alive service
+  useEffect(() => {
+    // Start the keep-alive service when the app loads
+    const stopKeepAliveService = startKeepAliveService();
+    
+    // Clean up function to stop the interval when component unmounts
+    return () => {
+      stopKeepAliveService();
+    };
+  }, []);
 
   // Check API availability on mount
   useEffect(() => {
@@ -231,7 +243,7 @@ function AppContent() {
       try {
         const isAvailable = await checkApiAvailability();
         setApiAvailable(isAvailable);
-        
+
         if (!isAvailable) {
           setErrorMessage('Unable to connect to the backend server. Some features may be limited.');
           setShowErrorSnackbar(true);

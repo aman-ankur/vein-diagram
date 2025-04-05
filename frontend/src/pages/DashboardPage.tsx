@@ -11,8 +11,8 @@ import {
   Button, 
   Stack,
   Collapse, // Import Collapse
-  IconButton, // Import IconButton
-  styled, // Import styled for rotating icon
+  // IconButton removed - unused
+  // styled removed - unused
   alpha // Import alpha for opacity
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'; // Import ExpandMore icon
@@ -21,24 +21,14 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useProfile } from '../contexts/ProfileContext'; // Import the profile context hook
 // Removing problematic Health Score component import for now - Re-add if path/component is confirmed
-// import HealthScoreOverview from '../components/HealthScoreOverview.tsx'; 
+// import HealthScoreOverview from '../components/HealthScoreOverview.tsx';
 // import Dashboard from '../components/Dashboard.tsx'; 
 import { getAllBiomarkers } from '../services/api'; // Import biomarker service
 import { Biomarker } from '../types/pdf'; // Import Biomarker type
 // import TrendIndicator from '../components/TrendIndicator'; // Could use this later if available and suitable
 // TODO: Import service to fetch last report date when available
 
-// Styled component for the expand icon
-const ExpandMore = styled((props: { expand: boolean } & React.ComponentProps<typeof IconButton>) => {
-  const { expand, ...other } = props;
-  return <IconButton {...other} />;
-})(({ theme, expand }) => ({
-  transform: !expand ? 'rotate(0deg)' : 'rotate(180deg)',
-  marginLeft: 'auto',
-  transition: theme.transitions.create('transform', {
-    duration: theme.transitions.duration.shortest,
-  }),
-}));
+// Removed unused ExpandMore styled component definition
 
 
 const DashboardPage: React.FC = () => {

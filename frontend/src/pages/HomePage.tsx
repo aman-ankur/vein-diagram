@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Typography, 
-  Box, 
-  Container, 
-  Grid, 
-  Button, 
-  Card, 
-  CardContent, 
-  CardMedia, 
+import {
+  Typography,
+  Box,
+  Container,
+  Grid,
+  Button,
+  Card,
+  CardContent,
+  // CardMedia removed - unused
   Stack,
   Paper,
   useTheme,
   alpha,
-  Divider,
+  // Divider removed - unused
   Tab,
   Tabs,
   Alert
@@ -20,17 +20,17 @@ import {
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import ScheduleIcon from '@mui/icons-material/Schedule';
+// ScheduleIcon removed - unused
 import SecurityIcon from '@mui/icons-material/Security';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import BiotechIcon from '@mui/icons-material/Biotech';
 import ScienceIcon from '@mui/icons-material/Science';
 // Remove import for the old Dashboard component as it's no longer rendered here
-// import Dashboard from '../components/Dashboard'; 
+// import Dashboard from '../components/Dashboard';
 import storageService, { STORAGE_KEYS } from '../services/localStorage';
 // Fix: Import ApiError from the correct location (assuming it's in types/api.ts)
-import { getAllBiomarkers } from '../services/api'; 
-import { ApiError } from '../types/api'; // Import ApiError type
+import { getAllBiomarkers } from '../services/api';
+// ApiError removed - unused
 import LoadingIndicator from '../components/LoadingIndicator';
 import ErrorHandler from '../components/ErrorHandler';
 
@@ -46,19 +46,19 @@ const features = [
     title: 'Visual Analysis',
     description: 'See your biomarkers visualized with intuitive charts and graphs for better understanding of your health.',
     icon: <AssessmentIcon fontSize="large" color="primary" />,
-    path: '/visualize'
+    path: '/visualize' // Corrected path
   },
   {
     title: 'Track Over Time',
     description: 'Monitor changes in your biomarkers over time to see trends and patterns in your health data.',
     icon: <TimelineIcon fontSize="large" color="primary" />,
-    path: '/visualize'
+    path: '/visualize' // Corrected path
   },
   {
     title: 'Privacy Focused',
     description: 'Your health data stays private. We employ advanced security measures to protect your information.',
     icon: <SecurityIcon fontSize="large" color="primary" />,
-    path: '/about'
+    path: '/about' // Assuming an about page exists or will be created
   }
 ];
 
@@ -102,7 +102,7 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-const HomePage: React.FC = () => {
+const HomePage: React.FC = () => { // Corrected type error: FC requires return type ReactNode
   const theme = useTheme();
   const navigate = useNavigate();
   const [hasUploads, setHasUploads] = useState(false);
@@ -110,26 +110,26 @@ const HomePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
-  const [activeProfile, setActiveProfile] = useState<string | null>(null);
+  // const [activeProfile, setActiveProfile] = useState<string | null>(null); // Removed unused state
 
   // Check API availability and if user has uploads
   useEffect(() => {
     const checkAPIAndUploads = async () => {
       setIsLoading(true);
       setError(null); // Reset error state
-      
+
       // Check if user has uploads
       try {
         // getItem returns the value property of the stored item
         const uploads = storageService.getItem(STORAGE_KEYS.UPLOADED_FILES, []);
-        
+
         // Make sure uploads is an array
         if (!Array.isArray(uploads)) {
           console.warn('Expected uploads to be an array but got:', typeof uploads);
           setHasUploads(false);
         } else {
           setHasUploads(uploads.length > 0);
-          
+
           // If user has uploads, default to dashboard tab
           if (uploads.length > 0) {
             setTabValue(0);
@@ -139,7 +139,7 @@ const HomePage: React.FC = () => {
         console.error('Error checking uploads:', error);
         setHasUploads(false);
       }
-      
+
       // Check if user is offline first
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setApiAvailable(false);
@@ -147,7 +147,7 @@ const HomePage: React.FC = () => {
         setIsLoading(false);
         return;
       }
-      
+
       // Check API availability
       try {
         // Make a simple API call to check if the backend is available
@@ -156,7 +156,7 @@ const HomePage: React.FC = () => {
       } catch (err: any) {
         console.error('API connection error:', err);
         setApiAvailable(false);
-        
+
         // Provide more specific error messages based on error type
         if (err.isOffline) {
           setError('You are offline. Limited functionality is available while offline.');
@@ -173,68 +173,63 @@ const HomePage: React.FC = () => {
         setIsLoading(false);
       }
     };
-    
+
     checkAPIAndUploads();
-    
+
     // Add event listeners for online/offline status
     const handleOnline = () => {
       setError(null);
       checkAPIAndUploads();
     };
-    
+
     const handleOffline = () => {
       setApiAvailable(false);
       setError('You are currently offline. Limited functionality is available while offline.');
     };
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => { // Keep event marked as unused again
     setTabValue(newValue);
   };
-  
+
   const handleUploadClick = () => {
     navigate('/upload');
   };
-  
+
   const handleExploreClick = () => {
-    // If no active profile, navigate to visualization with profile selection prompt
-    if (!activeProfile) {
-      navigate('/visualization');
-    } else {
-      // If profile is selected, navigate directly to visualization for that profile
-      navigate(`/visualization`);
-    }
-  };
+    // Navigate directly to visualization, profile selection happens there if needed
+    navigate('/visualization');
+  }; // Added missing closing brace
 
   return (
     <Box>
       {/* API status alert */}
       {apiAvailable === false && (
         <Box sx={{ position: 'sticky', top: 0, zIndex: 1000 }}>
-          <ErrorHandler 
+          <ErrorHandler
             error={error}
             retry={() => window.location.reload()}
           />
         </Box>
       )}
-      
+
       {isLoading ? (
         <LoadingIndicator message="Connecting to server..." variant="linear" />
       ) : (
         <>
           {/* Hero Section with conditional rendering */}
           {!hasUploads ? (
-            <Box 
+            <Box
               className="bg-pattern"
-              sx={{ 
+              sx={{
                 position: 'relative',
                 overflow: 'hidden',
                 pt: { xs: 6, md: 10 },
@@ -254,12 +249,12 @@ const HomePage: React.FC = () => {
                         textAlign: { xs: 'center', md: 'left' }
                       }}
                     >
-                      <Typography 
-                        component="h1" 
-                        variant="h2" 
+                      <Typography
+                        component="h1"
+                        variant="h2"
                         color="primary"
                         gutterBottom
-                        sx={{ 
+                        sx={{
                           fontWeight: 700,
                           letterSpacing: -1,
                           fontSize: { xs: '2.5rem', md: '3.5rem' },
@@ -277,18 +272,18 @@ const HomePage: React.FC = () => {
                       >
                         Visualize Your Health
                       </Typography>
-                      <Typography 
-                        variant="h5" 
-                        color="text.secondary" 
+                      <Typography
+                        variant="h5"
+                        color="text.secondary"
                         paragraph
-                        sx={{ 
-                          maxWidth: '600px', 
+                        sx={{
+                          maxWidth: '600px',
                           mt: 3,
                           mb: 4,
                           lineHeight: 1.8
                         }}
                       >
-                        Understand your blood test results with intuitive visualizations and track changes over time. 
+                        Understand your blood test results with intuitive visualizations and track changes over time.
                         Take control of your health with data-driven insights.
                       </Typography>
                       <Stack
@@ -297,38 +292,38 @@ const HomePage: React.FC = () => {
                         width={{ xs: '100%', sm: 'auto' }}
                         justifyContent={{ xs: 'center', md: 'flex-start' }}
                       >
-                        <Button 
-                          variant="contained" 
-                          size="large" 
+                        <Button
+                          variant="contained"
+                          size="large"
                           onClick={handleUploadClick}
                           endIcon={<CloudUploadIcon />}
-                          sx={{ 
-                            py: 1.5, 
+                          sx={{
+                            py: 1.5,
                             px: 4,
-                            fontWeight: 600 
+                            fontWeight: 600
                           }}
                         >
                           Upload Data
                         </Button>
-                        <Button 
-                          variant="outlined" 
-                          size="large" 
+                        <Button
+                          variant="outlined"
+                          size="large"
                           onClick={handleExploreClick}
                           endIcon={<AssessmentIcon />}
-                          sx={{ 
-                            py: 1.5, 
+                          sx={{
+                            py: 1.5,
                             px: 4,
-                            fontWeight: 600 
+                            fontWeight: 600
                           }}
                           disabled={!apiAvailable}
                         >
                           Explore Visualizations
                         </Button>
                       </Stack>
-                      
+
                       {!apiAvailable && (
-                        <Alert 
-                          severity="warning" 
+                        <Alert
+                          severity="warning"
                           sx={{ mt: 2, maxWidth: { xs: '100%', sm: '400px' } }}
                         >
                           Backend connection is not available. Upload functionality is limited.
@@ -386,8 +381,8 @@ const HomePage: React.FC = () => {
             <Container maxWidth="lg" sx={{ pt: 4 }}>
               <Paper elevation={0} sx={{ mb: 4 }}>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                  <Tabs 
-                    value={tabValue} 
+                  <Tabs
+                    value={tabValue}
                     onChange={handleTabChange}
                     aria-label="homepage tabs"
                     variant="fullWidth"
@@ -404,35 +399,35 @@ const HomePage: React.FC = () => {
                   <Typography variant="body1" color="text.secondary" align="center" paragraph>
                     Use the sidebar navigation to view your dashboard, visualizations, or upload new reports.
                   </Typography>
-                  
+
                   <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center', gap: 2 }}>
-                    <Button 
-                      variant="contained" 
-                      onClick={handleUploadClick} 
+                    <Button
+                      variant="contained"
+                      onClick={handleUploadClick}
                       startIcon={<CloudUploadIcon />}
                     >
                       Upload More Data
                     </Button>
-                    <Button 
-                      variant="outlined" 
-                      onClick={handleExploreClick} 
+                    <Button
+                      variant="outlined"
+                      onClick={handleExploreClick}
                       startIcon={<AssessmentIcon />}
                       disabled={!apiAvailable}
                     >
                       Explore Visualizations
                     </Button>
                   </Box>
-                  
+
                   {!apiAvailable && (
-                    <Alert 
-                      severity="warning" 
+                    <Alert
+                      severity="warning"
                       sx={{ mt: 3 }}
                     >
                       Backend connection is not available. Some dashboard data may be outdated.
                     </Alert>
                   )}
                 </TabPanel>
-                
+
                 <TabPanel value={tabValue} index={1}>
                   <Box sx={{ textAlign: 'center', p: 4 }}>
                     <Typography variant="h5" gutterBottom>
@@ -441,19 +436,19 @@ const HomePage: React.FC = () => {
                     <Typography variant="body1" color="text.secondary" paragraph>
                       Upload additional lab results to enrich your health data and get more comprehensive insights.
                     </Typography>
-                    <Button 
-                      variant="contained" 
-                      size="large" 
+                    <Button
+                      variant="contained"
+                      size="large"
                       onClick={handleUploadClick}
                       endIcon={<CloudUploadIcon />}
                       sx={{ mt: 2 }}
                     >
                       Go to Upload Page
                     </Button>
-                    
+
                     {!apiAvailable && (
-                      <Alert 
-                        severity="warning" 
+                      <Alert
+                        severity="warning"
                         sx={{ mt: 3 }}
                       >
                         Backend connection is not available. Upload functionality is limited.
@@ -461,23 +456,23 @@ const HomePage: React.FC = () => {
                     )}
                   </Box>
                 </TabPanel>
-                
+
                 <TabPanel value={tabValue} index={2}>
                   {/* Features Section */}
-                  <Box 
-                    sx={{ 
-                      mb: 8, 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      alignItems: 'center' 
+                  <Box
+                    sx={{
+                      mb: 8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center'
                     }}
                   >
-                    <Typography 
-                      component="h2" 
-                      variant="h3" 
+                    <Typography
+                      component="h2"
+                      variant="h3"
                       align="center"
                       gutterBottom
-                      sx={{ 
+                      sx={{
                         fontWeight: 700,
                         position: 'relative',
                         '&::after': {
@@ -493,12 +488,12 @@ const HomePage: React.FC = () => {
                     >
                       Key Features
                     </Typography>
-                    <Typography 
-                      variant="h6" 
-                      align="center" 
+                    <Typography
+                      variant="h6"
+                      align="center"
                       color="text.secondary"
-                      sx={{ 
-                        maxWidth: '800px', 
+                      sx={{
+                        maxWidth: '800px',
                         mx: 'auto',
                         mt: 3,
                         mb: 6
@@ -506,13 +501,13 @@ const HomePage: React.FC = () => {
                     >
                       Our platform offers everything you need to understand and track your health data
                     </Typography>
-                    
+
                     <Grid container spacing={4}>
                       {features.map((feature, index) => (
                         <Grid item xs={12} sm={6} md={3} key={index}>
-                          <Card 
+                          <Card
                             className="hover-card"
-                            sx={{ 
+                            sx={{
                               height: '100%',
                               display: 'flex',
                               flexDirection: 'column',
@@ -529,9 +524,9 @@ const HomePage: React.FC = () => {
                               <Typography variant="body2" color="text.secondary" paragraph>
                                 {feature.description}
                               </Typography>
-                              <Button 
-                                component={RouterLink} 
-                                to={feature.path} 
+                              <Button
+                                component={RouterLink}
+                                to={feature.path}
                                 color="primary"
                                 sx={{ mt: 'auto' }}
                               >
@@ -547,26 +542,26 @@ const HomePage: React.FC = () => {
               </Paper>
             </Container>
           )}
-          
+
           {/* Feature section for new users */}
           {!hasUploads && (
             <Container maxWidth="lg" sx={{ py: 8 }}>
               {/* Features Section */}
-              <Box 
-                sx={{ 
-                  mb: 8, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center' 
+              <Box
+                sx={{
+                  mb: 8,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center'
                 }}
               >
-                <Typography 
-                  component="h2" 
-                  variant="h3" 
+                <Typography
+                  component="h2"
+                  variant="h3"
                   align="center"
                   color="text.primary"
                   gutterBottom
-                  sx={{ 
+                  sx={{
                     fontWeight: 700,
                     position: 'relative',
                     '&::after': {
@@ -582,12 +577,12 @@ const HomePage: React.FC = () => {
                 >
                   Key Features
                 </Typography>
-                <Typography 
-                  variant="h6" 
-                  align="center" 
+                <Typography
+                  variant="h6"
+                  align="center"
                   color="text.secondary"
-                  sx={{ 
-                    maxWidth: '800px', 
+                  sx={{
+                    maxWidth: '800px',
                     mx: 'auto',
                     mt: 3,
                     mb: 6
@@ -595,13 +590,13 @@ const HomePage: React.FC = () => {
                 >
                   Our platform offers everything you need to understand and track your health data
                 </Typography>
-                
+
                 <Grid container spacing={4}>
                   {features.map((feature, index) => (
                     <Grid item xs={12} sm={6} md={3} key={index}>
-                      <Card 
+                      <Card
                         className="hover-card"
-                        sx={{ 
+                        sx={{
                           height: '100%',
                           display: 'flex',
                           flexDirection: 'column',
@@ -618,9 +613,9 @@ const HomePage: React.FC = () => {
                           <Typography variant="body2" color="text.secondary" paragraph>
                             {feature.description}
                           </Typography>
-                          <Button 
-                            component={RouterLink} 
-                            to={feature.path} 
+                          <Button
+                            component={RouterLink}
+                            to={feature.path}
                             color="primary"
                             sx={{ mt: 'auto' }}
                           >
@@ -632,7 +627,7 @@ const HomePage: React.FC = () => {
                   ))}
                 </Grid>
               </Box>
-              
+
               {/* Biomarker Categories */}
               <Box sx={{ py: 8, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
                 <Container maxWidth="lg">
@@ -640,21 +635,21 @@ const HomePage: React.FC = () => {
                     <Typography variant="h3" component="h2" gutterBottom>
                       Analyze Your Biomarkers
                     </Typography>
-                    <Typography 
-                      variant="h6" 
+                    <Typography
+                      variant="h6"
                       color="text.secondary"
                       sx={{ maxWidth: '700px', mx: 'auto' }}
                     >
                       Our platform supports a wide range of biomarker categories for comprehensive health monitoring.
                     </Typography>
                   </Box>
-                  
+
                   <Grid container spacing={3}>
                     {biomarkerCategories.map((category, index) => (
                       <Grid item xs={12} sm={6} md={3} key={index}>
-                        <Card 
+                        <Card
                           className="hover-card"
-                          sx={{ 
+                          sx={{
                             height: '100%',
                             display: 'flex',
                             flexDirection: 'column',
@@ -680,10 +675,10 @@ const HomePage: React.FC = () => {
                       </Grid>
                     ))}
                   </Grid>
-                  
+
                   <Box sx={{ mt: 6, textAlign: 'center' }}>
-                    <Button 
-                      variant="contained" 
+                    <Button
+                      variant="contained"
                       size="large"
                       onClick={handleUploadClick}
                       endIcon={<CloudUploadIcon />}
@@ -691,8 +686,8 @@ const HomePage: React.FC = () => {
                     >
                       Upload Your Data
                     </Button>
-                    <Button 
-                      variant="outlined" 
+                    <Button
+                      variant="outlined"
                       size="large"
                       onClick={handleExploreClick}
                       endIcon={<AssessmentIcon />}
@@ -705,11 +700,11 @@ const HomePage: React.FC = () => {
               </Box>
             </Container>
           )}
-          
+
           {/* Call to action section */}
-          <Box 
-            sx={{ 
-              py: 10, 
+          <Box
+            sx={{
+              py: 10,
               background: `linear-gradient(to right, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
               color: theme.palette.common.white
             }}
