@@ -759,14 +759,20 @@ async def merge_profiles_endpoint(
     try:
         # Call the service function to perform the merge
         merge_profiles(db=db, merge_request=request)
+        
+        # Make sure to commit the transaction
+        db.commit()
+        
         logger.info(f"Successfully merged profiles {request.source_profile_ids} into {request.target_profile_id}")
         return {"message": "Profiles merged successfully"}
     except HTTPException as http_exc:
         # Re-raise HTTP exceptions (like 400, 404) from the service layer
+        db.rollback()
         logger.warning(f"HTTP Exception during merge: {http_exc.detail}")
         raise http_exc
     except Exception as e:
         # Catch any other unexpected errors
+        db.rollback()
         logger.error(f"Unexpected error during profile merge endpoint: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error during merge: {str(e)}")
 
