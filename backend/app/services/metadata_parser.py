@@ -73,6 +73,15 @@ def extract_metadata_with_claude(text: str, filename: str) -> Dict[str, Any]:
     Returns:
         Dictionary containing extracted metadata, or empty dict if none found/error.
     """
+    # Add input validation to prevent type errors
+    if not isinstance(text, str):
+        logger.error(f"[TYPE_ERROR] extract_metadata_with_claude expected text as string, got {type(text)}")
+        return {}
+        
+    if not text:
+        logger.warning(f"[EMPTY_TEXT] extract_metadata_with_claude received empty text for {filename}")
+        return {}
+        
     logger.info(f"[CLAUDE_METADATA_EXTRACTION_START] Extracting metadata from {filename}")
     start_time = datetime.now()
     

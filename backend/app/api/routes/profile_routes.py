@@ -438,7 +438,15 @@ async def match_profile_from_pdf(
             raise HTTPException(status_code=404, detail=f"PDF with ID {request.pdf_id} not found")
         
         # Extract metadata with Claude
-        metadata = await extract_metadata_with_claude(pdf, db)
+        if not pdf.extracted_text:
+            logger.error(f"PDF {request.pdf_id} doesn't have extracted text. Status: {pdf.status}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"PDF text has not been extracted yet. Current status: {pdf.status}"
+            )
+            
+        # Call extract_metadata_with_claude with text and filename
+        metadata = await extract_metadata_with_claude(pdf.extracted_text, pdf.filename)
         
         # Find matching profiles
         matches = await find_matching_profiles(metadata, db, user_id=user_id)
@@ -506,7 +514,15 @@ async def associate_pdf_with_profile(
         elif request.create_new_profile:
             # Option 2: Create new profile from request
             # Extract metadata from PDF if available
-            metadata = await extract_metadata_with_claude(pdf, db)
+            if not pdf.extracted_text:
+                logger.error(f"PDF {request.pdf_id} doesn't have extracted text. Status: {pdf.status}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"PDF text has not been extracted yet. Current status: {pdf.status}"
+                )
+                
+            # Call extract_metadata_with_claude with text and filename  
+            metadata = await extract_metadata_with_claude(pdf.extracted_text, pdf.filename)
             
             # Apply any updates from request
             if request.metadata_updates:
