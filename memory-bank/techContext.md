@@ -196,3 +196,27 @@ python-multipart==0.0.x
 - API performance monitoring (APM tools).
 - Frontend error tracking (Sentry, LogRocket).
 - Infrastructure monitoring (CPU, memory, disk).
+
+## Production Deployment Summary (Render + Supabase)
+
+The application backend is successfully deployed as a Dockerized web service on **Render**, using the **Singapore** region for optimal performance for users in India.
+
+-   **Database:** All application data (Profiles, PDFs, Biomarkers) is stored in the project's **Supabase PostgreSQL** database. Authentication is also handled by Supabase Auth.
+-   **Deployment Configuration (Render UI):**
+    -   **Service Type:** Web Service (Free Tier initially).
+    *   **Environment:** Docker, using `backend/Dockerfile`.
+    *   **Root Directory:** `backend`.
+    *   **Region:** Singapore (Asia Pacific).
+    *   **Start Command:** `sh -c 'python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT'` (Ensures database schema migrations run before the application starts, using Python module execution for reliability).
+    *   **Environment Variables:** All secrets (Supabase DB URL, Supabase JWT Secret, Anthropic API Key) and production settings (`DEBUG=False`, `LOG_LEVEL=INFO`) are configured securely via Render's environment variable management.
+-   **Database Migration:** The initial database schema setup in Supabase Postgres is handled automatically during deployment by the `alembic upgrade head` part of the Start Command. (Note: No migration of *data* from local SQLite was performed, starting with an empty production database).
+-   **Key Learnings/Gotchas:**
+    *   Use environment variables for all configuration/secrets.
+    *   Use a production-ready database (Supabase Postgres) instead of SQLite.
+    *   Ensure the database connection string is compatible with the hosting environment (e.g., using Supabase Pooler if needed, though direct connection worked here).
+    *   Automate schema migrations (Alembic via Start Command).
+    *   Use `sh -c '...'` in Render's Docker Command field to correctly chain commands like migrations and server startup.
+    *   Use `python -m <module>` to reliably execute installed Python tools like `alembic` and `uvicorn` within the container.
+    *   Configure logging for production (typically `stdout`/`stderr` for cloud platforms).
+    *   Configure CORS correctly for frontend integration.
+    *   Implement health checks (`/health` endpoint) for monitoring.
