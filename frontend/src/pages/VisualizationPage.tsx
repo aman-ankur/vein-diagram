@@ -65,6 +65,7 @@ import {
   addFavoriteBiomarker, // Import backend service functions
   removeFavoriteBiomarker
 } from '../services/profileService';
+import { supabase } from '../services/supabaseClient';
 
 // --- Constants ---
 const MAX_DISPLAY_TILES = 8; // Changed to 8 for a 2x4 grid layout
@@ -395,10 +396,17 @@ const VisualizationPage: React.FC = () => {
 
           console.log(`Making direct fetch to: ${url}`);
 
+          // Get the current Supabase session token
+          const { data: authData } = await supabase.auth.getSession();
+          const token = authData.session?.access_token;
+          
+          console.log(`Auth token available: ${!!token}`);
+
           const response = await fetch(url, {
             method: 'GET',
             headers: {
               'Accept': 'application/json',
+              'Authorization': token ? `Bearer ${token}` : '',
             },
             credentials: 'include' // Include cookies
           });

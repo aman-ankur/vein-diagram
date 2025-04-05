@@ -438,7 +438,15 @@ async def match_profile_from_pdf(
             raise HTTPException(status_code=404, detail=f"PDF with ID {request.pdf_id} not found")
         
         # Extract metadata with Claude
-        metadata = await extract_metadata_with_claude(pdf, db)
+        if not pdf.extracted_text:
+            logger.error(f"PDF {request.pdf_id} doesn't have extracted text. Status: {pdf.status}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"PDF text has not been extracted yet. Current status: {pdf.status}"
+            )
+            
+        # Call extract_metadata_with_claude with text and filename
+        metadata = await extract_metadata_with_claude(pdf.extracted_text, pdf.filename)
         
         # Find matching profiles
         matches = await find_matching_profiles(metadata, db, user_id=user_id)
@@ -506,16 +514,24 @@ async def associate_pdf_with_profile(
         elif request.create_new_profile:
             # Option 2: Create new profile from request
             # Extract metadata from PDF if available
-            metadata = await extract_metadata_with_claude(pdf, db)
+            if not pdf.extracted_text:
+                logger.error(f"PDF {request.pdf_id} doesn't have extracted text. Status: {pdf.status}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"PDF text has not been extracted yet. Current status: {pdf.status}"
+                )
+                
+            # Call extract_metadata_with_claude with text and filename  
+            metadata = await extract_metadata_with_claude(pdf.extracted_text, pdf.filename)
             
             # Apply any updates from request
             if request.metadata_updates:
                 for key, value in request.metadata_updates.items():
-                    if key in metadata.__dict__:
-                        setattr(metadata, key, value)
+                    if key in metadata:
+                        metadata[key] = value
             
             # Create profile from metadata
-            profile = create_profile_from_metadata(metadata, db, user_id)
+            profile = create_profile_from_metadata(db, metadata, user_id)
         
         # If neither option was specified or successful, raise an error
         if not profile:
@@ -743,14 +759,20 @@ async def merge_profiles_endpoint(
     try:
         # Call the service function to perform the merge
         merge_profiles(db=db, merge_request=request)
+        
+        # Make sure to commit the transaction
+        db.commit()
+        
         logger.info(f"Successfully merged profiles {request.source_profile_ids} into {request.target_profile_id}")
         return {"message": "Profiles merged successfully"}
     except HTTPException as http_exc:
         # Re-raise HTTP exceptions (like 400, 404) from the service layer
+        db.rollback()
         logger.warning(f"HTTP Exception during merge: {http_exc.detail}")
         raise http_exc
     except Exception as e:
         # Catch any other unexpected errors
+        db.rollback()
         logger.error(f"Unexpected error during profile merge endpoint: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error during merge: {str(e)}")
 

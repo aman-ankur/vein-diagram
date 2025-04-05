@@ -90,8 +90,13 @@ def merge_profiles(db: Session, merge_request: ProfileMergeRequest):
             # An implementation could involve querying for duplicate biomarkers and removing them
             
             # 4. Delete Source Profiles
-            # This is also a placeholder - in a real production system, we would delete the source profiles
-            # For testing purposes, we've made the tests verify only the update operations
+            logger.info(f"Deleting source profiles {source_ids}")
+            delete_stmt = (
+                delete(Profile)
+                .where(Profile.id.in_(source_ids))
+            )
+            delete_result = db.execute(delete_stmt)
+            logger.info(f"Deleted {delete_result.rowcount} source profiles")
             
             # Commit is handled by the caller's context manager (or db.commit() if not nested)
             logger.info("Profile merge transaction steps completed successfully within nested block.")

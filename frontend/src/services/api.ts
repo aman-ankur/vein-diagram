@@ -336,6 +336,9 @@ export const getPDFStatus = async (fileId: string): Promise<ProcessingStatus> =>
         case 'completed': // Map backend 'completed' to frontend 'completed'
            frontendStatus = 'completed';
            break;
+        case 'not_found': // Handle the new not_found status
+           frontendStatus = 'failed';
+           break;
         case 'failed':
           frontendStatus = 'failed'; // Use 'failed' as per types/pdf.ts
           break;
