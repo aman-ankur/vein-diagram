@@ -1,7 +1,7 @@
 """fix_pdfs_sequence
 
 Revision ID: fix_pdfs_sequence
-Revises: add_user_id_to_profiles
+Revises: c1d2e3f4g5h6
 Create Date: 2025-04-05
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'fix_pdfs_sequence'
-down_revision = 'add_user_id_to_profiles'
+down_revision = 'c1d2e3f4g5h6'
 branch_labels = None
 depends_on = None
 
