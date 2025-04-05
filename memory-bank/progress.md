@@ -41,6 +41,10 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ **PDF Page Filtering** based on relevance scoring
 - ✅ **Sequential Claude API calls** for biomarker extraction
 - ✅ **Biomarker De-duplication** across pages
+- ✅ **PDF processing and biomarker extraction** with Claude API integration
+- ✅ **Database-aware sequence handling** for both SQLite and PostgreSQL
+- ✅ **Enhanced profile merge functionality** with proper transaction handling
+- ✅ **Improved PDF status error handling** for missing PDFs
 
 ### Frontend
 - ✅ React application setup with TypeScript
@@ -64,6 +68,8 @@ The project is in the **advanced development phase**, integrating core features 
 - ✅ **Dashboard integrates profile context, favorite names/values/trends, last report date (derived), collapsible AI summary, action buttons.**
 - ✅ **Fixed `BiomarkerTable` crash (missing Grid import) and related TypeScript errors.**
 - ✅ **Completed redesign of "Smart Summary" tab on Visualization page for improved aesthetics.**
+- ✅ **Enhanced profile context error handling** for graceful recovery from deleted/merged profiles
+- ✅ **Automatic profile selection** when current profile is no longer available
 
 ### Infrastructure
 - ✅ Project directory structure
@@ -189,8 +195,8 @@ The project is in the **advanced development phase**, integrating core features 
 
 3. **State Management Complexity**: Increased with profiles/favorites.
    - **Severity**: Low
-   - **Status**: Monitoring
-   - **Mitigation**: Review state management strategy (e.g., Context API, Zustand) if needed.
+   - **Status**: **Improved**
+   - **Mitigation**: **Enhanced ProfileContext to handle profile deletions and merges gracefully.**
 
 ### Integration
 1. **API Response Times**: Background processing helps, but complex queries might be slow. Sequential processing adds per-page latency but avoids full timeouts.
