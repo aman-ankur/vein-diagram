@@ -94,10 +94,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Sign in with Google OAuth
   const signInWithGoogle = async () => {
     setError(null);
+    // Use environment variable for redirect URL instead of window.location.origin
+    const redirectUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
+    console.log(`Auth redirect URL: ${redirectUrl}/auth/callback`);
+    
     return await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${redirectUrl}/auth/callback`,
       },
     });
   };
@@ -111,8 +115,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Reset password
   const resetPassword = async (email: string) => {
     setError(null);
+    // Use environment variable for redirect URL instead of window.location.origin
+    const redirectUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
+    
     return await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${redirectUrl}/reset-password`,
     });
   };
 

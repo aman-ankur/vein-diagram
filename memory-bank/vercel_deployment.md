@@ -18,7 +18,7 @@ This document outlines the process of deploying the Vein Diagram frontend to Ver
 
 ### 2. Deployment Issues and Fixes
 
-#### TypeScript Error
+#### TypeScript Errors (First Round)
 
 ```
 src/pages/VisualizationPage.tsx(735,32): error TS6133: 'event' is declared but its value is never read.
@@ -36,6 +36,38 @@ const handleCloseSnackbar = (event?: React.SyntheticEvent | Event, reason?: stri
 const handleCloseSnackbar = (_event?: React.SyntheticEvent | Event, reason?: string) => {
   // function body
 };
+```
+
+#### TypeScript Errors (Second Round)
+
+After implementing the keep-alive service, we encountered additional TypeScript errors:
+
+```
+src/App.tsx(224,10): error TS6133: 'apiAvailable' is declared but its value is never read.
+src/services/keepAliveService.ts(37,11): error TS6133: 'response' is declared but its value is never read.
+```
+
+**Fix:** 
+1. For `App.tsx`, we kept only the setter function:
+```typescript
+// Before
+const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+
+// After
+const [, setApiAvailable] = useState<boolean | null>(null);
+```
+
+2. For `keepAliveService.ts`, we removed the unused response variable:
+```typescript
+// Before
+const response = await fetch(`${API_BASE_URL}/health`, {
+  // options
+});
+
+// After
+await fetch(`${API_BASE_URL}/health`, {
+  // options
+});
 ```
 
 #### CORS Configuration Issue
@@ -59,6 +91,18 @@ origins = [
 ]
 ```
 
+#### Favicon Implementation
+
+Added a custom favicon to make the app more professional in browser tabs:
+
+1. Created a favicon directory in the public folder
+2. Added the Vein Diagram logo as favicon.jpeg
+3. Updated index.html to reference the custom favicon:
+
+```html
+<link rel="icon" type="image/jpeg" href="/favicon/favicon.jpeg" />
+```
+
 ## Integration Architecture
 
 ```
@@ -75,11 +119,13 @@ origins = [
 - Hosted on Vercel's global CDN
 - Configured with environment variables to connect to the backend
 - Built using React, TypeScript, and Vite
+- Includes keep-alive service to ping backend and prevent Render instance from spinning down
 
 ### Backend (Render)
 - Deployed using Docker on Render
 - FastAPI application with PostgreSQL database
 - Properly configured CORS to accept requests from the Vercel domain
+- Free tier limits: Spins down after inactivity (addressed with keep-alive service)
 
 ## Testing the Deployment
 
