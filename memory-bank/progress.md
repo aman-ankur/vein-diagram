@@ -10,7 +10,7 @@ The project is in the **advanced development phase**, integrating core features 
 | PDF Processing        | Completed   | 100%     | Refactored for page filtering & sequential processing.                |
 | Profile Management    | Completed   | 100%     | Backend API and basic Frontend UI implemented.                        |
 | Favorite Biomarkers   | Completed   | 100%     | Backend API (add/remove/reorder), Frontend components (grid, tile, modals, table integration), D&D implemented. Migrated from localStorage. |
-| Frontend UI           | In Progress | 85%      | Integrating profiles & favorites. Added biomarker deletion. Fixed table errors. Completed Vis Smart Summary redesign. Dashboard implemented (blocked). |
+| Frontend UI           | In Progress | 87%      | Integrating profiles & favorites. Added biomarker deletion. Fixed table errors. Completed Vis Smart Summary redesign. Dashboard implemented (blocked). **Improved Dashboard mobile layout & empty state UX.** |
 | Data Visualization    | In Progress | 70%      | Time-series done, relationship mapping ongoing. Smart Summary redesigned. |
 | Claude API Integration| Completed   | 100%     | Biomarker/Metadata extraction refactored. Insights integration ongoing. |
 | Testing               | In Progress | 75%      | Added tests for profiles & favorites. Updated PDF processing tests. Needs Health Score tests. Needs Vis Smart Summary tests. Needs Dashboard tests. |
@@ -151,7 +151,7 @@ The project is in the **advanced development phase**, integrating core features 
 - 🔄 **Complete Dashboard Implementation** (Resolve rendering, add category status, refine styling, integrate Health Score)
 
 ### Milestone 5: Enhanced User Experience (In Progress - Renumbered)
-- 🔄 Implement guided tour for first-time users
+- ✅ Implement guided tour for first-time users **(Replaced with Welcome Page)**
 - 🔄 Add contextual help and tooltips
 - ✅ Create comprehensive error handling for backend processes
 - ✅ Develop progress indicators for PDF processing
@@ -228,7 +228,9 @@ The project is in the **advanced development phase**, integrating core features 
 - Updated PDF processing unit tests and fixed errors.
 - **Fixed `BiomarkerTable` crash and TypeScript errors.**
 - **Completed redesign of Visualization page "Smart Summary" tab.**
-- **Implemented initial Dashboard page (`DashboardPage.tsx`) with routing and basic data integration (currently blocked).**
+- **Implemented initial Dashboard page (`DashboardPage.tsx`) with routing and basic data integration (rendering issue blocked).**
+- **Improved Dashboard mobile layout (Quick Actions).**
+- **Improved Dashboard empty state guidance (when no profile active).**
 
 ## Next Immediate Tasks
 
@@ -242,6 +244,7 @@ The project is in the **advanced development phase**, integrating core features 
 8.  Conduct first round of user testing focusing on the complete flow with profiles/favorites **and Health Score**.
 9.  **Add tests for the Health Score feature (backend & frontend).**
 10. **Add tests for the redesigned Visualization "Smart Summary" tab.**
-11. **Add tests for the Dashboard page (after blocker resolved).**
-12. Prepare for beta release.
-13. Enhance documentation for API endpoints and UI components related to new features (incl. Health Score, Dashboard).
+11. **Add tests for the Dashboard page (after blocker resolved), including empty state.**
+12. **Add tests for the new Welcome Page onboarding flow.**
+13. Prepare for beta release.
+14. Enhance documentation for API endpoints and UI components related to new features (incl. Health Score, Dashboard, Welcome Page).

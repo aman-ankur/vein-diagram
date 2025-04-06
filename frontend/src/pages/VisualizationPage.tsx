@@ -328,8 +328,14 @@ const VisualizationPage: React.FC = () => {
   // 4. Fetch available profiles if the list is empty
   useEffect(() => {
     const fetchAvailableProfiles = async () => {
+      // Safeguard: Prevent fetch if already loading or if profiles exist
+      if (profileListLoading || availableProfiles.length > 0) {
+        console.log("Skipping profile fetch: Already loading or profiles exist.");
+        return; 
+      }
       // Fetch if the list is empty and we aren't already loading them
-      if (availableProfiles.length === 0 && !profileListLoading) {
+      // The condition below is now slightly redundant due to the safeguard above, but kept for clarity
+      if (availableProfiles.length === 0 && !profileListLoading) { 
         console.log("Available profiles list is empty, fetching...");
         setProfileListLoading(true);
         setProfileListError(null);
@@ -351,9 +357,8 @@ const VisualizationPage: React.FC = () => {
     };
 
     fetchAvailableProfiles();
-    // Rerun if the profile list loading state changes (e.g., after an error and retry)
-    // or if availableProfiles becomes empty for some reason.
-  }, [profileListLoading, availableProfiles.length]); // Depend on length to refetch if cleared
+    // Run only once on component mount to fetch the initial list.
+  }, []); // Empty dependency array ensures it runs only once on mount
 
 
   // --- Handlers ---
