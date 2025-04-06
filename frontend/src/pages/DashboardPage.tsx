@@ -72,11 +72,11 @@ const DashboardPage: React.FC = () => {
             }
           }
         });
-        // Correctly handle Date | null type using if statement with explicit type check
+        // Correctly handle Date | null type using if statement
         let formattedDate: string | null = null;
-        // Check if latestDateFound is non-null AND an instance of Date
-        if (latestDateFound && latestDateFound instanceof Date) { 
-          formattedDate = latestDateFound.toLocaleDateString();
+        if (latestDateFound) {
+          // Explicitly tell TypeScript that latestDateFound is a Date here
+          formattedDate = (latestDateFound as Date).toLocaleDateString();
         }
         setLastReportDate(formattedDate);
 
