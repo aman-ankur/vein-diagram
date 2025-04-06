@@ -23,6 +23,7 @@ export default defineConfig({
   server: {
     port: 3001,
     strictPort: true,
+    host: true, // Allow access from all network interfaces
     open: '/', // Open the main React app
     historyApiFallback: true, // SPA route handling in dev mode
   },

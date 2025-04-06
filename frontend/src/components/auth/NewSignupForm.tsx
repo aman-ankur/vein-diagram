@@ -34,6 +34,7 @@ const NewSignupForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setError('');
     
     if (password !== confirmPassword) {
@@ -50,7 +51,7 @@ const NewSignupForm: React.FC = () => {
       setLoading(true);
       await signUp(email, password);
       // Redirect to login after successful signup
-      navigate('/login'); 
+      navigate('/login', { replace: true }); 
     } catch (err: any) {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
@@ -58,7 +59,9 @@ const NewSignupForm: React.FC = () => {
     }
   };
   
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setError('');
     setLoading(true);
     try {
@@ -71,7 +74,12 @@ const NewSignupForm: React.FC = () => {
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+    <Box 
+      component="form" 
+      onSubmit={handleSubmit} 
+      sx={{ width: '100%' }}
+      onClick={(e) => e.stopPropagation()}
+    >
       {error && (
         <Box 
           sx={{

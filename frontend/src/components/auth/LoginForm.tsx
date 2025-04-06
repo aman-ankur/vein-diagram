@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -30,6 +30,16 @@ const LoginForm: React.FC = () => {
   
   // Get the redirect path from location state, or default to dashboard
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+
+  // Clear form state when component mounts
+  useEffect(() => {
+    setEmail('');
+    setPassword('');
+    setShowPassword(false);
+    setErrorMessage('');
+    setIsLoading(false);
+    setLoginStage('email');
+  }, []);
 
   const handleSubmitEmail = (e: React.FormEvent) => {
     e.preventDefault();
