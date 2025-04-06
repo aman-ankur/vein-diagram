@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Container, 
@@ -225,6 +225,18 @@ function AppContent() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Handle redirect from 404.html page
+  useEffect(() => {
+    const redirectPath = sessionStorage.getItem('redirectPath');
+    if (redirectPath) {
+      sessionStorage.removeItem('redirectPath');
+      // Use navigate from react-router to navigate to the stored path
+      navigate(redirectPath);
+      console.log(`Redirecting to ${redirectPath} from sessionStorage`);
+    }
+  }, [navigate]);
 
   // Initialize keep-alive service
   useEffect(() => {
