@@ -103,6 +103,46 @@ Added a custom favicon to make the app more professional in browser tabs:
 <link rel="icon" type="image/jpeg" href="/favicon/favicon.jpeg" />
 ```
 
+## SPA Routing Configuration
+
+### Challenge
+Single Page Applications (SPAs) with client-side routing face a common issue on static hosting platforms: when a user directly accesses a route (e.g., `/visualization`) or refreshes a page, the server looks for a file at that path and returns a 404 error since the file doesn't exist.
+
+### Solution
+We've implemented a comprehensive solution that works across all static hosting providers:
+
+1. **Custom 404.html Page**:
+   - Captures the requested path in `sessionStorage`
+   - Redirects to the root where `index.html` exists
+   - After app initialization, React Router navigates to the intended path
+
+2. **Multiple Fallback Methods**:
+   - `vercel.json` with rewrites configuration
+   - `_redirects` file for Netlify-compatible hosting
+   - Custom Vite plugin to ensure redirect rules are included in every build
+
+3. **SPA-Aware Build**:
+   - Updated Vite configuration to add SPA compatibility
+   - Added `historyApiFallback` for local development consistency
+
+### Implementation Details
+```javascript
+// 404.html - Client-side redirect
+sessionStorage.setItem('redirectPath', window.location.pathname + window.location.search);
+window.location.replace('/');
+
+// App.tsx - Handle redirect after React Router initializes
+useEffect(() => {
+  const redirectPath = sessionStorage.getItem('redirectPath');
+  if (redirectPath) {
+    sessionStorage.removeItem('redirectPath');
+    navigate(redirectPath);
+  }
+}, [navigate]);
+```
+
+This approach ensures seamless navigation regardless of how users access the application.
+
 ## Integration Architecture
 
 ```

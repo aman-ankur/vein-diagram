@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting...</title>
+  <script>
+    // Store the requested path in sessionStorage
+    sessionStorage.setItem('redirectPath', window.location.pathname + window.location.search);
+    
+    // Redirect to the root
+    window.location.replace('/');
+  </script>
+</head>
+<body>
+  <p>Redirecting to application...</p>
+</body>
+</html> 
