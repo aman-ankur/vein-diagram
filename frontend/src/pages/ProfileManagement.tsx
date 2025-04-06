@@ -31,7 +31,8 @@ import {
   RadioGroup, // Import RadioGroup
   FormControlLabel, // Import FormControlLabel
   FormControl, // Import FormControl
-  FormLabel // Import FormLabel
+  FormLabel, // Import FormLabel
+  Stack // Import Stack
 } from '@mui/material';
 import {
   Edit as EditIcon, 
@@ -318,15 +319,22 @@ const ProfileManagement: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}> {/* Responsive padding */}
       <Card sx={{ mb: 4 }}>
         <CardContent>
           <Typography variant="h4" gutterBottom>Profile Management</Typography>
           <Typography variant="body1" color="text.secondary" gutterBottom>
             Manage profiles to organize biomarkers and lab reports by individual
           </Typography>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, mt: 2 }}>
+
+          {/* Use Stack for responsive layout of controls */}
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={2} 
+            sx={{ mb: 3, mt: 2 }}
+            alignItems={{ sm: 'center' }} // Align items vertically center on sm+
+            justifyContent={{ sm: 'space-between' }} // Space between search and buttons on sm+
+          >
             <TextField
               placeholder="Search profiles..."
               variant="outlined"
@@ -340,16 +348,21 @@ const ProfileManagement: React.FC = () => {
                   </InputAdornment>
                 ),
               }}
-              sx={{ width: 300 }}
+              sx={{ width: { xs: '100%', sm: 300 } }} // Full width on mobile, fixed on larger
             />
-            <Box>
-              {profiles.length === 0 && (
+            {/* Stack for the action buttons */}
+            <Stack 
+              direction={{ xs: 'column', sm: 'row' }} 
+              spacing={1} 
+              sx={{ width: { xs: '100%', sm: 'auto' } }} // Full width on mobile
+            >
+              {profiles.length === 0 && !loading && ( // Conditionally render Migrate button
                 <Button
                   variant="outlined"
                   color="primary"
                   onClick={handleMigrateProfiles}
                   disabled={isMigrating}
-                  sx={{ mr: 1 }}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }} // Responsive width using sx
                 >
                   {isMigrating ? 'Migrating...' : 'Migrate Existing Profiles'}
                 </Button>
@@ -358,9 +371,9 @@ const ProfileManagement: React.FC = () => {
                 variant="contained"
                 color="secondary"
                 startIcon={<MergeIcon />}
-                onClick={() => setMergeDialogOpen(true)} // Open merge dialog
-                disabled={numSelected < 2} // Enable only if 2 or more are selected
-                sx={{ mr: 1 }} // Add margin if needed
+                onClick={() => setMergeDialogOpen(true)}
+                disabled={numSelected < 2}
+                sx={{ width: { xs: '100%', sm: 'auto' } }} // Responsive width using sx
               >
                 Merge Selected ({numSelected})
               </Button>
@@ -369,11 +382,12 @@ const ProfileManagement: React.FC = () => {
                 color="primary" 
                 startIcon={<PersonAddIcon />} 
                 onClick={showCreateDialog}
+                sx={{ width: { xs: '100%', sm: 'auto' } }} // Responsive width using sx
               >
                 Create Profile
               </Button>
-            </Box>
-          </Box>
+            </Stack>
+          </Stack>
           
           {/* Show a notice when no profiles are found */}
           {profiles.length === 0 && !loading && (

@@ -24,7 +24,8 @@ import {
   DialogContentText,
   DialogTitle,
   Snackbar, // Added for feedback
-  alpha
+  alpha,
+  Stack // <-- Import Stack
 } from '@mui/material';
 import { useNavigate, useLocation, Link } from 'react-router-dom'; // Removed useParams
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -327,8 +328,14 @@ const VisualizationPage: React.FC = () => {
   // 4. Fetch available profiles if the list is empty
   useEffect(() => {
     const fetchAvailableProfiles = async () => {
+      // Safeguard: Prevent fetch if already loading or if profiles exist
+      if (profileListLoading || availableProfiles.length > 0) {
+        console.log("Skipping profile fetch: Already loading or profiles exist.");
+        return; 
+      }
       // Fetch if the list is empty and we aren't already loading them
-      if (availableProfiles.length === 0 && !profileListLoading) {
+      // The condition below is now slightly redundant due to the safeguard above, but kept for clarity
+      if (availableProfiles.length === 0 && !profileListLoading) { 
         console.log("Available profiles list is empty, fetching...");
         setProfileListLoading(true);
         setProfileListError(null);
@@ -350,9 +357,8 @@ const VisualizationPage: React.FC = () => {
     };
 
     fetchAvailableProfiles();
-    // Rerun if the profile list loading state changes (e.g., after an error and retry)
-    // or if availableProfiles becomes empty for some reason.
-  }, [profileListLoading, availableProfiles.length]); // Depend on length to refetch if cleared
+    // Run only once on component mount to fetch the initial list.
+  }, []); // Empty dependency array ensures it runs only once on mount
 
 
   // --- Handlers ---
@@ -940,7 +946,7 @@ const VisualizationPage: React.FC = () => {
   if (!profileLoading && !activeProfile && !fileId) {
     return (
       <Container maxWidth="lg">
-        <Paper sx={{ p: 4, mt: 3, textAlign: 'center' }}>
+        <Paper sx={{ p: { xs: 2, sm: 4 }, mt: 3, textAlign: 'center' }}> {/* Responsive padding */}
           <Typography variant="h5" gutterBottom>
             Select a Profile to View Visualizations
           </Typography>
@@ -952,8 +958,8 @@ const VisualizationPage: React.FC = () => {
           ) : profileListError ? (
             <Alert severity="error">{profileListError}</Alert>
           ) : availableProfiles.length > 0 ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <FormControl sx={{ m: 1, minWidth: 300 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%', maxWidth: 400, mx: 'auto' }}> {/* Center content */} 
+              <FormControl fullWidth sx={{ m: 1 }}> {/* Ensure FormControl is fullWidth */} 
                 <InputLabel id="profile-select-label">Select Profile</InputLabel>
                 <Select
                   labelId="profile-select-label"
@@ -973,13 +979,18 @@ const VisualizationPage: React.FC = () => {
               <Typography variant="caption" color="text.secondary">
                 You can manage your profiles and create new ones from the Profiles page
               </Typography>
-              <Box sx={{ mt: 2 }}>
+              {/* Use Stack for responsive button layout */}
+              <Stack 
+                direction={{ xs: 'column', sm: 'row' }} 
+                spacing={2} 
+                sx={{ mt: 3, width: '100%' }} // Add margin top and ensure stack takes width
+              >
                 <Button
                   component={Link}
                   to="/profiles"
                   variant="outlined"
                   startIcon={<PersonIcon />}
-                  sx={{ mr: 2 }}
+                  fullWidth // Make button full width on mobile
                 >
                   Manage Profiles
                 </Button>
@@ -988,10 +999,11 @@ const VisualizationPage: React.FC = () => {
                   to="/upload"
                   variant="contained"
                   startIcon={<CloudUploadIcon />}
+                  fullWidth // Make button full width on mobile
                 >
                   Upload New Data
                 </Button>
-              </Box>
+              </Stack>
             </Box>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
