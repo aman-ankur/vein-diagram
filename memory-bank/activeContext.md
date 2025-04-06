@@ -94,6 +94,9 @@ Significant recent developments include:
    * **Enhanced Google sign-in** to always show account selection screen for multi-account users.
    * **Added user-scoped profile storage** to prevent cross-account profile access.
    * **Fixed component provider hierarchy** to ensure proper AuthProvider/ProfileProvider relationship.
+9. **Dashboard UX Improvements**:
+   * Fixed mobile layout for "Quick Actions" stack on `DashboardPage.tsx`.
+   * Replaced blurred view/simple alert with a "Get Started" section (including "Create Profile" / "Upload Report" CTAs) on `DashboardPage.tsx` when no profile is active.
 
 ## Next Steps
 
@@ -183,7 +186,8 @@ The immediate priorities are:
 3.  **Onboarding for New Features**:
     *   **Challenge**: Introducing users to profile management and favorites without overwhelming them.
     *   **Approach**: Contextual hints or a brief guided tour upon first encountering the features.
-    *   **Status**: Planning phase.
+    *   **Approach**: Contextual hints or a brief guided tour upon first encountering the features. **Implemented a dedicated Welcome Page for first-time users (0 profiles).**
+    *   **Status**: **Implemented**.
 
 4.  **Health Score Presentation**:
     *   **Challenge**: Displaying the score and its components clearly without being overly simplistic or complex.
@@ -218,7 +222,13 @@ The immediate priorities are:
     *   **Issue**: The new `DashboardPage.tsx` component is not rendering visually for the user at the `/dashboard` route, despite code changes. The old summary view persists.
     *   **Impact**: Blocks progress on dashboard UI refinement and feature completion.
     *   **Mitigation**: Further investigation needed (build process, routing conflicts, conditional rendering elsewhere). Caching and server restart did not resolve.
-    *   **Status**: **Blocker**. Needs investigation (build, cache, routing, conditional rendering).
+    *   **Status**: **Blocker**. Needs investigation (build, cache, routing, conditional rendering). (Note: Empty state UX improved, but original rendering issue might persist).
+
+6.  **New User Onboarding**:
+    *   **Issue**: Users logging in for the first time were directed to a potentially empty/confusing dashboard.
+    *   **Impact**: Poor initial user experience.
+    *   **Mitigation**: Implemented a dedicated `/welcome` page (`WelcomePage.tsx`) shown only to users with zero profiles upon login or initial session load. This page guides them to create their first profile. Logic added to `AuthContext.tsx` to check profile count and redirect.
+    *   **Status**: **Resolved**.
 
 4. **Profile Merging Post-State**:
    * **Issue**: After merging profiles, localStorage references to deleted profiles can cause 404 errors.
