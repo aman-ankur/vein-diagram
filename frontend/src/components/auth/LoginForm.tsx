@@ -15,7 +15,6 @@ import {
   CircularProgress
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import veinNetworkLogo from '../../assets/vein-network-logo.jpeg';
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -146,15 +145,15 @@ const LoginForm: React.FC = () => {
           boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 40px rgba(99, 102, 241, 0.15)'
         }}
       >
-        {/* Logo container with improved visibility */}
+        {/* Updated Logo and Title Section */}
         <Box 
           sx={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            mb: 6,
-            mt: 2,
+            mb: 5,
+            mt: 1,
             position: 'relative',
           }}
         >
@@ -162,10 +161,10 @@ const LoginForm: React.FC = () => {
           <Box
             sx={{
               position: 'absolute',
-              width: 120,
-              height: 120,
+              width: 140,
+              height: 140,
               borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(104, 112, 255, 0.15) 0%, rgba(104, 112, 255, 0.05) 70%, transparent 100%)',
+              background: 'radial-gradient(circle, rgba(104, 112, 255, 0.2) 0%, rgba(104, 112, 255, 0.05) 70%, transparent 100%)',
               filter: 'blur(15px)',
               zIndex: 0,
             }}
@@ -174,18 +173,20 @@ const LoginForm: React.FC = () => {
           {/* Logo container */}
           <Box
             sx={{
-              width: 80,
-              height: 80,
+              width: 120,
+              height: 120,
               borderRadius: '50%',
               position: 'relative',
-              background: 'rgba(15, 23, 42, 0.7)',
+              background: 'rgba(15, 23, 42, 0.8)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid rgba(104, 112, 255, 0.2)',
+              border: '1px solid rgba(104, 112, 255, 0.3)',
               backdropFilter: 'blur(4px)',
               zIndex: 1,
-              boxShadow: '0 0 20px rgba(104, 112, 255, 0.2)',
+              boxShadow: '0 0 20px rgba(104, 112, 255, 0.3)',
+              overflow: 'hidden',
+              padding: 0
             }}
           >
             {/* Inner glow effect */}
@@ -194,22 +195,35 @@ const LoginForm: React.FC = () => {
                 position: 'absolute',
                 inset: 0,
                 borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(104, 112, 255, 0.15) 0%, transparent 70%)',
+                background: 'radial-gradient(circle, rgba(104, 112, 255, 0.2) 0%, transparent 70%)',
                 opacity: 0.8,
               }}
             />
             
-            {/* The logo image */}
-            <img
-              src={veinNetworkLogo}
-              alt="Vein Diagram Network"
-              style={{
-                width: '70%',
-                height: '70%',
+            {/* Logo image */}
+            <Box
+              component="img"
+              src="/veing_heart.png"
+              alt="Vein Diagram"
+              onError={(e) => {
+                console.error('Failed to load image:', e);
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+              onLoad={() => {
+                console.log('Image loaded successfully');
+              }}
+              sx={{
+                width: '85%',
+                height: '85%',
                 objectFit: 'contain',
                 position: 'relative',
                 zIndex: 2,
-                filter: 'brightness(1.2)',
+                filter: 'brightness(1.1)',
+                display: 'block',
+                transform: 'scale(1.15)',
+                margin: '0',
+                padding: '0'
               }}
             />
             
@@ -231,12 +245,15 @@ const LoginForm: React.FC = () => {
           </Box>
         </Box>
 
-        <Box sx={{ textAlign: 'center', mb: 5 }}>
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography variant="h4" fontWeight="700" color="white" gutterBottom>
             Welcome to Vein Diagram
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ opacity: 0.8 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ opacity: 0.9, mb: 1 }}>
             AI-Powered Health Analytics Platform
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.8, maxWidth: '330px', mx: 'auto', lineHeight: 1.5 }}>
+            The intersection of vascular health and data analytics — visualizing the flow of biomarkers to reveal your complete health picture.
           </Typography>
         </Box>
 
