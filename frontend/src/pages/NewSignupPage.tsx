@@ -1,11 +1,32 @@
 import React from 'react';
 import NewSignupForm from '../components/auth/NewSignupForm';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const NewSignupPage: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  // If user is already authenticated, redirect to dashboard
+  if (user && !loading) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Show loading state while auth state is initializing
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#0F1A2E] to-[#132440] text-white font-[Inter,SF_Pro] p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4A7AFF]"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#0F1A2E] to-[#132440] text-white font-[Inter,SF_Pro] p-4">
+    <div 
+      className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#0F1A2E] to-[#132440] text-white font-[Inter,SF_Pro] p-4"
+      onClick={(e) => e.stopPropagation()} // Stop event propagation
+    >
       {/* Background effects */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Subtle glow effects in background */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-gradient-radial from-[rgba(99,102,241,0.08)] via-[rgba(99,102,241,0.03)] to-transparent blur-3xl opacity-40"></div>
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-gradient-radial from-[rgba(45,125,144,0.08)] via-[rgba(45,125,144,0.03)] to-transparent blur-3xl opacity-40"></div>

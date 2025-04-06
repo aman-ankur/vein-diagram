@@ -57,6 +57,7 @@ import NewSignupPage from './pages/NewSignupPage'; // Import the new page
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AccountPage from './pages/AccountPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
+import WelcomePage from './pages/WelcomePage'; // Import the new Welcome page
 import { useAuth } from './contexts/AuthContext';
 import { logger } from './utils/logger';
 
@@ -342,6 +343,7 @@ function AppContent() {
               <Route path="/signup" element={<NewSignupPage />} /> 
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              <Route path="/welcome" element={<WelcomePage />} /> {/* Add Welcome Page route */}
               
               {/* Protected routes */}
               <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />

@@ -89,7 +89,11 @@ graph TD
 
 ```mermaid
 graph TD
-    App --> Layout
+    App --> AuthProvider[AuthProvider]
+    AuthProvider --> ProfileProvider[ProfileProvider]
+    ProfileProvider --> AppContent[AppContent]
+
+    AppContent --> Layout
     Layout --> Header[Header]
     Layout --> Footer
     Layout --> MainContent
@@ -98,6 +102,7 @@ graph TD
     MainContent --> UploadPage
     MainContent --> VisualizationPage
     MainContent --> ProfilePage
+    MainContent --> WelcomePage[WelcomePage] %% Added Welcome Page
 
     DashboardPage --> BiomarkerGrid
     DashboardPage --> HealthScore
@@ -174,4 +179,30 @@ sequenceDiagram
     API->>AIService: Get Insights
     AIService-->>API: Analysis
     API-->>Frontend: Visualization Data
+```
+
+### Onboarding Flow (New User)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant AuthContext
+    participant ProfileService
+    participant WelcomePage
+    participant DashboardPage
+
+    User->>Frontend: Logs In
+    Frontend->>AuthContext: signIn() / onAuthStateChange(SIGNED_IN)
+    AuthContext->>ProfileService: getProfiles()
+    ProfileService-->>AuthContext: ProfileListResponse (empty)
+    AuthContext->>Frontend: Navigate to /welcome
+    Frontend->>WelcomePage: Render
+    User->>WelcomePage: Clicks "Create Profile"
+    WelcomePage->>Frontend: Navigate to /profiles
+    %% OR
+    User->>WelcomePage: Clicks "Skip"
+    WelcomePage->>Frontend: Navigate to /dashboard
+    Frontend->>DashboardPage: Render (potentially empty state)
+
 ```
