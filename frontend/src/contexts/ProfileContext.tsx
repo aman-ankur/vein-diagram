@@ -92,10 +92,13 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
         // Import directly from the service, not using dynamic import
         const profilesResponse = await getProfiles();
         if (profilesResponse.profiles && profilesResponse.profiles.length > 0) {
-          console.log('Auto-selecting first available profile:', profilesResponse.profiles[0].id);
-          // Set the first available profile as active
-          setActiveProfile(profilesResponse.profiles[0]);
-          if (storageKey) localStorage.setItem(storageKey, profilesResponse.profiles[0].id);
+          const firstProfile = profilesResponse.profiles[0];
+          setActiveProfile(firstProfile);
+          // Store the selected profile ID
+          localStorage.setItem(storageKey, firstProfile.id);
+        } else {
+          // No profiles available, set activeProfile to null
+          setActiveProfile(null);
         }
       } catch (fetchError) {
         console.error('Failed to auto-select a profile:', fetchError);

@@ -67,6 +67,7 @@ import {
   removeFavoriteBiomarker
 } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
+import { useAuth } from '../contexts/AuthContext'; // Assuming AuthContext provides the token
 
 // --- Constants ---
 const MAX_DISPLAY_TILES = 8; // Changed to 8 for a 2x4 grid layout
@@ -137,32 +138,6 @@ const VisualizationPage: React.FC = () => {
 
   // Destructure loading state AND setter function from profile context
   const { activeProfile, loading: profileLoading, setActiveProfileById } = useProfile();
-
-  // Enhanced console logging for debugging
-  useEffect(() => {
-    console.log("========== VISUALIZATION PAGE DEBUG ==========");
-    console.log("Component mounted with:");
-    console.log("fileId from query:", fileId);
-    console.log("profileId from query:", profileIdFromUrl);
-    console.log("full URL search:", location.search);
-    console.log("activeProfile:", activeProfile ? {
-      id: activeProfile.id,
-      name: activeProfile.name,
-      type: typeof activeProfile.id
-    } : "null");
-    console.log("profileLoading:", profileLoading); // Log profile loading state
-    console.log("==============================================");
-
-    // If a profileId is provided in the URL and it's different from the active profile,
-    // update the active profile
-    if (profileIdFromUrl && (!activeProfile || profileIdFromUrl !== activeProfile.id)) {
-      console.log(`Setting active profile to ${profileIdFromUrl} from URL parameter`);
-      setActiveProfileById(profileIdFromUrl).catch(error => {
-        console.error("Failed to set profile from URL:", error);
-        setError("Failed to load the specified profile. Using default profile instead.");
-      });
-    }
-  }, [fileId, profileIdFromUrl, activeProfile, location.search, profileLoading, setActiveProfileById]);
 
   // State for biomarkers, loading, and error
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
@@ -522,7 +497,6 @@ const VisualizationPage: React.FC = () => {
 
     // First open the modal with loading state
     setCurrentBiomarker(biomarker);
-    setExplanationModalOpen(true);
     setExplanationLoading(true);
     setExplanationError(null);
     setExplanation(null);
