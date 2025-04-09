@@ -233,9 +233,7 @@ function AppContent() {
     const redirectPath = sessionStorage.getItem('redirectPath');
     if (redirectPath) {
       sessionStorage.removeItem('redirectPath');
-      // Use navigate from react-router to navigate to the stored path
-      navigate(redirectPath);
-      console.log(`Redirecting to ${redirectPath} from sessionStorage`);
+      navigate(redirectPath, { replace: true });
     }
   }, [navigate]);
 

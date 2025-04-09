@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import { Box, CircularProgress, Typography, Alert, Paper, Container } from '@mui/material';
 
-const AuthCallbackPage = () => {
+const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -11,49 +11,41 @@ const AuthCallbackPage = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log("Auth callback page loaded");
-        
-        // Extract the hash fragment from the URL (used by Supabase auth)
+        // Supabase handles the session automatically based on the URL hash
         const hashFragment = window.location.hash;
-        console.log("Hash fragment present:", !!hashFragment);
-        
         if (!hashFragment) {
-          throw new Error('No auth hash fragment found in URL');
+          // If there's no hash, maybe it was a direct navigation?
+          // Redirect to login or home page
+          navigate('/login');
+          return;
         }
 
-        // The correct way to handle the OAuth callback with Supabase
-        // is to call getSession(), which will parse the hash and set up the session
-        console.log("Calling supabase.auth.getSession()");
         const { data, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (sessionError) {
-          console.error("Session error:", sessionError);
-          throw sessionError;
+          throw new Error(sessionError.message || 'Failed to get session after callback.');
         }
 
-        console.log("Session retrieved successfully:", !!data.session);
-        
-        if (!data.session) {
-          throw new Error('No session data returned from Supabase');
-        }
+        if (data.session) {
+          // setSession(data.session); // REMOVED: AuthProvider handles this via onAuthStateChange
 
-        console.log("Authentication successful, redirecting to dashboard");
-        // Redirect to dashboard upon successful authentication
-        navigate('/dashboard', { replace: true });
+          // Check for redirect path stored before authentication
+          const redirectPath = sessionStorage.getItem('redirectPath') || '/';
+          sessionStorage.removeItem('redirectPath'); // Clear the stored path
+          navigate(redirectPath, { replace: true });
+        } else {
+          // No session could be established, which is unexpected after a callback
+          throw new Error('No session established after authentication callback.');
+        }
       } catch (err: any) {
-        console.error('Auth callback error:', err);
-        setError(err.message || 'Authentication failed');
-        setLoading(false);
-        
-        // Redirect to login after a short delay
-        setTimeout(() => {
-          navigate('/login', { replace: true });
-        }, 5000);
+        setError(`Authentication failed: ${err.message || 'Unknown error occurred.'}`);
       }
     };
 
     handleAuthCallback();
-  }, [navigate]);
+    // We only want this to run once when the component mounts
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]); // Remove setSession from dependencies
 
   // Render a loading state or error
   return (
