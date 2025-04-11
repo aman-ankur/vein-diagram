@@ -45,7 +45,7 @@ import BiomarkerHistoryPage from './pages/BiomarkerHistoryPage';
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage.tsx'));
 import APIStatusIndicator from './components/APIStatusIndicator';
 import { checkApiAvailability } from './services/api';
-import { startKeepAliveService } from './services/keepAliveService';
+import { startKeepAliveService, stopKeepAliveService } from './services/keepAliveService';
 
 // Auth imports
 import { AuthProvider } from './contexts/AuthContext';
@@ -240,7 +240,7 @@ function AppContent() {
   // Initialize keep-alive service
   useEffect(() => {
     // Start the keep-alive service when the app loads
-    const stopKeepAliveService = startKeepAliveService();
+    startKeepAliveService();
     
     // Clean up function to stop the interval when component unmounts
     return () => {

@@ -6,7 +6,6 @@ import { Box, CircularProgress, Typography, Alert, Paper, Container } from '@mui
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -81,17 +80,10 @@ const AuthCallbackPage: React.FC = () => {
           ) : (
             <>
               <Typography variant="h5" gutterBottom>
-                {loading ? "Completing Authentication" : "Authentication Complete"}
+                Authentication Complete
               </Typography>
-              {loading && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-                  <CircularProgress />
-                </Box>
-              )}
               <Typography variant="body1">
-                {loading 
-                  ? "Please wait while we complete the sign-in process..." 
-                  : "Redirecting you to the dashboard..."}
+                Redirecting you to the dashboard...
               </Typography>
             </>
           )}

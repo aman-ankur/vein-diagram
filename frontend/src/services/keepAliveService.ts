@@ -67,35 +67,4 @@ export const stopKeepAliveService = () => {
     window.clearInterval(intervalId);
     intervalId = null;
   }
-};
-
-/**
- * Sends a ping request to the backend's health endpoint
- */
-async function pingBackend(): Promise<void> {
-  try {
-    // Use void to explicitly ignore the response
-    await fetch(`${API_BASE_URL}/health`, {
-      method: 'GET',
-      mode: 'no-cors', // Prevents CORS issues
-      cache: 'no-cache',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Backend ping completed', new Date().toISOString());
-    }
-    
-    return Promise.resolve();
-  } catch (error) {
-    // Silent failure - we don't want to disrupt the application
-    // if the backend is temporarily unavailable
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Backend ping failed:', error);
-    }
-    return Promise.resolve();
-  }
-} 
+}; 
