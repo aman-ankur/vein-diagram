@@ -67,7 +67,6 @@ import {
   removeFavoriteBiomarker
 } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
-import { useAuth } from '../contexts/AuthContext'; // Assuming AuthContext provides the token
 
 // --- Constants ---
 const MAX_DISPLAY_TILES = 8; // Changed to 8 for a 2x4 grid layout
