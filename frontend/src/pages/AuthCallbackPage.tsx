@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
-import { Box, CircularProgress, Typography, Alert, Paper, Container } from '@mui/material';
+import { Box, Typography, Alert, Paper, Container } from '@mui/material';
 
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
