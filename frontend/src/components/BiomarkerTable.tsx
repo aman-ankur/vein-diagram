@@ -45,8 +45,14 @@ import {
   StarBorder as StarBorderIcon,
   Star as StarIcon
 } from '@mui/icons-material';
-import { Menu, MenuItem } from '@mui/material'; // Removed SvgIcon import
+import { Menu, MenuItem, keyframes } from '@mui/material'; // Removed SvgIcon import, Added keyframes
 import type { Biomarker } from '../types/biomarker';
+
+// Define pulse animation
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+`;
 
 // Re-export the Biomarker type
 export type { Biomarker };
@@ -385,9 +391,13 @@ const BiomarkerRow: React.FC<{
                     e.stopPropagation(); // Prevent row collapse/expand
                     handleFavoriteToggle();
                   }}
-                  sx={{
+                  className="opacity-60 hover:opacity-100 transition-opacity duration-200" // Added Tailwind classes
+                  sx={{ // Kept color and margin in sx
                     color: isFavorite ? theme.palette.warning.main : theme.palette.text.disabled,
-                    mr: 0.5
+                    mr: 0.5,
+                    '&:hover': {
+                      backgroundColor: 'transparent' // Prevent hover background if not desired
+                    }
                   }}
                 >
                   {isFavorite ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
@@ -397,15 +407,26 @@ const BiomarkerRow: React.FC<{
 
             {/* AI Explain Button */}
             {onExplainWithAI && (
-              <ActionIconButton
-                icon={<PsychologyIcon fontSize="small" />} // Keep only one icon prop
-                tooltip="Explain with AI" // Keep only one tooltip prop
-                onClick={() => { // Remove event parameter 'e'
-                  // e.stopPropagation(); // No event to stop propagation on
-                  onExplainWithAI(biomarker);
-                }}
-                color={theme.palette.secondary.main}
-              />
+              <Tooltip title="Explain with AI">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent row collapse/expand
+                    onExplainWithAI(biomarker);
+                  }}
+                  className="animate-pulse shadow-md shadow-secondary-main/40 rounded-full" // Reverted to animate-pulse, kept shadow
+                  sx={{ // Kept color, margin, and hover in sx
+                    color: theme.palette.secondary.main,
+                    opacity: 1, // Ensure full opacity
+                    mr: 0.5,
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.secondary.main, 0.1) // Optional hover effect
+                    }
+                    }}
+                  >
+                    <PsychologyIcon sx={{ fontSize: '1.2rem' }} /> {/* Increased size */}
+                  </IconButton>
+                </Tooltip>
             )}
 
             {/* More Actions Menu (including Delete) */}
@@ -423,7 +444,10 @@ const BiomarkerRow: React.FC<{
                       handleMenuClick(e);
                     }}
                     size="small"
-                    sx={{ color: theme.palette.text.secondary }}
+                    className="opacity-60 hover:opacity-100 transition-opacity duration-200" // Added Tailwind classes
+                    sx={{ // Kept color in sx
+                      color: theme.palette.text.secondary,
+                    }}
                   >
                     <MoreVertIcon fontSize="small" />
                   </IconButton>
