@@ -27,12 +27,21 @@ import BloodtypeIcon from '@mui/icons-material/Bloodtype'; // Example: Hematolog
 import BubbleChartIcon from '@mui/icons-material/BubbleChart'; // Example: Hormones/Endocrine
 import WaterDropIcon from '@mui/icons-material/WaterDrop'; // Example: Lipids
 import CloseIcon from '@mui/icons-material/Close'; // Icon for delete button
+import PsychologyIcon from '@mui/icons-material/Psychology'; // AI Icon
+import { keyframes, Tooltip } from '@mui/material'; // Import keyframes and Tooltip
+
+// Define pulse animation (copied from BiomarkerTable for consistency)
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+`;
 
 interface BiomarkerTileProps {
   biomarkerData: ProcessedFavoriteData;
   isFavorite: boolean; // Still needed to show star state
   onToggleFavorite: (biomarkerName: string) => void; // Can be used by star if needed, or removed if delete replaces it
   onDeleteFavorite: (biomarkerName: string) => void; // Callback specifically for deletion
+  onExplainClick?: (biomarkerName: string) => void; // Callback for AI explanation
   onClickTile?: (biomarkerName: string) => void; // For expanding details
 }
 
@@ -100,6 +109,7 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
   isFavorite, // Keep isFavorite to show star status if desired, or remove if delete replaces toggle
   onToggleFavorite, // Keep if star still toggles, or remove
   onDeleteFavorite, // Add delete handler
+  onExplainClick, // Add AI explain handler
   onClickTile = (name) => console.log(`Tile clicked: ${name}`),
 }) => {
   const theme = useTheme();
@@ -122,7 +132,14 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
     e.stopPropagation(); // Prevent card click when toggling favorite
     onToggleFavorite(name);
   };
-  
+
+  const handleExplainClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    if (onExplainClick) {
+      onExplainClick(name);
+    }
+  };
+
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click when deleting
     console.log(`🔴 BiomarkerTile: Delete button clicked for "${name}"`);
@@ -207,26 +224,53 @@ const BiomarkerTile: React.FC<BiomarkerTileProps> = ({
              >
                {name}
              </Typography>
-          </Box>
-          <IconButton
-            size="small"
-            onClick={handleFavoriteClick}
-            aria-label={isFavorite ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
-            sx={{
-              color: isFavorite ? theme.palette.warning.main : theme.palette.action.active,
-              transition: 'transform 0.2s ease-in-out, color 0.2s ease-in-out',
-              flexShrink: 0, // Prevent star from shrinking
-              '&:hover': {
-                transform: 'scale(1.2)',
-                color: theme.palette.warning.light,
-              },
-            }}
-          >
-            {isFavorite ? <StarIcon fontSize="inherit" /> : <StarBorderIcon fontSize="inherit" />}
-          </IconButton>
-        </Box>
-        
-        {/* Delete Button - Bottom Right Corner */}
+           </Box>
+           {/* Container for top-right icons */}
+           <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+             {/* AI Explain Button */}
+             {onExplainClick && (
+               <Tooltip title="Explain with AI">
+                 <IconButton
+                   size="small"
+                    onClick={handleExplainClick}
+                    aria-label={`Explain ${name} with AI`}
+                    className="animate-pulse shadow-md shadow-secondary-main/40 rounded-full" // Reverted to animate-pulse, kept shadow
+                    sx={{ // Kept color, margin, hover in sx
+                      color: theme.palette.secondary.main,
+                      opacity: 1, // Ensure full opacity
+                      mr: 0.5,
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.secondary.main, 0.1)
+                      }
+                    }}
+                  >
+                    <PsychologyIcon fontSize="inherit" />
+                  </IconButton>
+               </Tooltip>
+             )}
+             {/* Favorite Star Button */}
+             <IconButton
+               size="small"
+                onClick={handleFavoriteClick}
+                aria-label={isFavorite ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
+                className="opacity-60 hover:opacity-100 transition-opacity duration-200" // Added Tailwind classes
+                sx={{ // Kept color, flexShrink, transform/color transitions in sx
+                  color: isFavorite ? theme.palette.warning.main : theme.palette.action.active,
+                  flexShrink: 0,
+                  transition: 'transform 0.2s ease-in-out, color 0.2s ease-in-out', // Keep transform/color transition
+                  '&:hover': {
+                    // Opacity handled by Tailwind now
+                    transform: 'scale(1.2)',
+                    color: theme.palette.warning.light,
+                  },
+                }}
+              >
+                {isFavorite ? <StarIcon fontSize="inherit" /> : <StarBorderIcon fontSize="inherit" />}
+              </IconButton>
+           </Box>
+         </Box>
+
+         {/* Delete Button - Bottom Right Corner */}
         <IconButton
           size="small"
           onClick={handleDeleteClick} // Ensure this calls the correct prop handler

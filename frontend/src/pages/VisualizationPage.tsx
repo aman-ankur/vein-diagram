@@ -182,6 +182,7 @@ const VisualizationPage: React.FC = () => {
 
   // State for health summary generation
   const [isSummaryGenerating, setIsSummaryGenerating] = useState<boolean>(false);
+  const [isExplainingFavorites, setIsExplainingFavorites] = useState<boolean>(false); // State for favorite explanation loading
 
   // --- Helper Function ---
 
@@ -499,6 +500,8 @@ const VisualizationPage: React.FC = () => {
     setExplanationLoading(true);
     setExplanationError(null);
     setExplanation(null);
+    setIsExplainingFavorites(false); // Ensure this flag is false for single biomarker
+    setExplanationModalOpen(true); // Open the modal
 
     try {
       // Calculate the abnormal status safely
@@ -568,6 +571,11 @@ const VisualizationPage: React.FC = () => {
   // Handle closing the explanation modal
   const handleCloseExplanationModal = () => {
     setExplanationModalOpen(false);
+    // Reset explanation state when closing
+    setCurrentBiomarker(null);
+    setExplanation(null);
+    setExplanationError(null);
+    setIsExplainingFavorites(false);
   };
 
   // Handler for toggling a favorite biomarker (now uses backend)
@@ -786,6 +794,44 @@ const VisualizationPage: React.FC = () => {
     } finally {
        // setIsLoading(false);
     }
+  };
+
+  // Handle clicking the "Explain Favorites" button
+  const handleExplainFavoritesClick = async () => {
+    if (!activeProfile?.id || favoriteNames.length === 0) return;
+
+    console.log(`Explaining favorites for profile ${activeProfile.id}:`, favoriteNames);
+
+    // Open the modal in loading state for favorites
+    setCurrentBiomarker(null); // No single biomarker context
+    setExplanationLoading(true);
+    setExplanationError(null);
+    setExplanation(null);
+    setIsExplainingFavorites(true); // Set flag for favorites explanation
+    setExplanationModalOpen(true);
+
+    // --- Placeholder for Backend API Call ---
+    // In a real implementation, you would call a new backend endpoint here:
+    // e.g., const result = await explainFavoriteBiomarkers(activeProfile.id, favoriteNames);
+    // For now, simulate loading and then show a placeholder message or error.
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+       // TODO: Replace with actual API call and result handling
+       setExplanation({
+          name: "Favorite Biomarkers Summary", // Add a name for context, though not strictly used by modal display
+          general_explanation: "This is a placeholder summary for your favorite biomarkers.",
+          specific_explanation: `AI analysis for: ${favoriteNames.join(', ')}. (Full implementation requires backend endpoint)`
+          // Removed incorrect 'references' field
+       });
+       // setExplanationError("Backend endpoint for explaining favorites not yet implemented.");
+     } catch (err) {
+       console.error("Error explaining favorites (placeholder):", err);
+       setExplanationError("Could not generate summary for favorites at this time.");
+    } finally {
+       setExplanationLoading(false);
+       setIsExplainingFavorites(false); // Reset flag
+    }
+    // --- End Placeholder ---
   };
 
   // Handler for when the favorite order changes via drag-and-drop
@@ -1116,50 +1162,17 @@ const VisualizationPage: React.FC = () => {
             profileId={activeProfile.id}
             favoriteData={processedFavoritesData} // Pass current data (could be empty)
             onToggleFavorite={handleToggleFavorite} // Used by star icon
-            onDeleteFavorite={async (biomarkerName) => { // Make async for await
-              // When we delete a favorite from the grid tile's 'x' button
-              if (!activeProfile?.id) return;
-
-              console.log(`Deleting favorite ${biomarkerName} via delete button`);
-
-              // --- REMOVED OPTIMISTIC UPDATE ---
-              // const originalFavoriteNames = [...favoriteNames];
-              // const updatedFavoritesOptimistic = favoriteNames.filter(name => name !== biomarkerName);
-              // setFavoriteNames(updatedFavoritesOptimistic);
-
-              // Perform the backend update
-              try {
-                const updatedProfile = await removeFavoriteBiomarker(activeProfile.id, biomarkerName);
-                console.log('Delete successful, updated favorites from backend:', updatedProfile.favorite_biomarkers);
-
-                // Update favorites state from backend to ensure sync
-                const newFavorites = updatedProfile.favorite_biomarkers || [];
-                setFavoriteNames(newFavorites);
-                // --- Trigger grid recalculation ---
-                calculateAndSetGridData(newFavorites);
-                // --- End trigger ---
-
-                setSnackbarMessage(`${biomarkerName} removed from favorites.`);
-                setSnackbarSeverity('success');
-                setSnackbarOpen(true);
-              } catch (err) {
-                console.error(`Error deleting favorite ${biomarkerName}:`, err);
-
-                // Revert the optimistic update for favoriteNames (this triggers the useEffect)
-                // No optimistic update to revert, just show error
-                // setFavoriteNames(originalFavoriteNames);
-
-                // Snackbar message
-                setSnackbarMessage('Failed to remove from favorites.');
-                setSnackbarSeverity('error');
-                setSnackbarOpen(true);
-              }
-            }}
-            onAddClick={handleOpenAddModal}
-            onOrderChange={handleFavoriteOrderChange} // Pass the order change handler
-          />
-          {/* Optional: Add text below the grid if it's completely empty */}
-          {processedFavoritesData.length === 0 && (
+            onDeleteFavorite={handleConfirmDelete} // Pass the correct delete handler
+             onAddClick={handleOpenAddModal}
+             onOrderChange={handleFavoriteOrderChange} // Pass the order change handler
+             onExplainClick={(name) => { // Pass down individual explain handler
+                const biomarker = biomarkers.find(bm => bm.name === name);
+                if (biomarker) handleExplainBiomarker(biomarker);
+             }}
+             onExplainFavoritesClick={handleExplainFavoritesClick} // Pass the new handler
+           />
+           {/* Optional: Add text below the grid if it's completely empty */}
+           {processedFavoritesData.length === 0 && (
              <Typography color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
                No popular biomarkers found. Click '+' above to add manually.
              </Typography>
@@ -1632,18 +1645,18 @@ const VisualizationPage: React.FC = () => {
         </Paper>
       </TabPanel>
 
-      {/* AI Explanation Modal - Re-enabled */}
-       {/* AI Explanation Modal - Pass the whole biomarker object */}
-       {currentBiomarker && (
-        <ExplanationModal
-          open={explanationModalOpen}
-          onClose={handleCloseExplanationModal}
-          biomarker={currentBiomarker} // Pass the entire object
-          loading={explanationLoading}
-          error={explanationError}
-          explanation={explanation}
-        />
-      )}
+       {/* AI Explanation Modal - Updated to handle both single and favorites */}
+       <ExplanationModal
+         open={explanationModalOpen}
+         onClose={handleCloseExplanationModal}
+         // Pass biomarker only if explaining a single one, otherwise pass null/undefined
+         biomarker={isExplainingFavorites ? null : currentBiomarker}
+         // Pass a specific title when explaining favorites
+         // title={isExplainingFavorites ? "AI Summary for Favorites" : undefined} // Removed invalid title prop
+         loading={explanationLoading}
+         error={explanationError}
+         explanation={explanation}
+       />
 
       {/* Add Favorite Modal */}
       {activeProfile && (
