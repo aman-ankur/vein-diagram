@@ -1,7 +1,8 @@
-import React from 'react'; // Removed unused useState
-import { Grid } from '@mui/material'; // Import MUI Grid
+import React from 'react';
+import { Grid, Button, Box, Typography, useTheme, alpha } from '@mui/material'; // Import Button, Box, Typography, useTheme, alpha
 import BiomarkerTile from './BiomarkerTile';
 import AddBiomarkerTile from './AddBiomarkerTile'; // Import the new component
+import PsychologyIcon from '@mui/icons-material/Psychology'; // Import AI Icon
 import {
   DndContext,
   closestCenter,
@@ -30,6 +31,8 @@ interface FavoriteBiomarkersGridProps {
   onDeleteFavorite: (biomarkerName: string) => void; // Add delete handler prop
   onAddClick: () => void; // Handler for clicking the add tile
   onOrderChange: (orderedNames: string[]) => void; // Callback when order changes via D&D
+  onExplainClick?: (biomarkerName: string) => void; // Add AI explain handler prop
+  onExplainFavoritesClick?: () => void; // Handler for the new "Explain Favorites" button
 }
 
 // Make BiomarkerTile sortable
@@ -39,6 +42,7 @@ const SortableBiomarkerTile: React.FC<{
   isFavorite: boolean;
   onToggleFavorite: (biomarkerName: string) => void;
   onDeleteFavorite: (biomarkerName: string) => void;
+  onExplainClick?: (biomarkerName: string) => void; // Add AI explain handler prop
 }> = (props) => {
   const {
     attributes,
@@ -81,7 +85,10 @@ const FavoriteBiomarkersGrid: React.FC<FavoriteBiomarkersGridProps> = ({
   onDeleteFavorite, // Destructure the new prop
   onAddClick,
   onOrderChange, // Destructure the order change handler
+  onExplainClick, // Destructure the AI explain handler
+  onExplainFavoritesClick, // Destructure the new handler
 }) => {
+  const theme = useTheme(); // Get theme for styling button
   // Configure a custom pointer sensor that ignores clicks on elements with data-no-dnd attribute
   const customPointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
@@ -151,8 +158,31 @@ const FavoriteBiomarkersGrid: React.FC<FavoriteBiomarkersGridProps> = ({
 
   // Use MUI Grid for layout
   return (
-    <DndContext
-      sensors={sensors}
+    <Box>
+      {/* Add Explain Favorites Button */}
+      {favoriteData.length > 0 && onExplainFavoritesClick && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<PsychologyIcon />}
+            onClick={onExplainFavoritesClick}
+            sx={{
+              borderRadius: '10px',
+              textTransform: 'none',
+              bgcolor: theme.palette.secondary.main,
+              '&:hover': {
+                bgcolor: theme.palette.secondary.dark
+              }
+            }}
+          >
+            Explain Favorites
+          </Button>
+        </Box>
+      )}
+
+      <DndContext
+        sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
@@ -168,12 +198,13 @@ const FavoriteBiomarkersGrid: React.FC<FavoriteBiomarkersGridProps> = ({
               <SortableBiomarkerTile
                 id={data.name} // Use name as the unique ID for sorting
                 biomarkerData={data}
-                isFavorite={favoriteNames.includes(data.name)} // Check against the state passed via favoriteData
-                onToggleFavorite={onToggleFavorite} // Pass toggle handler
-                onDeleteFavorite={onDeleteFavorite} // Pass delete handler
-              />
-            </Grid>
-          ))}
+                 isFavorite={favoriteNames.includes(data.name)} // Check against the state passed via favoriteData
+                 onToggleFavorite={onToggleFavorite} // Pass toggle handler
+                 onDeleteFavorite={onDeleteFavorite} // Pass delete handler
+                 onExplainClick={onExplainClick} // Pass AI explain handler
+               />
+             </Grid>
+           ))}
 
           {/* Render Add Tiles (Not sortable) */}
       {Array.from({ length: numAddTiles }).map((_, index) => (
@@ -182,9 +213,10 @@ const FavoriteBiomarkersGrid: React.FC<FavoriteBiomarkersGridProps> = ({
           <AddBiomarkerTile onAddClick={onAddClick} />
         </Grid>
       ))}
-        </Grid> 
-      </SortableContext> 
-    </DndContext> 
+        </Grid>
+      </SortableContext>
+    </DndContext>
+    </Box> // Close the wrapping Box
   );
 };
 
