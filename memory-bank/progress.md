@@ -231,6 +231,7 @@ The project is in the **advanced development phase**, integrating core features 
 - **Implemented initial Dashboard page (`DashboardPage.tsx`) with routing and basic data integration (rendering issue blocked).**
 - **Improved Dashboard mobile layout (Quick Actions).**
 - **Improved Dashboard empty state guidance (when no profile active).**
+- **Improved biomarker explanation UX by showing modal immediately with loading state**
 
 ## Next Immediate Tasks
 
