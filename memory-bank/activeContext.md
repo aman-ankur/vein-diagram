@@ -81,6 +81,7 @@ Significant recent developments include:
     *   Resolved multiple TypeScript errors in `BiomarkerTable` related to incorrect prop usage (`description`, `source_name`), event handler signatures, and sorting logic.
     *   Corrected props passed to `ExplanationModal` in `VisualizationPage`.
     *   **Completed redesign of the "Smart Summary" tab** in `VisualizationPage` for a more cohesive, modern aesthetic inspired by the Dashboard page (muted colors, outlined cards, refined typography and layout).
+    *   **Improved biomarker explanation UX by immediately showing the modal with loading state** when a user clicks "Explain with AI" instead of waiting for the API response, providing better visual feedback.
 
 7. **Enhanced Error Handling & Database Fixes**:
    * **Improved profile merge functionality** to properly delete source profiles and ensure transaction integrity.
