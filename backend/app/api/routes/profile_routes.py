@@ -821,3 +821,78 @@ async def migrate_profiles_to_current_user(
         db.rollback()
         logger.error(f"Error during profile migration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to migrate profiles: {str(e)}")
+
+# --- Favorite Biomarker Summary Endpoint ---
+
+@router.post("/{profile_id}/favorite-summary", response_model=FavoriteSummaryResponse)
+async def get_favorite_biomarker_summary_endpoint(
+    profile_id: UUID,
+    request: FavoriteSummaryRequest,
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Generate or retrieve a cached summary for selected favorite biomarkers.
+    Checks the cache first, if not found, generates a new summary via LLM.
+    """
+    try:
+        # Verify profile exists and belongs to user
+        user_id = current_user.get("user_id")
+        profile = db.query(Profile).filter(
+            Profile.id == profile_id,
+            Profile.user_id == user_id
+        ).first()
+        
+        if not profile:
+            logger.warning(f"Profile {profile_id} not found or access denied for user {user_id}.")
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        # Check if biomarker names were provided
+        if not request.biomarker_names:
+            logger.warning(f"No biomarker names provided for profile {profile_id}.")
+            raise HTTPException(status_code=400, detail="No biomarker names provided")
+        
+        # Generate the unique hash for this set of biomarkers
+        biomarker_hash = get_biomarker_hash(request.biomarker_names)
+        
+        # Check cache first
+        cached_summary = get_cached_summary(profile_id, biomarker_hash, db)
+        
+        if cached_summary:
+            # Return cached summary immediately
+            logger.info(f"Returning cached summary for profile {profile_id}, hash {biomarker_hash}")
+            return FavoriteSummaryResponse(
+                profile_id=profile_id,
+                summary_text=cached_summary,
+                biomarker_hash=biomarker_hash,
+                created_at=datetime.utcnow(), # Indicate cache retrieval time
+                from_cache=True
+            )
+        
+        # If not in cache, generate the summary (this calls the LLM service)
+        logger.info(f"No cache found for profile {profile_id}, hash {biomarker_hash}. Generating new summary.")
+        summary_text = await generate_favorite_biomarker_summary(
+            profile_id=profile_id, 
+            biomarker_names=request.biomarker_names, 
+            db=db
+        )
+        
+        if not summary_text:
+            logger.error(f"Failed to generate favorite summary for profile {profile_id}, hash {biomarker_hash}")
+            raise HTTPException(status_code=500, detail="Failed to generate summary from LLM service")
+        
+        # Return the newly generated summary
+        return FavoriteSummaryResponse(
+            profile_id=profile_id,
+            summary_text=summary_text,
+            biomarker_hash=biomarker_hash,
+            created_at=datetime.utcnow(), # Indicate generation time
+            from_cache=False
+        )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions directly
+        raise
+    except Exception as e:
+        logger.error(f"Error in favorite-summary endpoint for profile {profile_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error while processing favorite summary")
