@@ -482,9 +482,6 @@ const VisualizationPage: React.FC = () => {
 
   // Function to handle opening the explanation modal
   const handleExplainBiomarker = async (biomarker: Biomarker) => {
-    console.log('=== EXPLAIN BIOMARKER FUNCTION CALLED ===');
-    console.log('Biomarker data received:', biomarker);
-
     // Make sure biomarker has expected fields
     if (!biomarker || !biomarker.name) {
       console.error('Invalid biomarker data received:', biomarker);
@@ -492,13 +489,13 @@ const VisualizationPage: React.FC = () => {
       return;
     }
 
-    console.log('Opening explanation modal for biomarker:', biomarker);
-
     // First open the modal with loading state
     setCurrentBiomarker(biomarker);
     setExplanationLoading(true);
     setExplanationError(null);
     setExplanation(null);
+    // Open the modal immediately to show loading state
+    setExplanationModalOpen(true);
 
     try {
       // Calculate the abnormal status safely
@@ -519,10 +516,6 @@ const VisualizationPage: React.FC = () => {
           ? `${biomarker.reference_range_low}-${biomarker.reference_range_high}`
           : "Not available");
 
-      console.log('Calculated parameters:');
-      console.log('- isAbnormal:', isAbnormal);
-      console.log('- referenceRange:', referenceRange);
-
       // Make API call
       const result = await getBiomarkerExplanation(
         biomarker.id,
@@ -533,8 +526,6 @@ const VisualizationPage: React.FC = () => {
         isAbnormal
       );
 
-      console.log('Received explanation result:', result);
-
       // Verify result structure
       if (!result || !result.general_explanation || !result.specific_explanation) {
         console.error('Invalid explanation data received:', result);
@@ -544,9 +535,9 @@ const VisualizationPage: React.FC = () => {
 
       // Update state with result
       setExplanation(result);
+      // Modal is already open, no need to set it again
     } catch (error) {
-      console.error('=== ERROR IN EXPLAIN BIOMARKER HANDLER ===');
-      console.error('Error details:', error);
+      console.error('Error in explain biomarker handler:', error);
 
       // Set user-friendly error message
       let errorMessage = 'An unexpected error occurred. Please try again later.';
@@ -557,7 +548,6 @@ const VisualizationPage: React.FC = () => {
         errorMessage = String(error.message);
       }
 
-      console.log('Setting error message:', errorMessage);
       setExplanationError(errorMessage);
     } finally {
       // Always set loading to false
