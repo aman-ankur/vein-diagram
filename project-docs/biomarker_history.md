@@ -3,7 +3,7 @@
 ## Product Requirements Document (PRD)
 
 ### Overview
-The Biomarker History feature will allow users to view all their biomarkers across multiple uploaded lab reports in a single, consolidated interface. This will enable users to track changes in their biomarker values over time and across different lab reports.
+The Biomarker History feature will allow users to view all their biomarkers across multiple muploaded lab reports in a single, consolidated interface. This will enable users to track changes in their biomarker values over time and across different lab reports.
 
 ### Problem Statement
 Currently, users can only view biomarkers from a single lab report at a time, making it difficult to:
