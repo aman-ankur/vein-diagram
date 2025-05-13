@@ -122,6 +122,9 @@ def filter_relevant_pages(
 ) -> Dict[int, str]:
     """Filter pages with relevant content for biomarker extraction, now with structure awareness."""
     relevant_pages = []
+    # Initialize filtered_pages here to prevent reference before assignment
+    filtered_pages = {}
+    
     all_aliases = _load_biomarker_aliases()
     if not all_aliases:
         logger.warning("No aliases loaded, cannot perform relevance scoring. Returning all pages.")
@@ -179,7 +182,9 @@ def filter_relevant_pages(
         logging.warning("Structure-based filtering removed all pages, falling back to original method")
     
     # Fall back to original method if structure not available or no pages found
-    # ... existing filtering code ...
+    # Convert relevant_pages list to dictionary for consistent return type
+    if not filtered_pages:
+        filtered_pages = {page_num: text for page_num, text in relevant_pages}
     
     return filtered_pages
 
@@ -261,6 +266,39 @@ async def process_pages_sequentially(
     
     return all_biomarkers
 
+def contain_biomarker_patterns(text):
+    """
+    Check if text contains potential biomarker patterns.
+    
+    Args:
+        text: The text to check
+        
+    Returns:
+        bool: True if the text contains potential biomarker patterns
+    """
+    if not text:
+        return False
+        
+    # Common biomarker indicators
+    indicators = [
+        r'\b\d+\.?\d*\s*(?:mg/dL|g/dL|mmol/L|mol/L|U/L|IU/L|ng/mL|pg/mL|mIU/L|μIU/mL|μg/dL|mcg/dL|%|mEq/L)',  # Values with units
+        r'\bnormal\s*range',
+        r'\breference\s*range',
+        r'\brange',
+        r'\bvalue',
+        r'\bresult',
+        r'\blow\b|\bhigh\b',
+        r'\bpositive\b|\bnegative\b',
+        r'\bchemistry\b',
+        r'\bhematology\b',
+        r'\btest\b|\btests\b'
+    ]
+    
+    for pattern in indicators:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+            
+    return False
 
 # --- End Helper Functions ---
 
