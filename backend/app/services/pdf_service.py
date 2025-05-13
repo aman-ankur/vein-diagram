@@ -26,6 +26,15 @@ from app.models.biomarker_model import Biomarker
 from app.models.pdf_model import PDF  # Import the PDF model class
 from app.db.database import SessionLocal  # Import SessionLocal for error handling
 from app.services.health_summary_service import generate_and_update_health_summary # Import the new service function
+from app.services.document_analyzer import (
+    analyze_document_structure,
+    optimize_content_for_extraction,
+    create_adaptive_prompt,
+    update_extraction_context,
+    create_default_extraction_context,
+    DocumentStructure
+)
+from app.core.config import DOCUMENT_ANALYZER_CONFIG
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -107,8 +116,11 @@ def score_page_relevance(page_text: str, all_aliases: List[str]) -> int:
     logger.debug(f"Page scored with relevance: {score}")
     return score
 
-def filter_relevant_pages(pages_text_dict: Dict[int, str]) -> List[Tuple[int, str]]:
-    """Filters pages based on relevance score."""
+def filter_relevant_pages(
+    pages_text_dict,
+    document_structure=None
+) -> Dict[int, str]:
+    """Filter pages with relevant content for biomarker extraction, now with structure awareness."""
     relevant_pages = []
     all_aliases = _load_biomarker_aliases()
     if not all_aliases:
@@ -129,62 +141,125 @@ def filter_relevant_pages(pages_text_dict: Dict[int, str]) -> List[Tuple[int, st
     # Sort by page number
     relevant_pages.sort(key=lambda x: x[0])
     logger.info(f"Filtered down to {len(relevant_pages)} relevant pages out of {len(pages_text_dict)} total.")
-    return relevant_pages
 
-def process_pages_sequentially(relevant_pages: List[Tuple[int, str]], filename: str) -> List[Dict[str, Any]]:
-    """
-    Processes relevant pages sequentially using the single-page Claude extractor
-    and de-duplicates the results.
-
-    Args:
-        relevant_pages: List of tuples (page_number, page_text) for relevant pages.
-        filename: Original PDF filename for logging.
-
-    Returns:
-        List of de-duplicated biomarker dictionaries.
-    """
-    all_biomarkers_raw = []
-    logger.info(f"Starting sequential processing for {len(relevant_pages)} relevant pages from {filename}.")
-
-    for page_num, page_text in relevant_pages:
-        logger.info(f"Processing page {page_num} of {filename} sequentially...")
-        try:
-            # Call the modified single-page extractor from biomarker_parser
-            page_biomarkers, _ = extract_biomarkers_with_claude(page_text, f"{filename}_page_{page_num}")
-            if page_biomarkers:
-                logger.info(f"Extracted {len(page_biomarkers)} biomarkers from page {page_num}.")
-                # Add page number info for potential debugging or advanced de-duplication later
-                for bm in page_biomarkers:
-                    bm['source_page'] = page_num
-                all_biomarkers_raw.extend(page_biomarkers)
+    # Enhanced version with structure awareness
+    if document_structure is not None:
+        logging.info("Using document structure to filter relevant pages")
+        filtered_pages = {}
+        
+        for page_num, text in pages_text_dict.items():
+            # Higher relevance if page has tables (likely to contain biomarkers)
+            has_tables = page_num in document_structure.get("tables", {}) and document_structure["tables"][page_num]
+            
+            if has_tables:
+                logging.info(f"Page {page_num} contains tables, including for biomarker extraction")
+                filtered_pages[page_num] = text
+                continue
+            
+            # Check if this is a content page (not just header/footer)
+            page_zones = document_structure.get("page_zones", {}).get(page_num, {})
+            content_zone = page_zones.get("content", {})
+            
+            # If we have a content zone with high confidence
+            if content_zone and content_zone.get("confidence", 0) > 0.7:
+                # Use the existing biomarker pattern matching logic
+                if contain_biomarker_patterns(text):
+                    logging.info(f"Page {page_num} contains biomarker patterns in content zone")
+                    filtered_pages[page_num] = text
             else:
-                logger.info(f"No biomarkers found on page {page_num}.")
+                # Fallback to original pattern matching
+                if contain_biomarker_patterns(text):
+                    logging.info(f"Page {page_num} contains biomarker patterns (fallback method)")
+                    filtered_pages[page_num] = text
+        
+        if filtered_pages:
+            return filtered_pages
+        
+        # If we filtered out all pages, fall back to original method
+        logging.warning("Structure-based filtering removed all pages, falling back to original method")
+    
+    # Fall back to original method if structure not available or no pages found
+    # ... existing filtering code ...
+    
+    return filtered_pages
+
+async def process_pages_sequentially(
+    relevant_pages,
+    document_structure=None
+) -> List[Dict]:
+    """Process pages sequentially, now with structure awareness and content optimization."""
+    all_biomarkers = []
+    extraction_context = None
+    
+    # Use enhanced processing if enabled
+    if document_structure is not None and DOCUMENT_ANALYZER_CONFIG["enabled"]:
+        logging.info("Using enhanced page processing with structure awareness")
+        
+        # Create initial extraction context
+        extraction_context = create_default_extraction_context()
+        
+        # Optimize content into chunks based on structure
+        if DOCUMENT_ANALYZER_CONFIG["content_optimization"]["enabled"]:
+            content_chunks = optimize_content_for_extraction(relevant_pages, document_structure)
+            
+            # Process chunks instead of whole pages
+            for chunk in content_chunks:
+                # Skip chunks with very low biomarker confidence
+                if chunk["biomarker_confidence"] < 0.3:
+                    logging.info(f"Skipping low-confidence chunk from page {chunk['page_num']}")
+                    continue
+                
+                # Create adaptive prompt if enabled
+                if DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"] and extraction_context:
+                    prompt = create_adaptive_prompt(chunk, extraction_context)
+                else:
+                    # Use standard prompt
+                    prompt = f"Extract biomarkers from the following text from page {chunk['page_num']}:\n\n{chunk['text']}"
+                
+                # Extract biomarkers with Claude
+                biomarkers = await extract_biomarkers_with_claude(prompt)
+                
+                # Update context with results
+                if DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"] and extraction_context:
+                    extraction_context = update_extraction_context(
+                        extraction_context,
+                        chunk,
+                        biomarkers
+                    )
+                
+                # Add page number to biomarkers
+                for b in biomarkers:
+                    b["page"] = chunk["page_num"]
+                
+                all_biomarkers.extend(biomarkers)
+            
+            # Log token usage statistics
+            if extraction_context:
+                logging.info(f"Token usage: {extraction_context['token_usage']}")
+                
+            return all_biomarkers
+    
+    # Fall back to original method - implement original sequential processing
+    logger.info(f"Using original sequential processing for {len(relevant_pages)} relevant pages")
+    
+    for page_num, page_text in relevant_pages.items():
+        logger.info(f"Processing page {page_num} sequentially")
+        try:
+            # Call the biomarker extractor
+            page_biomarkers = await extract_biomarkers_with_claude(page_text)
+            
+            if page_biomarkers:
+                logger.info(f"Extracted {len(page_biomarkers)} biomarkers from page {page_num}")
+                # Add page number info
+                for bm in page_biomarkers:
+                    bm['page'] = page_num
+                all_biomarkers.extend(page_biomarkers)
+            else:
+                logger.info(f"No biomarkers found on page {page_num}")
         except Exception as e:
             logger.error(f"Error processing page {page_num} sequentially: {str(e)}")
-            # Continue to the next page even if one fails
-
-    logger.info(f"Finished sequential processing. Found {len(all_biomarkers_raw)} raw biomarkers across all relevant pages.")
-
-    # De-duplicate biomarkers based on standardized name (keep first occurrence)
-    final_biomarkers = []
-    seen_biomarker_names = set()
-    for biomarker in all_biomarkers_raw:
-        # Use standardized name if available, otherwise original name
-        name_key = biomarker.get("name", "").lower()
-        if not name_key:
-             name_key = biomarker.get("original_name", "").lower()
-
-        if name_key and name_key not in seen_biomarker_names:
-            final_biomarkers.append(biomarker)
-            seen_biomarker_names.add(name_key)
-        elif name_key:
-             logger.debug(f"Skipping duplicate biomarker: {name_key} from page {biomarker.get('source_page', 'unknown')}")
-        else:
-             logger.warning(f"Skipping biomarker with no identifiable name: {biomarker}")
-
-
-    logger.info(f"De-duplicated biomarkers: {len(final_biomarkers)} final biomarkers.")
-    return final_biomarkers
+    
+    return all_biomarkers
 
 
 # --- End Helper Functions ---
@@ -369,7 +444,7 @@ def _extract_text_with_ocr(file_path: str) -> Dict[int, str]:
         # Return empty dict on major error
         return {}
 
-def process_pdf_background(pdf_id: int, db_session=None):
+async def process_pdf_background(pdf_id: int, db_session=None):
     """
     Process PDF in the background.
     
@@ -401,6 +476,31 @@ def process_pdf_background(pdf_id: int, db_session=None):
         full_extracted_text = "\n--- Page Break ---\n".join(pages_text_dict.values())
         pdf.extracted_text = full_extracted_text # Store combined text for now
         db_session.commit()
+
+        # After text extraction, analyze document structure
+        document_structure = None
+        if DOCUMENT_ANALYZER_CONFIG["enabled"] and DOCUMENT_ANALYZER_CONFIG["structure_analysis"]["enabled"]:
+            logging.info(f"Analyzing document structure for {pdf_id}")
+            document_structure = analyze_document_structure(pdf.file_path, pages_text_dict)
+            logging.info(f"Document structure analysis complete with confidence {document_structure['confidence']}")
+            
+            # If analysis confidence is low and fallback is enabled, ignore structure
+            if (document_structure["confidence"] < 0.5 and 
+                DOCUMENT_ANALYZER_CONFIG["structure_analysis"]["fallback_to_legacy"]):
+                logging.warning(f"Low structure confidence ({document_structure['confidence']}), using legacy processing")
+                document_structure = None
+        
+        # Filter relevant pages with structure context
+        relevant_pages = filter_relevant_pages(
+            pages_text_dict,
+            document_structure=document_structure
+        )
+        
+        # Process pages with structure context
+        extracted_biomarkers = await process_pages_sequentially(
+            relevant_pages,
+            document_structure=document_structure
+        )
 
         # --- Metadata Extraction (Phase 3) ---
         # Extract metadata using only the first few pages (e.g., 0, 1, 2)
@@ -475,27 +575,14 @@ def process_pdf_background(pdf_id: int, db_session=None):
         else:
             logger.warning(f"No metadata extracted for PDF {pdf_id}")
         
-        # --- Biomarker Extraction (Phase 2 & 5 Integration) ---
-        # Filter relevant pages
-        logger.info(f"Filtering relevant pages for biomarker extraction in PDF {pdf_id}")
-        relevant_pages = filter_relevant_pages(pages_text_dict)
-
-        # Process relevant pages sequentially
-        if relevant_pages:
-            logger.info(f"Processing {len(relevant_pages)} relevant pages sequentially for biomarkers in PDF {pdf_id}")
-            biomarkers = process_pages_sequentially(relevant_pages, pdf.filename)
-        else:
-            logger.warning(f"No relevant pages found for biomarker extraction in PDF {pdf_id}. Skipping biomarker processing.")
-            biomarkers = []
-
         # --- Save Biomarkers ---
-        if not biomarkers:
+        if not extracted_biomarkers:
             logger.warning(f"No biomarkers extracted after filtering and sequential processing for PDF {pdf_id}")
         else:
-            logger.info(f"Extracted {len(biomarkers)} biomarkers from PDF {pdf_id}")
+            logger.info(f"Extracted {len(extracted_biomarkers)} biomarkers from PDF {pdf_id}")
 
             # Save biomarkers to database
-            for biomarker in biomarkers:
+            for biomarker in extracted_biomarkers:
                 db_session.add(Biomarker(
                     pdf_id=pdf.id,
                     profile_id=pdf.profile_id,
@@ -514,9 +601,9 @@ def process_pdf_background(pdf_id: int, db_session=None):
             
             # Update parsing confidence
             confidence = 0.0
-            for biomarker in biomarkers:
+            for biomarker in extracted_biomarkers:
                 confidence += biomarker.get("confidence", 0.0)
-            confidence = confidence / len(biomarkers) if biomarkers else 0.0
+            confidence = confidence / len(extracted_biomarkers) if extracted_biomarkers else 0.0
             pdf.parsing_confidence = confidence
         
         # Update status
@@ -525,7 +612,7 @@ def process_pdf_background(pdf_id: int, db_session=None):
         db_session.commit() # Commit biomarker saves and status update
 
         # --- Trigger Health Summary Generation (Temporarily disabled) ---
-        if pdf.profile_id and biomarkers: # Only generate if biomarkers were saved and profile exists
+        if pdf.profile_id and extracted_biomarkers: # Only generate if biomarkers were saved and profile exists
             try:
                 logger.info(f"Triggering health summary generation for profile {pdf.profile_id} after processing PDF {pdf_id}")
                 # Run the async function synchronously in this background task context
