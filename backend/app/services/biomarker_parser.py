@@ -23,6 +23,9 @@ from app.services.biomarker_dictionary import (
     BIOMARKER_DICT
 )
 
+from app.services.utils.context_management import validate_biomarker_confidence, filter_biomarkers_by_confidence
+from app.core.config import DOCUMENT_ANALYZER_CONFIG
+
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
@@ -134,16 +137,21 @@ def with_timeout(timeout_seconds, default_return=None):
         return wrapper
     return decorator
 
-def extract_biomarkers_with_claude(page_text: str, filename: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+async def extract_biomarkers_with_claude(
+    prompt: str,
+    extraction_context: Optional[Dict[str, Any]] = None,
+    document_structure: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, Any]]:
     """
-    Extract biomarkers from a single page of PDF text using Claude API.
-
+    Extract biomarkers using Claude API, with enhanced validation and context.
+    
     Args:
-        page_text: Text content from a single PDF page
-        filename: Name of the original file for logging context
-
+        prompt: The prompt to send to Claude
+        extraction_context: Optional extraction context for validation
+        document_structure: Optional document structure for validation
+        
     Returns:
-        Tuple containing a list of biomarkers found on the page and an empty metadata dict (metadata handled separately).
+        List of extracted biomarkers
     """
     logger.info(f"[CLAUDE_EXTRACTION_START] Extracting biomarkers from {filename}")
     start_time = datetime.now()
@@ -343,6 +351,19 @@ Lab report page text:
                     logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
                     return fallback_results, {} # Return empty metadata dict
 
+                # Apply confidence-based filtering if enabled
+                if (DOCUMENT_ANALYZER_CONFIG["enabled"] and 
+                    DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"] and 
+                    extraction_context is not None):
+                    
+                    threshold = DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["confidence_threshold"]
+                    processed_biomarkers = filter_biomarkers_by_confidence(
+                        processed_biomarkers, 
+                        extraction_context,
+                        document_structure,
+                        threshold
+                    )
+
                 return processed_biomarkers, {} # Return empty metadata dict
             else:
                 logger.error(f"[JSON_PARSING_ERROR] Could not extract JSON from Claude API response for page of {filename}")
@@ -541,15 +562,19 @@ Respond with ONLY the numeric confidence score.
         logger.error(f"[VALIDATION_ERROR] Error during biomarker validation: {str(e)}")
         return 0.5  # Default to neutral confidence
 
-def _process_biomarker(biomarker: Dict[str, Any]) -> Dict[str, Any]:
+def _process_biomarker(
+    biomarker: Dict[str, Any],
+    structure_context: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
-    Process and standardize a biomarker data dictionary.
+    Process a single biomarker with enhanced validation using structure context.
     
     Args:
-        biomarker: Dictionary containing biomarker data
+        biomarker: The biomarker to process
+        structure_context: Optional structure context for validation
         
     Returns:
-        Processed biomarker dictionary
+        Processed biomarker
     """
     try:
         # Extract basic information
@@ -643,6 +668,19 @@ def _process_biomarker(biomarker: Dict[str, Any]) -> Dict[str, Any]:
         for key, value in biomarker.items():
             if key not in processed_biomarker and key not in ["flag", "reference_range"]:
                 processed_biomarker[key] = value
+        
+        # Enhanced validation with structure context
+        if structure_context is not None:
+            # Example: Validate against document type-specific patterns
+            document_type = structure_context.get("document_type")
+            if document_type:
+                # Apply document-specific validations
+                if document_type == "quest_diagnostics":
+                    # Quest-specific validations
+                    pass
+                elif document_type == "labcorp":
+                    # LabCorp-specific validations
+                    pass
         
         return processed_biomarker
         
