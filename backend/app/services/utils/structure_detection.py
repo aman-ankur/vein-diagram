@@ -29,45 +29,137 @@ def detect_tables(pdf_page, page_number: int) -> List[Dict]:
     """
     tables = []
     try:
-        # Find tables with default settings
-        detected_tables = pdf_page.find_tables()
+        # Get pdfplumber version
+        import pdfplumber
+        version = getattr(pdfplumber, "__version__", "0.0.0")
+        logging.debug(f"Using pdfplumber version: {version}")
         
-        # If no tables found with default settings, try with more lenient settings
+        # Find tables with default settings first
+        try:
+            detected_tables = pdf_page.find_tables()
+        except Exception as e:
+            logging.warning(f"Error finding tables with default settings: {e}")
+            detected_tables = []
+        
+        # If no tables found with default settings, try with version-specific settings
         if not detected_tables:
-            detected_tables = pdf_page.find_tables({
-                'vertical_strategy': 'text',
-                'horizontal_strategy': 'text',
-                'intersection_tolerance': 10,
-                'join_tolerance': 5,
-                'edge_min_length': 3,
-                'min_cells': 4
-            })
+            if version >= "0.7.0":
+                try:
+                    # For newer versions
+                    settings = {
+                        'vertical_strategy': 'text',
+                        'horizontal_strategy': 'text',
+                        'intersection_tolerance': 10,
+                        'join_tolerance': 5,
+                        'edge_min_length': 3
+                    }
+                    detected_tables = pdf_page.find_tables(settings)
+                except Exception as e:
+                    logging.warning(f"Error finding tables with v0.7+ settings: {e}")
+                    # Try even more basic settings
+                    settings = {
+                        'vertical_strategy': 'text',
+                        'horizontal_strategy': 'text'
+                    }
+                    detected_tables = pdf_page.find_tables(settings)
+            else:
+                # For older versions
+                settings = {
+                    'vertical_strategy': 'text',
+                    'horizontal_strategy': 'text',
+                    'intersection_tolerance': 10,
+                    'join_tolerance': 5,
+                    'edge_min_length': 3
+                }
+                try:
+                    detected_tables = pdf_page.find_tables(settings)
+                except Exception as e:
+                    logging.warning(f"Error finding tables with older version settings: {e}")
+                    # Try with minimal settings
+                    detected_tables = pdf_page.find_tables({
+                        'vertical_strategy': 'text',
+                        'horizontal_strategy': 'text'
+                    })
         
         # Convert to our information format
         for idx, table in enumerate(detected_tables):
-            # Get table dimensions
-            if hasattr(table, "cells") and table.cells:
-                rows = max([cell[0] for cell in table.cells.keys()]) + 1 if table.cells else 0
-                cols = max([cell[1] for cell in table.cells.keys()]) + 1 if table.cells else 0
-            else:
-                # Fallback if cells not available
-                rows = len(table.rows) if hasattr(table, "rows") else 0
-                cols = len(table.cols) if hasattr(table, "cols") else 0
+            # Get table dimensions - handle with more robust error checking
+            rows, cols = 0, 0
+            
+            try:
+                # Handle different pdfplumber versions/table structures
+                if hasattr(table, "cells"):
+                    if table.cells is not None:
+                        if isinstance(table.cells, dict):
+                            # Handle case where cells is a dictionary
+                            rows = max([cell[0] for cell in table.cells.keys()]) + 1
+                            cols = max([cell[1] for cell in table.cells.keys()]) + 1
+                        elif isinstance(table.cells, list) and table.cells:
+                            # Handle case where cells is a list
+                            # Extract row/col values safely
+                            try:
+                                rows = len(set(cell[0] for cell in table.cells))
+                                cols = len(set(cell[1] for cell in table.cells))
+                            except (IndexError, TypeError):
+                                logging.warning("Could not extract row/col information from cells list")
+            except Exception as e:
+                logging.warning(f"Error extracting dimensions from table cells: {e}")
+            
+            # Fallback to rows/cols properties if cells not usable
+            if rows == 0 and hasattr(table, "rows") and table.rows:
+                try:
+                    rows = len(table.rows)
+                except Exception:
+                    rows = 0
+                    
+            if cols == 0 and hasattr(table, "cols") and table.cols:
+                try:
+                    cols = len(table.cols)
+                except Exception:
+                    cols = 0
+            
+            # Last resort fallback
+            if rows == 0:
+                rows = 1
+            if cols == 0:
+                cols = 1
             
             # Calculate confidence based on table structure
-            # More rows/columns and more uniform cell sizes = higher confidence
             confidence = min(0.95, 0.5 + (rows * cols) / 100)
             
-            # Extract table content if possible
+            # Extract table content if possible (with robust error handling)
             table_text = ""
             try:
-                table_text = table.extract()
+                extracted = table.extract()
+                # Handle different return types
+                if isinstance(extracted, list):
+                    if all(isinstance(row, list) for row in extracted):
+                        # Convert nested lists to text
+                        table_text = "\n".join([" | ".join([str(cell) for cell in row]) for row in extracted])
+                    else:
+                        table_text = str(extracted)
+                else:
+                    table_text = str(extracted)
             except Exception as e:
                 logging.warning(f"Could not extract table text: {e}")
+                # Try alternative extraction if available
+                if hasattr(table, "extract_text"):
+                    try:
+                        table_text = table.extract_text()
+                    except:
+                        pass
+            
+            # Get bbox safely
+            bbox = [0, 0, 1, 1]  # Default fallback
+            if hasattr(table, "bbox") and table.bbox:
+                try:
+                    bbox = [table.bbox[0], table.bbox[1], table.bbox[2], table.bbox[3]]
+                except (IndexError, TypeError):
+                    logging.warning("Could not extract table bbox")
             
             # Create table info dictionary
             table_info = {
-                "bbox": [table.bbox[0], table.bbox[1], table.bbox[2], table.bbox[3]],
+                "bbox": bbox,
                 "page_number": page_number,
                 "rows": rows,
                 "cols": cols,

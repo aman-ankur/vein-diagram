@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Any, TypedDict, Union, Tuple
 import logging
 import re
 from pathlib import Path
+import os
 
 # Import utilities
 from app.services.utils.structure_detection import (
@@ -81,6 +82,54 @@ class ExtractionContext(TypedDict):
     call_count: int
     token_usage: Dict[str, int]
     confidence_threshold: float
+
+
+def debug_document_structure(document_structure, output_file=None):
+    """
+    Print or save a detailed breakdown of the document structure analysis results.
+    Useful for debugging and validating structure detection.
+    
+    Args:
+        document_structure: The DocumentStructure object
+        output_file: Optional file path to save results
+    """
+    debug_output = [
+        "=== DOCUMENT STRUCTURE ANALYSIS RESULTS ===",
+        f"Document Type: {document_structure.get('document_type', 'Unknown')}",
+        f"Analysis Confidence: {document_structure.get('confidence', 0):.2f}",
+        "\n--- DETECTED TABLES ---"
+    ]
+    
+    tables = document_structure.get('tables', {})
+    for page_num, page_tables in tables.items():
+        debug_output.append(f"Page {page_num}: {len(page_tables)} tables detected")
+        for i, table in enumerate(page_tables):
+            debug_output.append(f"  Table {i+1}: Rows={len(table.get('cells', []))}, "
+                               f"Confidence={table.get('confidence', 0):.2f}")
+    
+    debug_output.append("\n--- PAGE ZONES ---")
+    page_zones = document_structure.get('page_zones', {})
+    for page_num, zones in page_zones.items():
+        zone_types = [f"{zone}: {data.get('confidence', 0):.2f}" 
+                     for zone, data in zones.items()]
+        debug_output.append(f"Page {page_num}: {', '.join(zone_types)}")
+    
+    debug_output.append("\n--- BIOMARKER REGIONS ---")
+    regions = document_structure.get('biomarker_regions', [])
+    for i, region in enumerate(regions):
+        debug_output.append(f"Region {i+1}: Page {region.get('page_num')}, "
+                           f"Type: {region.get('region_type')}, "
+                           f"Confidence: {region.get('biomarker_confidence', 0):.2f}")
+    
+    debug_str = "\n".join(debug_output)
+    
+    if output_file:
+        with open(output_file, 'w') as f:
+            f.write(debug_str)
+    else:
+        print(debug_str)
+    
+    return debug_str
 
 
 def analyze_document_structure(
@@ -166,6 +215,11 @@ def analyze_document_structure(
             logging.info(f"Document structure analysis complete with confidence {overall_confidence:.2f}")
             logging.info(f"Found {tables_total} tables across {total_pages} pages")
             logging.info(f"Detected {len(biomarker_regions)} potential biomarker regions")
+        
+        # Add debug output at the end
+        if os.environ.get("DEBUG_DOCUMENT_STRUCTURE", "0") == "1":
+            debug_file = f"debug_structure_{os.path.basename(pdf_path)}.txt"
+            debug_document_structure(structure, output_file=debug_file)
         
         return structure
         
