@@ -182,118 +182,68 @@ def chunk_text(
 
 def compress_text_content(text: str) -> str:
     """
-    Apply aggressive compression techniques to reduce token usage
-    while preserving biomarker information.
+    Apply conservative compression techniques to reduce token usage
+    while preserving biomarker information. Ensures token reduction.
     
     Args:
         text: Text to compress
         
     Returns:
-        Compressed text with significant token reduction
+        Compressed text with guaranteed token reduction or original text if compression fails
     """
     if not text:
         return ""
     
+    # Store original for fallback
+    original_text = text
+    original_tokens = estimate_tokens(original_text)
+    
     # Start with original text
     original_length = len(text)
     
-    # Remove redundant whitespace first
+    # Step 1: Remove redundant whitespace (safe operation)
     text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'\n\s*\n+', '\n', text)
     
-    # Remove common boilerplate phrases that don't contain biomarkers
-    boilerplate_patterns = [
-        r"Please consult with your healthcare provider[^.]*\.?",
-        r"This test was developed and its performance[^.]*\.?",
-        r"Reference ranges are provided as general guidance[^.]*\.?",
-        r"Results should be interpreted in conjunction with[^.]*\.?",
-        r"For more information about laboratory tests[^.]*\.?",
-        r"Contact your healthcare provider[^.]*\.?",
-        r"This document contains private information[^.]*\.?",
-        r"©\s*\d{4}[^.]*\.?",
+    # Step 2: Remove clearly non-biomarker content (conservative patterns)
+    safe_removal_patterns = [
         r"Page \d+ of \d+",
         r"http[s]?://[^\s]+",
         r"www\.[^\s]+",
         r"Email\s*:\s*[^\s]+@[^\s]+",
-        r"Tel\s*:\s*[\d\s\-\+\(\)]+",
-        r"Fax\s*:\s*[\d\s\-\+\(\)]+",
-        r"CIN\s*[-:]?\s*[A-Z0-9]+",
-        r"GSTIN\s*[-:]?\s*[A-Z0-9]+",
-        r"Registration\s*No[^.]*\.?",
-        r"License\s*No[^.]*\.?",
+        r"Tel\s*:\s*[\d\s\-\+\(\)]{10,}",
+        r"Fax\s*:\s*[\d\s\-\+\(\)]{10,}",
+        r"CIN\s*[-:]?\s*[A-Z0-9]{15,}",
+        r"GSTIN\s*[-:]?\s*[A-Z0-9]{15,}",
+        r"©\s*\d{4}[^.]*\.?",
     ]
     
-    for pattern in boilerplate_patterns:
+    for pattern in safe_removal_patterns:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE)
     
-    # Remove administrative sections
-    admin_sections = [
-        r"PERFORMED\s+AT\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
-        r"PATIENT\s+NAME\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
-        r"PATIENT\s+ID\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
-        r"DATE\s+COLLECTED\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
-        r"DATE\s+REPORTED\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
-        r"ACCESSION\s+NO\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
-    ]
+    # Step 3: Remove excessive formatting (conservative)
+    text = re.sub(r'[-_*=]{5,}', ' ', text)  # Only remove very long separators
+    text = re.sub(r'\|{3,}', '|', text)  # Collapse excessive pipes
     
-    for pattern in admin_sections:
-        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
-    
-    # Remove contact information blocks
-    contact_patterns = [
-        r"(?:Address|Location)\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
-        r"\d{5,}\s*(?:DHANBAD|KOLKATA|MUMBAI|DELHI|BANGALORE|CHENNAI|HYDERABAD|PUNE)",
-        r"West\s+Bengal[^.]*\.?",
-        r"India[^.]*\.?",
-    ]
-    
-    for pattern in contact_patterns:
-        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
-    
-    # Remove repeated table headers (keep only first occurrence)
-    header_patterns = [
-        r"TEST\s*\|\s*RESULT\s*\|\s*REFERENCE\s*RANGE",
-        r"(?:TEST|RESULT|REFERENCE\s+RANGE|UNITS|FLAG|VALUE|NORMAL\s+RANGE)(?:\s*\|){2,}",
-        r"Test\s+Report\s+Status\s+Final\s+Results\s+Biological\s+Reference\s+Interval\s+Units",
-    ]
-    
-    for pattern in header_patterns:
-        matches = list(re.finditer(pattern, text, re.IGNORECASE))
-        if len(matches) > 1:
-            # Remove all but the first occurrence
-            for match in reversed(matches[1:]):
-                text = text[:match.start()] + text[match.end():]
-    
-    # Remove method descriptions and technical notes
-    method_patterns = [
-        r"METHOD\s*:\s*[^.]*\.?",
-        r"ELECTROCHEMILUMINESCENCE[^.]*\.?",
-        r"SANDWICH\s+IMMUNOASSAY[^.]*\.?",
-        r"Interpretation[^.]*\.?",
-    ]
-    
-    for pattern in method_patterns:
-        text = re.sub(pattern, "", text, flags=re.IGNORECASE)
-    
-    # Standardize and compress number formats
+    # Step 4: Standardize numbers (safe operation)
     text = re.sub(r'(\d+),(\d{3})', r'\1\2', text)  # Remove thousands separators
     text = re.sub(r'(\d+)\.0+\b', r'\1', text)  # Remove trailing zeros
     
-    # Remove excessive punctuation and formatting
-    text = re.sub(r'[-_*=]{3,}', ' ', text)
-    text = re.sub(r'\|+', '|', text)  # Collapse multiple pipes
-    text = re.sub(r'\s*\|\s*', '|', text)  # Clean pipe separators
-    
-    # Remove empty lines and consolidate whitespace
-    text = re.sub(r'\n\s*\n+', '\n', text)
+    # Step 5: Final cleanup
     text = re.sub(r'\s+', ' ', text)
-    
-    # Final cleanup
     text = text.strip()
     
-    # Log compression ratio for debugging
-    compressed_length = len(text)
-    compression_ratio = (1 - compressed_length / original_length) * 100 if original_length > 0 else 0
-    logging.debug(f"Text compression: {original_length} -> {compressed_length} chars ({compression_ratio:.1f}% reduction)")
+    # Validation: Ensure we actually reduced tokens
+    compressed_tokens = estimate_tokens(text)
+    
+    if compressed_tokens >= original_tokens:
+        # If compression didn't help or made it worse, return original
+        logging.debug(f"Compression failed to reduce tokens ({original_tokens} -> {compressed_tokens}), using original")
+        return original_text
+    
+    # Log successful compression
+    compression_ratio = (1 - compressed_tokens / original_tokens) * 100
+    logging.debug(f"Text compression successful: {original_tokens} -> {compressed_tokens} tokens ({compression_ratio:.1f}% reduction)")
     
     return text
 
@@ -633,6 +583,7 @@ def optimize_content_chunks(
 ) -> List[Dict[str, Any]]:
     """
     Create optimized content chunks based on document structure.
+    Simplified approach to avoid token increases.
     
     Args:
         pages_text_dict: Dictionary mapping page numbers to text
@@ -643,62 +594,76 @@ def optimize_content_chunks(
         List of content chunks
     """
     chunks = []
-    processed_pages = set()
     
-    # Enhanced logging
     logging.info(f"Optimizing content from {len(pages_text_dict)} pages into chunks")
     
-    # Strategy: Process each page once with simple compression to actually reduce tokens
+    # Track original tokens for validation
+    original_total_tokens = 0
+    optimized_total_tokens = 0
     
+    # Process each page independently to avoid duplication
     for page_num, page_text in pages_text_dict.items():
         if not page_text.strip():
             continue
             
-        # Start with compressed page text
-        compressed_text = compress_text_content(page_text)
+        original_page_tokens = estimate_tokens(page_text)
+        original_total_tokens += original_page_tokens
         
-        # Simple approach: just use the compressed text directly
-        # This avoids the complex duplication issues
-        if estimate_tokens(compressed_text) > max_tokens_per_chunk:
-            # Split large pages into smaller chunks
-            text_chunks = chunk_text(compressed_text, max_tokens_per_chunk, overlap_tokens=100)
-            for i, chunk_text in enumerate(text_chunks):
-                chunk = {
-                    "text": chunk_text,
-                    "page_num": page_num,
-                    "region_type": "compressed_content",
-                    "estimated_tokens": estimate_tokens(chunk_text),
-                    "biomarker_confidence": detect_biomarker_patterns(chunk_text),
-                    "context": f"Page {page_num}, Chunk {i+1}/{len(text_chunks)}"
-                }
-                chunks.append(chunk)
-        else:
-            # Page is small enough to process as single chunk
+        # Apply compression
+        compressed_text = compress_text_content(page_text)
+        compressed_tokens = estimate_tokens(compressed_text)
+        
+        # If compression didn't help, use original
+        if compressed_tokens >= original_page_tokens:
+            compressed_text = page_text
+            compressed_tokens = original_page_tokens
+        
+        # Check if we need to split the page
+        if compressed_tokens <= max_tokens_per_chunk:
+            # Page fits in one chunk
             chunk = {
                 "text": compressed_text,
                 "page_num": page_num,
-                "region_type": "compressed_content",
-                "estimated_tokens": estimate_tokens(compressed_text),
+                "region_type": "optimized_page",
+                "estimated_tokens": compressed_tokens,
                 "biomarker_confidence": detect_biomarker_patterns(compressed_text),
                 "context": f"Page {page_num}, Full Page"
             }
             chunks.append(chunk)
-        
-        processed_pages.add(page_num)
+            optimized_total_tokens += compressed_tokens
+        else:
+            # Split large page into smaller chunks (no overlap to avoid duplication)
+            text_chunks = chunk_text(compressed_text, max_tokens_per_chunk, overlap_tokens=0)
+            for i, chunk_text in enumerate(text_chunks):
+                chunk_tokens = estimate_tokens(chunk_text)
+                chunk = {
+                    "text": chunk_text,
+                    "page_num": page_num,
+                    "region_type": "optimized_chunk",
+                    "estimated_tokens": chunk_tokens,
+                    "biomarker_confidence": detect_biomarker_patterns(chunk_text),
+                    "context": f"Page {page_num}, Chunk {i+1}/{len(text_chunks)}"
+                }
+                chunks.append(chunk)
+                optimized_total_tokens += chunk_tokens
     
-    # Sort chunks by biomarker confidence (highest first) 
-    # but keep page order for readability
+    # Sort chunks by page number and biomarker confidence
     chunks.sort(key=lambda x: (x["page_num"], -x["biomarker_confidence"]))
     
-    # Track optimization metrics
-    original_tokens = sum(estimate_tokens(text) for text in pages_text_dict.values())
-    optimized_tokens = sum(chunk["estimated_tokens"] for chunk in chunks)
-    reduction_percentage = (1 - (optimized_tokens / original_tokens)) * 100 if original_tokens > 0 else 0
+    # Calculate and log optimization results
+    if original_total_tokens > 0:
+        reduction_percentage = (1 - (optimized_total_tokens / original_total_tokens)) * 100
+    else:
+        reduction_percentage = 0
     
     logging.info(f"Content optimization complete: {len(chunks)} chunks created")
-    logging.info(f"Token reduction: {original_tokens} -> {optimized_tokens} ({reduction_percentage:.2f}%)")
+    logging.info(f"Token optimization: {original_total_tokens} -> {optimized_total_tokens} ({reduction_percentage:.2f}% reduction)")
     
-    # Save optimization stats for debugging if needed
+    # Validation: Ensure we didn't increase tokens
+    if optimized_total_tokens > original_total_tokens:
+        logging.warning(f"Token optimization failed - increased tokens by {optimized_total_tokens - original_total_tokens}")
+    
+    # Save optimization stats for debugging
     if os.environ.get("DEBUG_CONTENT_OPTIMIZATION", "0") == "1":
         debug_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'logs')
         os.makedirs(debug_dir, exist_ok=True)
@@ -706,10 +671,11 @@ def optimize_content_chunks(
         debug_file = os.path.join(debug_dir, f"content_optimization_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
         with open(debug_file, 'w') as f:
             json.dump({
-                "original_tokens": original_tokens,
-                "optimized_tokens": optimized_tokens,
+                "original_tokens": original_total_tokens,
+                "optimized_tokens": optimized_total_tokens,
                 "reduction_percentage": reduction_percentage,
                 "chunk_count": len(chunks),
+                "validation_passed": optimized_total_tokens <= original_total_tokens,
                 "chunk_summary": [
                     {
                         "page_num": c["page_num"],

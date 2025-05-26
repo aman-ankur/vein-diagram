@@ -231,8 +231,8 @@ async def process_pages_sequentially(
     for page_num, page_text in relevant_pages.items():
         metrics.record_original_text(page_text, page_num)
     
-    # Temporarily disable enhanced processing to test basic functionality
-    if False and (document_structure is not None and 
+    # Enable enhanced processing with validation
+    if (document_structure is not None and 
         DOCUMENT_ANALYZER_CONFIG["enabled"] and 
         DOCUMENT_ANALYZER_CONFIG["content_optimization"]["enabled"]):
         
@@ -248,7 +248,34 @@ async def process_pages_sequentially(
         optimization_time = time.time() - optimization_start
         metrics.record_optimization_complete(optimization_time, len(content_chunks))
         
-        logger.info(f"Created {len(content_chunks)} optimized chunks for processing")
+        # Validation: Check if optimization actually helped
+        original_total_tokens = sum(metrics.record_original_text(text, page_num) for page_num, text in relevant_pages.items())
+        optimized_total_tokens = sum(chunk["estimated_tokens"] for chunk in content_chunks)
+        
+        if optimized_total_tokens >= original_total_tokens:
+            logger.warning(f"Content optimization failed to reduce tokens ({original_total_tokens} -> {optimized_total_tokens}), falling back to original processing")
+            # Fall back to original processing
+            logger.info(f"Using original sequential processing for {len(relevant_pages)} relevant pages")
+            
+            for page_num, page_text in relevant_pages.items():
+                logger.info(f"Processing page {page_num} sequentially")
+                try:
+                    page_biomarkers, _ = await extract_biomarkers_with_claude(page_text)
+                    
+                    if page_biomarkers:
+                        logger.info(f"Extracted {len(page_biomarkers)} biomarkers from page {page_num}")
+                        for bm in page_biomarkers:
+                            bm['page'] = page_num
+                        all_biomarkers.extend(page_biomarkers)
+                    else:
+                        logger.info(f"No biomarkers found on page {page_num}")
+                except Exception as e:
+                    logger.error(f"Error processing page {page_num} sequentially: {str(e)}")
+            
+            all_biomarkers = _deduplicate_biomarkers(all_biomarkers)
+            return all_biomarkers
+        
+        logger.info(f"Created {len(content_chunks)} optimized chunks for processing (token reduction: {((original_total_tokens - optimized_total_tokens) / original_total_tokens * 100):.1f}%)")
         
         # Process chunks sequentially
         for i, chunk in enumerate(content_chunks):
