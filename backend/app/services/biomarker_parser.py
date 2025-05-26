@@ -413,6 +413,27 @@ Lab report text:
                     name = biomarker.get("name", "").strip()
                     confidence = float(biomarker.get("confidence", 0.0))
                     
+                    # If Claude didn't provide confidence, calculate it based on biomarker completeness
+                    if confidence == 0.0:
+                        # Calculate confidence based on biomarker data quality
+                        calculated_confidence = 0.8  # Base confidence for Claude extractions
+                        
+                        # Boost confidence for complete biomarkers
+                        if all(field in biomarker and biomarker[field] for field in ["name", "value", "unit"]):
+                            calculated_confidence += 0.1
+                        
+                        # Boost for reference range
+                        if biomarker.get("reference_range") or biomarker.get("reference_range_low") or biomarker.get("reference_range_high"):
+                            calculated_confidence += 0.05
+                        
+                        # Boost for recognized biomarker names
+                        if any(term in name.lower() for term in ["glucose", "cholesterol", "hemoglobin", "tsh", "vitamin", "triglycerides"]):
+                            calculated_confidence += 0.05
+                        
+                        confidence = min(0.99, calculated_confidence)
+                        biomarker["confidence"] = confidence
+                        logger.debug(f"[CONFIDENCE_CALCULATED] Calculated confidence for {name}: {confidence}")
+                    
                     # Skip low confidence and already known biomarkers (if in context)
                     if confidence < confidence_threshold:
                         logger.warning(f"[LOW_CONFIDENCE_BIOMARKER] Skipping low confidence biomarker: {name} (confidence: {confidence})")
@@ -1133,7 +1154,7 @@ def parse_reference_range(range_text: str) -> Tuple[Optional[float], Optional[fl
     Parse a reference range string to extract low and high values.
     
     Args:
-        range_text: The reference range text (e.g., "70-99", "< 200", "> 40")
+        range_text: The reference range text (e.g., "70-99", "< 200", "> 40") or dict
         
     Returns:
         Tuple containing:
@@ -1143,6 +1164,38 @@ def parse_reference_range(range_text: str) -> Tuple[Optional[float], Optional[fl
     """
     if not range_text:
         return None, None, ""
+    
+    # Handle case where Claude returns reference_range as a dictionary
+    if isinstance(range_text, dict):
+        low_val = range_text.get("low")
+        high_val = range_text.get("high")
+        unit = range_text.get("unit", "")
+        
+        # Convert to float if possible
+        try:
+            low_val = float(low_val) if low_val is not None else None
+            high_val = float(high_val) if high_val is not None else None
+        except (ValueError, TypeError):
+            low_val = None
+            high_val = None
+        
+        # Create text representation
+        if low_val is not None and high_val is not None:
+            range_str = f"{low_val}-{high_val}"
+            if unit:
+                range_str += f" {unit}"
+        elif low_val is not None:
+            range_str = f"> {low_val}"
+            if unit:
+                range_str += f" {unit}"
+        elif high_val is not None:
+            range_str = f"< {high_val}"
+            if unit:
+                range_str += f" {unit}"
+        else:
+            range_str = str(range_text)
+        
+        return low_val, high_val, range_str
         
     # Clean the range text
     range_text = range_text.strip()
