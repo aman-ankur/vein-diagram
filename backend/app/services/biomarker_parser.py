@@ -166,7 +166,10 @@ async def extract_biomarkers_with_claude(
     log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
     os.makedirs(log_dir, exist_ok=True)
     
-    logger.info(f"[CLAUDE_EXTRACTION_START] Extracting biomarkers with context optimization")
+    logger.info(f"[CLAUDE_EXTRACTION_START] 🚀 Starting Claude biomarker extraction")
+    logger.info(f"[DEBUG_INPUT] Text length: {len(text)} characters")
+    logger.info(f"[DEBUG_INPUT] Has extraction context: {extraction_context is not None}")
+    logger.info(f"[DEBUG_INPUT] Has adaptive prompt: {adaptive_prompt is not None}")
     start_time = datetime.now()
 
     # Preprocess the text if it's not already preprocessed
@@ -186,27 +189,54 @@ async def extract_biomarkers_with_claude(
         prompt = adaptive_prompt
         logger.debug(f"[ADAPTIVE_PROMPT] Using provided adaptive prompt ({estimate_tokens(adaptive_prompt)} tokens)")
     else:
-        # Standard prompt - simplified for single text chunk, no metadata request
+        # Enhanced prompt with better biomarker definition and filtering
         prompt = """
-Extract ONLY legitimate clinical biomarkers from this medical lab report text. Focus exclusively on measurements that have numeric values and units.
+You are a medical laboratory data extraction expert. Extract ONLY legitimate clinical biomarkers from this lab report.
 
-For each biomarker, provide:
-- name: Standardized name
+A VALID BIOMARKER must have ALL of these characteristics:
+1. A recognizable medical test name (e.g., Glucose, Cholesterol, Hemoglobin, TSH, Vitamin D)
+2. A numerical measurement value (not text like "Normal", "High", "Low")
+3. A unit of measurement (mg/dL, g/dL, %, mIU/L, etc.)
+4. Represents a substance measured in blood, urine, or other biological samples
+
+DO NOT EXTRACT:
+- Contact information (phone, fax, email, addresses)
+- Patient demographics (names, IDs, dates of birth)
+- Administrative data (accession numbers, report IDs)
+- Headers and footers (page numbers, lab names, logos)
+- Method descriptions or technical notes
+- Quality indicators without measurements
+- Text-only results like "Normal", "Abnormal", "Positive", "Negative"
+- Non-medical identifiers (CIN numbers, registration numbers)
+
+EXAMPLES OF VALID BIOMARKERS:
+- "Glucose, Fasting: 95 mg/dL" → Extract as Glucose
+- "Total Cholesterol: 180 mg/dL" → Extract as Total Cholesterol  
+- "Hemoglobin A1c: 5.7%" → Extract as Hemoglobin A1c
+- "TSH: 2.5 mIU/L" → Extract as TSH
+- "Total IgE: 2022 kU/L" → Extract as Total IgE
+
+EXAMPLES OF INVALID (DO NOT EXTRACT):
+- "Fax: 30203412" → Administrative contact info
+- "Normal" → Text result without measurement
+- "CIN-U74899PB1995PLC045956" → Registration number
+- "Page 1 of 2" → Page header
+
+For each valid biomarker, provide:
+- name: Standardized biomarker name
 - original_name: Exact name as it appears
-- value: Numerical result (convert ranges to midpoint)
+- value: Numerical result only
 - original_value: Result as shown in report
 - unit: Standardized unit
 - original_unit: Unit as shown
-- reference_range: Normal range text
+- reference_range: Normal range text if available
 - reference_range_low: Lower bound as number
 - reference_range_high: Upper bound as number
 - category: One of: Lipid, Metabolic, Liver, Kidney, Electrolyte, Blood, Thyroid, Vitamin, Hormone, Immunology, Cardiovascular, Other
 - is_abnormal: true if outside reference range
-- confidence: 0.0-1.0 score of certainty
+- confidence: 0.0-1.0 score of extraction certainty
 
-CRITICAL: DO NOT extract page numbers, headers, footers, patient info, dates, IDs, URLs, or explanatory text.
-
-Return valid JSON matching exactly this structure (NO METADATA):
+Return ONLY valid JSON in this exact format:
 {
   "biomarkers": [
     {
@@ -245,23 +275,35 @@ Lab report text:
     updated_context["call_count"] = updated_context.get("call_count", 0) + 1
     
     try:
-        logger.debug("[CLAUDE_API_CALL] Sending request to Claude API")
+        logger.info("[CLAUDE_API_CALL] 🔑 Checking API key and preparing request")
         api_start_time = datetime.now()
         
         # Get the configured Claude API key
         api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
         if not api_key:
-            logger.error("[API_KEY_ERROR] Claude API key not found in environment variables")
+            logger.error("[API_KEY_ERROR] ❌ Claude API key not found in environment variables")
+            logger.error("[API_KEY_ERROR] Available env vars: %s", [k for k in os.environ.keys() if 'API' in k or 'CLAUDE' in k or 'ANTHROPIC' in k])
             raise ValueError("Claude API key not found. Set ANTHROPIC_API_KEY environment variable.")
         
+        logger.info(f"[API_KEY_SUCCESS] ✅ API key found (length: {len(api_key)})")
+        logger.info(f"[API_KEY_SUCCESS] Key starts with: {api_key[:15]}...")
+        
+        logger.info("[CLAUDE_CLIENT] 🤖 Creating Anthropic client")
         client = anthropic.Anthropic(api_key=api_key)
+        logger.info("[CLAUDE_CLIENT] ✅ Client created successfully")
         
         # Use the timeout wrapper for the API call
         @with_timeout(timeout_seconds=600, default_return=None)  # 10 minute timeout
         def call_claude_api():
+            logger.info("[CLAUDE_REQUEST] 📤 Sending request to Claude API")
+            logger.info(f"[CLAUDE_REQUEST] Model: claude-3-5-sonnet-20241022")
+            logger.info(f"[CLAUDE_REQUEST] Max tokens: 4000")
+            logger.info(f"[CLAUDE_REQUEST] Prompt length: {len(prompt)} characters")
+            logger.info(f"[CLAUDE_REQUEST] Estimated prompt tokens: {estimate_tokens(prompt)}")
+            
             # Make the API call with max tokens and timeout
             response = client.messages.create(
-                model="claude-3-sonnet-20240229",
+                model="claude-3-5-sonnet-20241022",  # Updated to latest non-deprecated model
                 max_tokens=4000,
                 temperature=0.0,
                 system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Your output MUST be COMPLETE, VALID JSON.",
@@ -269,33 +311,39 @@ Lab report text:
                     {"role": "user", "content": prompt}
                 ]
             )
+            logger.info("[CLAUDE_RESPONSE] 📥 Received response from Claude API")
+            logger.info(f"[CLAUDE_RESPONSE] Response type: {type(response)}")
+            logger.info(f"[CLAUDE_RESPONSE] Response content length: {len(response.content[0].text) if response.content else 0}")
             return response
         
+        logger.info("[CLAUDE_API_CALL] 🚀 Making API call with timeout wrapper")
         # Call the API with timeout
         response = call_claude_api()
         
         # If the call timed out, return empty results and fall back to text-based parser
         if response is None:
-            logger.error(f"[CLAUDE_API_TIMEOUT] API call timed out after 10 minutes")
-            logger.info(f"[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to timeout")
-            fallback_results, _ = parse_biomarkers_from_text(text)
+            logger.error(f"[CLAUDE_API_TIMEOUT] ⏰ API call timed out after 10 minutes")
+            logger.info(f"[FALLBACK_TO_TEXT_PARSER] 🔄 Using fallback parser due to timeout")
+            fallback_results = parse_biomarkers_from_text(text)
             
             # Update context with fallback results
             updated_context["token_usage"]["prompt"] += raw_text_tokens
             updated_context["token_usage"]["total"] += raw_text_tokens
             
             # Log fallback metrics
-            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
+            logger.info(f"[FALLBACK_PARSER] 📊 Found {len(fallback_results)} biomarkers")
             
             return fallback_results, updated_context
 
         api_duration = (datetime.now() - api_start_time).total_seconds()
-        logger.info(f"[CLAUDE_API_RESPONSE] Received response in {api_duration:.2f} seconds")
+        logger.info(f"[CLAUDE_API_RESPONSE] ✅ Received response in {api_duration:.2f} seconds")
         
         # Update token usage in context
         prompt_tokens = estimate_tokens(prompt)
         completion_tokens = estimate_tokens(response.content[0].text)
         total_tokens = prompt_tokens + completion_tokens
+        
+        logger.info(f"[TOKEN_USAGE] 📊 Prompt tokens: {prompt_tokens}, Completion tokens: {completion_tokens}, Total: {total_tokens}")
         
         updated_context["token_usage"]["prompt"] = updated_context["token_usage"].get("prompt", 0) + prompt_tokens
         updated_context["token_usage"]["completion"] = updated_context["token_usage"].get("completion", 0) + completion_tokens
@@ -303,6 +351,7 @@ Lab report text:
         
         # Get the response content
         response_content = response.content[0].text
+        logger.info(f"[RESPONSE_CONTENT] 📝 Response content preview: {response_content[:200]}...")
         
         # Save the raw response for debugging if DEBUG_CLAUDE_RESPONSES is enabled
         if os.environ.get("DEBUG_CLAUDE_RESPONSES", "0") == "1":
@@ -316,35 +365,43 @@ Lab report text:
         
         # Try to parse the JSON response
         try:
+            logger.info("[JSON_PARSING] 🔍 Attempting to parse JSON response")
             # Extract the JSON part from the response using regex
             json_match = re.search(r'({[\s\S]*})', response_content)
             
             if json_match:
                 json_str = json_match.group(1)
-                logger.debug(f"[JSON_EXTRACTION] Extracted JSON string: {len(json_str)} characters")
+                logger.info(f"[JSON_EXTRACTION] ✅ Extracted JSON string: {len(json_str)} characters")
+                logger.debug(f"[JSON_EXTRACTION] JSON preview: {json_str[:300]}...")
                 
                 # Check if JSON is truncated and fix it
                 fixed_json_str = _fix_truncated_json(json_str)
+                logger.info(f"[JSON_FIXING] 🔧 Fixed JSON length: {len(fixed_json_str)} characters")
                 
                 # Parse the JSON
                 try:
                     parsed_response = json.loads(fixed_json_str)
+                    logger.info("[JSON_PARSING] ✅ Successfully parsed JSON response")
                 except json.JSONDecodeError as decode_error:
                     # Try to repair the JSON
-                    logger.warning(f"[JSON_DECODE_ERROR] Could not parse fixed JSON: {str(decode_error)}")
+                    logger.warning(f"[JSON_DECODE_ERROR] ⚠️ Could not parse fixed JSON: {str(decode_error)}")
+                    logger.info("[JSON_REPAIR] 🔧 Attempting to repair JSON")
                     repaired_json = _repair_json(fixed_json_str)
                     parsed_response = json.loads(repaired_json)
+                    logger.info("[JSON_REPAIR] ✅ Successfully repaired and parsed JSON")
 
                 biomarkers = parsed_response.get("biomarkers", [])
                 
-                logger.info(f"[BIOMARKERS_EXTRACTED] Extracted {len(biomarkers)} biomarkers")
+                logger.info(f"[BIOMARKERS_EXTRACTED] 🎯 Extracted {len(biomarkers)} biomarkers")
+                if biomarkers:
+                    logger.info(f"[BIOMARKERS_PREVIEW] First biomarker: {biomarkers[0].get('name', 'Unknown')}")
 
                 # If no biomarkers were found, fall back to text-based parser
                 if not biomarkers:
-                    logger.warning(f"[NO_BIOMARKERS_FOUND] No biomarkers found in Claude API response")
-                    logger.info(f"[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to empty biomarkers list")
-                    fallback_results, _ = parse_biomarkers_from_text(text)
-                    logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
+                    logger.warning(f"[NO_BIOMARKERS_FOUND] ⚠️ No biomarkers found in Claude API response")
+                    logger.info(f"[FALLBACK_TO_TEXT_PARSER] 🔄 Using fallback parser due to empty biomarkers list")
+                    fallback_results = parse_biomarkers_from_text(text)
+                    logger.info(f"[FALLBACK_PARSER] 📊 Found {len(fallback_results)} biomarkers")
                     return fallback_results, updated_context
 
                 # Filter biomarkers based on confidence score
@@ -400,20 +457,27 @@ Lab report text:
                 
                 return processed_biomarkers, updated_context
             else:
-                logger.error("[JSON_EXTRACTION_ERROR] Could not extract JSON from Claude API response")
+                logger.error("[JSON_EXTRACTION_ERROR] ❌ Could not extract JSON from Claude API response")
+                logger.error(f"[JSON_EXTRACTION_ERROR] Response content: {response_content}")
         except Exception as parsing_error:
-            logger.error(f"[JSON_PARSING_ERROR] Error parsing Claude API response: {str(parsing_error)}")
+            logger.error(f"[JSON_PARSING_ERROR] ❌ Error parsing Claude API response: {str(parsing_error)}")
+            logger.error(f"[JSON_PARSING_ERROR] Response content: {response_content}")
         
         # If we reached here, something went wrong with JSON processing
-        fallback_results, _ = parse_biomarkers_from_text(text)
-        logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers after JSON parsing error")
+        logger.warning("[FALLBACK_TRIGGER] 🔄 JSON processing failed, falling back to text parser")
+        fallback_results = parse_biomarkers_from_text(text)
+        logger.info(f"[FALLBACK_PARSER] 📊 Found {len(fallback_results)} biomarkers after JSON parsing error")
         return fallback_results, updated_context
         
     except Exception as e:
-        logger.error(f"[CLAUDE_API_ERROR] Error calling Claude API: {str(e)}")
+        logger.error(f"[CLAUDE_API_ERROR] ❌ Error calling Claude API: {str(e)}")
+        logger.error(f"[CLAUDE_API_ERROR] Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"[CLAUDE_API_ERROR] Traceback: {traceback.format_exc()}")
         # Fall back to text-based parser for this page
-        fallback_results, _ = parse_biomarkers_from_text(text)
-        logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers after API error")
+        logger.warning("[FALLBACK_TRIGGER] 🔄 API error, falling back to text parser")
+        fallback_results = parse_biomarkers_from_text(text)
+        logger.info(f"[FALLBACK_PARSER] 📊 Found {len(fallback_results)} biomarkers after API error")
         return fallback_results, updated_context
 
 def _fix_truncated_json(json_str: str) -> str:
@@ -748,26 +812,68 @@ def parse_biomarkers_from_text(text: str) -> List[Dict[str, Any]]:
     
     biomarkers = []
     
-    # List of known invalid biomarker names (typically section headers, page info, etc.)
+    # Comprehensive list of invalid biomarker names to filter out
     invalid_names = [
+        # Administrative and contact info
+        "fax", "phone", "tel", "email", "website", "www", "http", "https", "cin", "gstin", "pan",
+        "registration", "license", "accession", "patient id", "mrn", "uhid", "barcode",
+        
+        # Geographic and location info  
+        "address", "street", "road", "city", "state", "pincode", "zip", "country", "india",
+        "dhanbad", "kolkata", "mumbai", "delhi", "bangalore", "chennai", "hyderabad", "pune",
+        "mohali", "west", "east", "north", "south", "bengal", "bihar", "maharashtra",
+        
+        # Document structure
         "page", "volume", "test", "result", "date", "name", "patient", "doctor", "method",
         "calculated", "dual wavelength", "technique", "column", "row", "title", "header",
         "footer", "report", "lab", "laboratory", "collection", "time", "specimen", "sample",
-        "id", "number", "visit", "date", "collected on", "received on", "reported on",
-        "less than", "more than", "type", "age", "sex", "gender", "client", "between", 
-        "am", "pm", "references", "factors", "influencing", "minimum", "maximum", "example",
-        "above", "below", "high", "low", "indian", "journal", "nd", "rd", "st", "th", "table",
-        "evening", "morning", "afternoon", "night"
+        "id", "number", "visit", "collected on", "received on", "reported on", "performed at",
+        
+        # Qualitative results (not measurements)
+        "normal", "abnormal", "high", "low", "positive", "negative", "detected", "not detected",
+        "present", "absent", "reactive", "non-reactive", "satisfactory", "unsatisfactory",
+        
+        # Time and date references
+        "am", "pm", "morning", "afternoon", "evening", "night", "today", "yesterday", "tomorrow",
+        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        "january", "february", "march", "april", "may", "june", "july", "august", 
+        "september", "october", "november", "december",
+        
+        # Generic terms
+        "less than", "more than", "greater than", "type", "age", "sex", "gender", "client", 
+        "between", "references", "factors", "influencing", "minimum", "maximum", "example",
+        "above", "below", "indian", "journal", "nd", "rd", "st", "th", "table", "view",
+        
+        # Medical conditions (not biomarkers)
+        "impaired", "diabetes", "pregnant", "hypertension", "hyperlipidemia", "obesity",
+        
+        # Technical terms
+        "acquired", "ataxia", "telangiaectasia", "immunodeficiency", "deficiencies", 
+        "electrochemiluminescence", "sandwich", "immunoassay", "interpretation", "status",
+        
+        # Units and measurements (when appearing alone)
+        "mg", "dl", "ml", "gm", "kg", "cm", "mm", "units", "iu", "miu", "ng", "pg", "mcg",
+        
+        # Common words
+        "to", "from", "reach", "ltd", "pvt", "limited", "company", "corp", "inc", "llc",
+        "opd", "ipd", "drawn", "received", "reported", "final", "results", "biological", 
+        "reference", "interval", "years", "female", "male", "hospital", "clinic", "center",
+        
+        # Specific to current issue
+        "customercare", "saltlake", "agilus", "diagnostics", "bose", "block", "floor",
+        "building", "warehouse", "premises", "sadar"
     ]
     
-    # Patterns for common lab test formats
+    # Patterns for common lab test formats - made more restrictive
     # Pattern 1: Name, Value, Unit, Reference Range (common format)
     # Example: Glucose: 95 mg/dL (70-99)
-    pattern1 = r'([A-Za-z0-9, \-\(\)]+?)[\s:]+([0-9\.\,<>]+)[\s]*([A-Za-z\/%]+)[\s\(]*([0-9\.<>\-]+[^\)]*)?'
+    # More restrictive: requires at least 3 chars for name, proper units
+    pattern1 = r'\b([A-Za-z][A-Za-z0-9\s\-\(\)]{2,25})[\s:]+([0-9]+(?:\.[0-9]+)?)[\s]*([A-Za-z]+(?:/[A-Za-z]+)?)[\s\(]*([0-9\.<>\-\s]+[^\)]*)?'
     
     # Pattern 2: Name followed by Value with Unit (no reference range)
     # Example: Glucose 95 mg/dL
-    pattern2 = r'([A-Za-z0-9, \-\(\)]+?)[\s]+([0-9\.\,<>]+)[\s]*([A-Za-z\/%]+)'
+    # More restrictive: requires proper biomarker name structure
+    pattern2 = r'\b([A-Za-z][A-Za-z0-9\s\-\(\)]{2,25})[\s]+([0-9]+(?:\.[0-9]+)?)[\s]*([A-Za-z]+(?:/[A-Za-z]+)?)\b'
     
     # Apply patterns to find matches
     logger.debug("[PATTERN_MATCHING] Applying pattern matching to extract biomarkers")
@@ -786,7 +892,7 @@ def parse_biomarkers_from_text(text: str) -> List[Dict[str, Any]]:
             
             logger.debug(f"[PATTERN1_MATCH] Found potential match: '{name}': {value_str} {unit}, ref: {ref_range}")
             
-            # Check against list of invalid names
+            # Enhanced validation against invalid names and patterns
             name_lower = name.lower()
             if (any(invalid in name_lower for invalid in invalid_names) or
                 # Skip numeric-only names
@@ -796,7 +902,28 @@ def parse_biomarkers_from_text(text: str) -> List[Dict[str, Any]]:
                 # Skip references to "nd" and "rd" ordinals
                 re.match(r'^\d+(st|nd|rd|th)\s*$', name) or
                 # Skip method descriptions
-                name.startswith(")")):
+                name.startswith(")") or
+                # Skip single words that are clearly not biomarkers
+                name_lower in ["normal", "high", "low", "positive", "negative", "abnormal"] or
+                # Skip addresses and location names
+                re.search(r'\b\d{6}\b', name) or  # postal codes
+                # Skip obvious non-biomarker patterns
+                len(name.split()) > 6 or  # Too many words
+                name.endswith("NO") or name.endswith("LTD") or
+                # Skip if it's mostly numbers
+                len(re.findall(r'\d', name)) > len(name) / 2 or
+                # Skip contact info patterns
+                re.search(r'\b(?:fax|phone|tel|email|www|http)\b', name_lower) or
+                # Skip administrative codes
+                re.search(r'\b(?:cin|gstin|pan|reg|license)\b', name_lower) or
+                # Skip if name contains email-like patterns
+                re.search(r'[@.]', name) or
+                # Skip if name is all uppercase and longer than 10 chars (likely headers)
+                (name.isupper() and len(name) > 10) or
+                # Skip if name contains common non-biomarker suffixes
+                re.search(r'\b(?:ltd|pvt|inc|corp|llc|co)\b', name_lower) or
+                # Skip if value looks like a phone/fax number (more than 6 digits)
+                (value_str and len(re.sub(r'[^\d]', '', value_str)) > 6)):
                 logger.debug(f"[INVALID_NAME] Skipping invalid biomarker name: {name}")
                 continue
             
@@ -930,6 +1057,10 @@ def categorize_biomarker(name: str) -> str:
     # Vitamins
     if any(term in name_lower for term in ["vitamin", "folate", "b12"]):
         return "Vitamin"
+        
+    # Immunology/Allergy
+    if any(term in name_lower for term in ["ige", "immunoglobulin", "antibody", "antigen"]):
+        return "Immunology"
         
     # Minerals
     if any(term in name_lower for term in ["iron", "ferritin", "magnesium", "calcium", "sodium", "potassium"]):

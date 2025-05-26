@@ -182,26 +182,28 @@ def chunk_text(
 
 def compress_text_content(text: str) -> str:
     """
-    Apply compression techniques to reduce token usage
+    Apply aggressive compression techniques to reduce token usage
     while preserving biomarker information.
     
     Args:
         text: Text to compress
         
     Returns:
-        Compressed text
+        Compressed text with significant token reduction
     """
     if not text:
         return ""
     
-    # Remove redundant whitespace
+    # Start with original text
+    original_length = len(text)
+    
+    # Remove redundant whitespace first
     text = re.sub(r'\s+', ' ', text)
     
     # Remove common boilerplate phrases that don't contain biomarkers
-    # Use more precise patterns that only match complete sentences/lines
-    boilerplate = [
-        r"Please consult with your healthcare provider for interpretation[^.]*\.?",
-        r"This test was developed and its performance[^.]*determined by[^.]*\.?",
+    boilerplate_patterns = [
+        r"Please consult with your healthcare provider[^.]*\.?",
+        r"This test was developed and its performance[^.]*\.?",
         r"Reference ranges are provided as general guidance[^.]*\.?",
         r"Results should be interpreted in conjunction with[^.]*\.?",
         r"For more information about laboratory tests[^.]*\.?",
@@ -209,38 +211,91 @@ def compress_text_content(text: str) -> str:
         r"This document contains private information[^.]*\.?",
         r"©\s*\d{4}[^.]*\.?",
         r"Page \d+ of \d+",
-        r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+        r"http[s]?://[^\s]+",
+        r"www\.[^\s]+",
+        r"Email\s*:\s*[^\s]+@[^\s]+",
+        r"Tel\s*:\s*[\d\s\-\+\(\)]+",
+        r"Fax\s*:\s*[\d\s\-\+\(\)]+",
+        r"CIN\s*[-:]?\s*[A-Z0-9]+",
+        r"GSTIN\s*[-:]?\s*[A-Z0-9]+",
+        r"Registration\s*No[^.]*\.?",
+        r"License\s*No[^.]*\.?",
     ]
     
-    for pattern in boilerplate:
+    for pattern in boilerplate_patterns:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE)
     
-    # Standardize number formats
-    text = re.sub(r'(\d+),(\d{3})', r'\1\2', text)  # Remove thousands separators
+    # Remove administrative sections
+    admin_sections = [
+        r"PERFORMED\s+AT\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
+        r"PATIENT\s+NAME\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
+        r"PATIENT\s+ID\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
+        r"DATE\s+COLLECTED\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
+        r"DATE\s+REPORTED\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
+        r"ACCESSION\s+NO\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
+    ]
     
-    # Remove repeated headers - more comprehensive approach
+    for pattern in admin_sections:
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Remove contact information blocks
+    contact_patterns = [
+        r"(?:Address|Location)\s*:.*?(?=\n[A-Z]|\n\s*\n|$)",
+        r"\d{5,}\s*(?:DHANBAD|KOLKATA|MUMBAI|DELHI|BANGALORE|CHENNAI|HYDERABAD|PUNE)",
+        r"West\s+Bengal[^.]*\.?",
+        r"India[^.]*\.?",
+    ]
+    
+    for pattern in contact_patterns:
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Remove repeated table headers (keep only first occurrence)
     header_patterns = [
         r"TEST\s*\|\s*RESULT\s*\|\s*REFERENCE\s*RANGE",
-        r"(?:TEST|RESULT|REFERENCE RANGE|UNITS|FLAG|VALUE|NORMAL RANGE)(?:\s*\|){2,}",
-        r"(?:PATIENT\s+NAME|PATIENT\s+ID|DOB|DATE COLLECTED|DATE REPORTED)\s*:?"
+        r"(?:TEST|RESULT|REFERENCE\s+RANGE|UNITS|FLAG|VALUE|NORMAL\s+RANGE)(?:\s*\|){2,}",
+        r"Test\s+Report\s+Status\s+Final\s+Results\s+Biological\s+Reference\s+Interval\s+Units",
     ]
     
     for pattern in header_patterns:
-        # Find all occurrences
         matches = list(re.finditer(pattern, text, re.IGNORECASE))
-        # Keep only the first instance and remove others
         if len(matches) > 1:
-            # Remove from last to first to maintain indices
+            # Remove all but the first occurrence
             for match in reversed(matches[1:]):
                 text = text[:match.start()] + text[match.end():]
     
-    # Remove excess punctuation 
-    text = re.sub(r'[-_*]{3,}', ' ', text)
+    # Remove method descriptions and technical notes
+    method_patterns = [
+        r"METHOD\s*:\s*[^.]*\.?",
+        r"ELECTROCHEMILUMINESCENCE[^.]*\.?",
+        r"SANDWICH\s+IMMUNOASSAY[^.]*\.?",
+        r"Interpretation[^.]*\.?",
+    ]
     
-    # Consolidate whitespace
+    for pattern in method_patterns:
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+    
+    # Standardize and compress number formats
+    text = re.sub(r'(\d+),(\d{3})', r'\1\2', text)  # Remove thousands separators
+    text = re.sub(r'(\d+)\.0+\b', r'\1', text)  # Remove trailing zeros
+    
+    # Remove excessive punctuation and formatting
+    text = re.sub(r'[-_*=]{3,}', ' ', text)
+    text = re.sub(r'\|+', '|', text)  # Collapse multiple pipes
+    text = re.sub(r'\s*\|\s*', '|', text)  # Clean pipe separators
+    
+    # Remove empty lines and consolidate whitespace
+    text = re.sub(r'\n\s*\n+', '\n', text)
     text = re.sub(r'\s+', ' ', text)
     
-    return text.strip()
+    # Final cleanup
+    text = text.strip()
+    
+    # Log compression ratio for debugging
+    compressed_length = len(text)
+    compression_ratio = (1 - compressed_length / original_length) * 100 if original_length > 0 else 0
+    logging.debug(f"Text compression: {original_length} -> {compressed_length} chars ({compression_ratio:.1f}% reduction)")
+    
+    return text
 
 
 def extract_table_text(table: Dict[str, Any], page_text: str) -> str:
@@ -277,8 +332,9 @@ def extract_table_text(table: Dict[str, Any], page_text: str) -> str:
         if match:
             return match.group(0)
     
-    # If no table pattern found, return a portion of the page
-    return page_text
+    # If no table pattern found, return a smaller portion of the page (first 1000 chars)
+    # to avoid token duplication
+    return page_text[:1000] if page_text else ""
 
 
 def detect_biomarker_patterns(text: str) -> float:
@@ -587,114 +643,48 @@ def optimize_content_chunks(
         List of content chunks
     """
     chunks = []
+    processed_pages = set()
     
     # Enhanced logging
     logging.info(f"Optimizing content from {len(pages_text_dict)} pages into chunks")
     
-    # Process biomarker regions first if available (highest priority)
-    biomarker_regions = document_structure.get("biomarker_regions", [])
-    if biomarker_regions:
-        logging.info(f"Processing {len(biomarker_regions)} identified biomarker regions")
-        for region in biomarker_regions:
-            region_text = region.get("text", "")
-            page_num = region.get("page_num", 0)
+    # Strategy: Process each page once with simple compression to actually reduce tokens
+    
+    for page_num, page_text in pages_text_dict.items():
+        if not page_text.strip():
+            continue
             
-            if not region_text and page_num in pages_text_dict:
-                # Extract region text from page if coordinates available
-                # This is a simplified implementation
-                region_text = pages_text_dict[page_num]
-            
-            if not region_text.strip():
-                continue
-            
-            # Compress the text to reduce tokens
-            compressed_text = compress_text_content(region_text)
-            tokens_saved = estimate_tokens(region_text) - estimate_tokens(compressed_text)
-            if tokens_saved > 0:
-                logging.debug(f"Compressed biomarker region text, saved {tokens_saved} tokens")
-            
+        # Start with compressed page text
+        compressed_text = compress_text_content(page_text)
+        
+        # Simple approach: just use the compressed text directly
+        # This avoids the complex duplication issues
+        if estimate_tokens(compressed_text) > max_tokens_per_chunk:
+            # Split large pages into smaller chunks
+            text_chunks = chunk_text(compressed_text, max_tokens_per_chunk, overlap_tokens=100)
+            for i, chunk_text in enumerate(text_chunks):
+                chunk = {
+                    "text": chunk_text,
+                    "page_num": page_num,
+                    "region_type": "compressed_content",
+                    "estimated_tokens": estimate_tokens(chunk_text),
+                    "biomarker_confidence": detect_biomarker_patterns(chunk_text),
+                    "context": f"Page {page_num}, Chunk {i+1}/{len(text_chunks)}"
+                }
+                chunks.append(chunk)
+        else:
+            # Page is small enough to process as single chunk
             chunk = {
                 "text": compressed_text,
                 "page_num": page_num,
-                "region_type": "biomarker_region",
+                "region_type": "compressed_content",
                 "estimated_tokens": estimate_tokens(compressed_text),
-                "biomarker_confidence": region.get("biomarker_confidence", 0.9),
-                "context": f"Page {page_num}, Biomarker Region"
+                "biomarker_confidence": detect_biomarker_patterns(compressed_text),
+                "context": f"Page {page_num}, Full Page"
             }
             chunks.append(chunk)
-    
-    # Extract tables as separate chunks (high priority for biomarkers)
-    tables = document_structure.get("tables", {})
-    if tables:
-        table_count = sum(len(page_tables) for page_tables in tables.values())
-        logging.info(f"Processing {table_count} tables from {len(tables)} pages")
         
-        for page_num, page_tables in tables.items():
-            page_text = pages_text_dict.get(page_num, "")
-            
-            for i, table in enumerate(page_tables):
-                table_text = extract_table_text(table, page_text)
-                
-                if not table_text.strip():
-                    continue
-                
-                # Compress the text to reduce tokens 
-                compressed_text = compress_text_content(table_text)
-                
-                chunk = {
-                    "text": compressed_text,
-                    "page_num": page_num,
-                    "region_type": "table",
-                    "estimated_tokens": estimate_tokens(compressed_text),
-                    "biomarker_confidence": 0.9,  # Tables likely have biomarkers
-                    "context": f"Page {page_num}, Table {i+1}/{len(page_tables)}"
-                }
-                chunks.append(chunk)
-    
-    # Process remaining content by zones
-    processed_pages = set()
-    page_zones = document_structure.get("page_zones", {})
-    
-    if page_zones:
-        logging.info(f"Processing content zones from {len(page_zones)} pages")
-        
-        for page_num, zones in page_zones.items():
-            page_text = pages_text_dict.get(page_num, "")
-            if not page_text.strip():
-                continue
-            
-            # Process content and results zones (most important for biomarkers)
-            for zone_type in ["content", "results"]:
-                if zone_type in zones:
-                    zone_data = zones[zone_type]
-                    zone_data["page_number"] = page_num  # Ensure page number is set
-                    
-                    zone_chunks = split_zone_by_biomarker_density(
-                        zone_data, page_text, max_tokens_per_chunk
-                    )
-                    
-                    chunks.extend(zone_chunks)
-                    processed_pages.add(page_num)
-    
-    # Process any remaining pages not handled by zones or tables
-    remaining_pages = set(pages_text_dict.keys()) - processed_pages
-    if remaining_pages:
-        logging.info(f"Processing {len(remaining_pages)} remaining pages without structure info")
-        
-        for page_num in remaining_pages:
-            page_text = pages_text_dict.get(page_num, "")
-            if not page_text.strip():
-                continue
-            
-            # Compress the text to reduce tokens
-            compressed_text = compress_text_content(page_text)
-            
-            # Split compressed text by biomarker density
-            page_chunks = split_text_by_biomarker_density(
-                compressed_text, max_tokens_per_chunk, page_num
-            )
-            
-            chunks.extend(page_chunks)
+        processed_pages.add(page_num)
     
     # Sort chunks by biomarker confidence (highest first) 
     # but keep page order for readability

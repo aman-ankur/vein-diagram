@@ -1,0 +1,67 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-7.4.3, pluggy-1.5.0
+rootdir: /Users/aankur/workspace/vein-diagram/backend
+configfile: pytest.ini
+plugins: asyncio-0.23.5, cov-6.0.0, anyio-4.8.0
+asyncio: mode=strict
+collected 6 items
+
+tests/test_document_analyzer.py ......                                   [100%]
+
+=============================== warnings summary ===============================
+app/db/database.py:92
+  /Users/aankur/workspace/vein-diagram/backend/app/db/database.py:92: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+vein-d/lib/python3.9/site-packages/PyPDF2/__init__.py:21
+  /Users/aankur/workspace/vein-diagram/backend/vein-d/lib/python3.9/site-packages/PyPDF2/__init__.py:21: DeprecationWarning: PyPDF2 is deprecated. Please move to the pypdf library instead.
+    warnings.warn(
+
+vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:272
+vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:272
+vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:272
+vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:272
+vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:272
+vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:272
+  /Users/aankur/workspace/vein-diagram/backend/vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:272: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.6/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:322
+  /Users/aankur/workspace/vein-diagram/backend/vein-d/lib/python3.9/site-packages/pydantic/_internal/_config.py:322: UserWarning: Valid config keys have changed in V2:
+  * 'orm_mode' has been renamed to 'from_attributes'
+    warnings.warn(message, UserWarning)
+
+app/db/session.py:92
+  /Users/aankur/workspace/vein-diagram/backend/app/db/session.py:92: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/main.py:105
+  /Users/aankur/workspace/vein-diagram/backend/app/main.py:105: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+vein-d/lib/python3.9/site-packages/fastapi/applications.py:4495
+vein-d/lib/python3.9/site-packages/fastapi/applications.py:4495
+  /Users/aankur/workspace/vein-diagram/backend/vein-d/lib/python3.9/site-packages/fastapi/applications.py:4495: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+app/main.py:303
+  /Users/aankur/workspace/vein-diagram/backend/app/main.py:303: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 6 passed, 14 warnings in 0.02s ========================

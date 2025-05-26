@@ -231,8 +231,8 @@ async def process_pages_sequentially(
     for page_num, page_text in relevant_pages.items():
         metrics.record_original_text(page_text, page_num)
     
-    # Use enhanced processing if enabled and document structure is available
-    if (document_structure is not None and 
+    # Temporarily disable enhanced processing to test basic functionality
+    if False and (document_structure is not None and 
         DOCUMENT_ANALYZER_CONFIG["enabled"] and 
         DOCUMENT_ANALYZER_CONFIG["content_optimization"]["enabled"]):
         
@@ -279,7 +279,11 @@ async def process_pages_sequentially(
                     extraction_context = updated_context
                 else:
                     # Use standard extraction without context
-                    chunk_biomarkers, _ = await extract_biomarkers_with_claude(chunk["text"])
+                    chunk_biomarkers, _ = await extract_biomarkers_with_claude(
+                        chunk["text"],
+                        extraction_context=None,
+                        adaptive_prompt=None
+                    )
                 
                 # Record API call metrics
                 if "token_usage" in extraction_context:
@@ -670,12 +674,8 @@ async def process_pdf_background(pdf_id: int, db_session=None):
         
         # Properly handle the async function
         try:
-            # We need to handle the async function without asyncio.run() as we might be in a context
-            # where an event loop is already running
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            metadata = loop.run_until_complete(extract_metadata_with_claude(metadata_text.strip(), pdf.filename))
-            loop.close()
+            # Since we're already in an async context, just await the function
+            metadata = await extract_metadata_with_claude(metadata_text.strip(), pdf.filename)
             logger.info(f"Successfully extracted metadata")
         except Exception as metadata_error:
             logger.error(f"Error extracting metadata: {str(metadata_error)}")
