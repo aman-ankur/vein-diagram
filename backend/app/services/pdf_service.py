@@ -623,9 +623,10 @@ async def process_pdf_background(pdf_id: int, db_session=None):
             logger.error(f"PDF {pdf_id} not found in database")
             return
         
-        # Update status
+        # Update status and record when processing started
         logger.info(f"Starting to process PDF {pdf_id}")
         pdf.status = "processing"
+        pdf.processing_started_at = datetime.utcnow()
         db_session.commit()
         
         # Extract text from all pages

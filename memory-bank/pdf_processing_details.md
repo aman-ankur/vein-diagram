@@ -75,6 +75,38 @@ The primary goal of the PDF processing pipeline is to automatically extract stru
     *   Calculates and saves an average `parsing_confidence` score based on the confidence values returned by Claude for the successfully extracted biomarkers across all processed pages.
     *   If any step fails critically, sets the status to "error" and saves the error message.
 
+## System Reliability & Recovery
+
+### Smart Status Endpoint
+The `/api/pdf/status/{file_id}` endpoint includes intelligent auto-recovery capabilities:
+
+- **Inconsistency Detection**: Automatically detects PDFs stuck in "pending" or "processing" status that actually have biomarkers
+- **Auto-Correction**: Updates status to "processed" when biomarkers exist but status is incorrect
+- **Confidence Calculation**: Calculates parsing confidence (base 50% + 5% per biomarker, capped at 95%) if missing
+- **Data Preservation**: Preserves existing processed_date and parsing_confidence values
+- **Logging**: Comprehensive logging of all corrections for monitoring
+
+### Startup Recovery Service
+The system includes an automatic recovery service (`startup_recovery_service.py`) that:
+
+- **Runs on Startup**: Automatically executes when the server starts
+- **Detects Inconsistencies**: Identifies PDFs with wrong status but existing biomarkers
+- **Batch Recovery**: Fixes multiple stuck PDFs in a single operation
+- **Health Monitoring**: Provides comprehensive health checks without making changes
+- **Error Handling**: Graceful handling of database errors with rollback and logging
+
+### Recovery Functions
+- `detect_inconsistent_pdfs()`: Finds PDFs with inconsistent status
+- `fix_inconsistent_pdf()`: Updates a single PDF's status and metadata
+- `run_startup_recovery()`: Complete recovery process with detailed results
+- `check_processing_health()`: Health monitoring without changes
+
+### Benefits
+- **Zero Downtime**: System self-heals without manual intervention
+- **Eliminates Infinite Loops**: Frontend never gets stuck polling for status
+- **Data Integrity**: Ensures consistent state between processing completion and status
+- **Monitoring**: Clear visibility into system health and recovery actions
+
 ## Key Libraries Used
 
 -   **Text Extraction**: `PyMuPDF` (fitz), `pdf2image`, `pytesseract`

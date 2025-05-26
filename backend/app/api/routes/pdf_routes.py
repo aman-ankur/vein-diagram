@@ -11,6 +11,7 @@ from app.services.pdf_service import extract_text_from_pdf, parse_biomarkers_fro
 from app.services.metadata_parser import extract_metadata_with_claude
 from app.schemas.pdf_schema import PDFResponse, PDFStatusResponse, PDFListResponse
 from app.models.pdf_model import PDF as PDFModel
+from app.models.biomarker_model import Biomarker
 from app.db.database import get_db
 
 # Configure logging
@@ -213,6 +214,27 @@ async def get_pdf_status(file_id: str, db: Session = Depends(get_db)):
                 # Invalid file_id format
                 raise HTTPException(status_code=400, detail="Invalid file ID format")
         
+        # Smart Status Recovery: Check for inconsistent state and auto-fix
+        if pdf.status in ["pending", "processing"]:
+            # Check if biomarkers exist (indicating processing actually completed)
+            biomarker_count = db.query(Biomarker).filter(Biomarker.pdf_id == pdf.id).count()
+            
+            if biomarker_count > 0:
+                # Processing actually completed! Fix the status
+                logger.info(f"🔧 Auto-correcting status for PDF {file_id}: found {biomarker_count} biomarkers but status was '{pdf.status}'")
+                pdf.status = "processed"
+                if not pdf.processed_date:
+                    pdf.processed_date = datetime.utcnow()
+                
+                # Calculate parsing confidence if missing
+                if not pdf.parsing_confidence and biomarker_count > 0:
+                    # Simple confidence calculation based on biomarker count
+                    pdf.parsing_confidence = min(0.95, 0.5 + (biomarker_count * 0.05))
+                
+                db.commit()
+                db.refresh(pdf)
+                logger.info(f"✅ Successfully auto-corrected PDF {file_id} status to 'processed'")
+
         # Return the PDF status
         logger.info(f"Returning status for PDF {file_id}: {pdf.status}")
         return PDFStatusResponse(
