@@ -1,3 +1,60 @@
+---
+description: Vein Diagram Development Rules and Context
+location_globs: ["**/*"]
+priority: 1
+---
+
+# Vein Diagram: Development Rules and Context
+
+## CRITICAL: Recent PDF Biomarker Extraction Improvements (May 2025)
+
+### Major Issues Resolved
+The PDF biomarker extraction system had two critical problems that were successfully resolved:
+
+1. **Token Optimization Failure**: Content compression was increasing tokens by 106% instead of reducing them
+2. **Invalid Data Extraction**: System was extracting non-biomarker data (contact info, administrative codes, qualitative results)
+
+### Key Lessons Learned
+
+#### Token Optimization Best Practices
+- **Aggressive Compression Works**: Achieved 99%+ token reduction while preserving biomarker data
+- **Remove Administrative Data**: Contact info, CIN numbers, fax numbers significantly inflate token count
+- **Pattern-Based Cleaning**: Use comprehensive regex patterns to remove boilerplate text
+- **Test Token Reduction**: Always validate that optimization actually reduces tokens (use `test_token_optimization.py`)
+
+#### Claude Prompt Engineering for Biomarkers
+- **Be Explicit About Invalid Data**: Provide clear "DO NOT EXTRACT" lists with examples
+- **Define Valid Biomarkers Strictly**: Must have medical test name + numerical value + unit + biological measurement
+- **Use Examples**: Show both valid and invalid extractions in prompts
+- **Update Models**: Always use latest non-deprecated Claude models (`claude-3-5-sonnet-20241022`)
+
+#### Comprehensive Filtering Strategy
+- **Multiple Layers**: Use both Claude prompts AND fallback parser filtering
+- **Pattern Categories**: Administrative, geographic, document structure, qualitative results, contact info
+- **100+ Patterns**: Maintain extensive invalid name lists in fallback parser
+- **Test Filtering**: Verify removal of specific problematic patterns
+
+#### Error Handling & Robustness
+- **Advanced JSON Repair**: Handle common Claude API response errors and truncation
+- **Enhanced Logging**: Use emojis and detailed context for easier debugging
+- **Comprehensive Testing**: Create specific tests for token optimization and filtering
+
+### Implementation Files
+- `app/services/content_optimization.py` - Token optimization and compression
+- `app/services/biomarker_parser.py` - Enhanced prompts and filtering
+- `app/services/metadata_parser.py` - Model updates
+- `test_token_optimization.py` - Validation testing
+- `cleanup_sandhya_pdf.py` - Database cleanup utilities
+
+### Testing Strategy
+Always test PDF extraction improvements with:
+1. Token count validation (should reduce, not increase)
+2. Invalid pattern removal verification
+3. Valid biomarker preservation confirmation
+4. Database cleanup before retesting
+
+---
+
 # Vein Diagram: Project Intelligence
 
 ## Project Patterns
