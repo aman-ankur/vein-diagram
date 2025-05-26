@@ -15,6 +15,7 @@ import pandas as pd
 import re
 import dateutil.parser
 import asyncio
+import time
 
 from app.services.biomarker_parser import (
     extract_biomarkers_with_claude,
@@ -26,6 +27,16 @@ from app.models.biomarker_model import Biomarker
 from app.models.pdf_model import PDF  # Import the PDF model class
 from app.db.database import SessionLocal  # Import SessionLocal for error handling
 from app.services.health_summary_service import generate_and_update_health_summary # Import the new service function
+from app.services.document_analyzer import (
+    analyze_document_structure,
+    optimize_content_for_extraction,
+    create_adaptive_prompt,
+    update_extraction_context,
+    create_default_extraction_context,
+    DocumentStructure
+)
+from app.core.config import DOCUMENT_ANALYZER_CONFIG
+from app.services.utils.metrics import TokenUsageMetrics
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -107,9 +118,15 @@ def score_page_relevance(page_text: str, all_aliases: List[str]) -> int:
     logger.debug(f"Page scored with relevance: {score}")
     return score
 
-def filter_relevant_pages(pages_text_dict: Dict[int, str]) -> List[Tuple[int, str]]:
-    """Filters pages based on relevance score."""
+def filter_relevant_pages(
+    pages_text_dict,
+    document_structure=None
+) -> Dict[int, str]:
+    """Filter pages with relevant content for biomarker extraction, now with structure awareness."""
     relevant_pages = []
+    # Initialize filtered_pages here to prevent reference before assignment
+    filtered_pages = {}
+    
     all_aliases = _load_biomarker_aliases()
     if not all_aliases:
         logger.warning("No aliases loaded, cannot perform relevance scoring. Returning all pages.")
@@ -129,63 +146,281 @@ def filter_relevant_pages(pages_text_dict: Dict[int, str]) -> List[Tuple[int, st
     # Sort by page number
     relevant_pages.sort(key=lambda x: x[0])
     logger.info(f"Filtered down to {len(relevant_pages)} relevant pages out of {len(pages_text_dict)} total.")
-    return relevant_pages
 
-def process_pages_sequentially(relevant_pages: List[Tuple[int, str]], filename: str) -> List[Dict[str, Any]]:
-    """
-    Processes relevant pages sequentially using the single-page Claude extractor
-    and de-duplicates the results.
-
-    Args:
-        relevant_pages: List of tuples (page_number, page_text) for relevant pages.
-        filename: Original PDF filename for logging.
-
-    Returns:
-        List of de-duplicated biomarker dictionaries.
-    """
-    all_biomarkers_raw = []
-    logger.info(f"Starting sequential processing for {len(relevant_pages)} relevant pages from {filename}.")
-
-    for page_num, page_text in relevant_pages:
-        logger.info(f"Processing page {page_num} of {filename} sequentially...")
-        try:
-            # Call the modified single-page extractor from biomarker_parser
-            page_biomarkers, _ = extract_biomarkers_with_claude(page_text, f"{filename}_page_{page_num}")
-            if page_biomarkers:
-                logger.info(f"Extracted {len(page_biomarkers)} biomarkers from page {page_num}.")
-                # Add page number info for potential debugging or advanced de-duplication later
-                for bm in page_biomarkers:
-                    bm['source_page'] = page_num
-                all_biomarkers_raw.extend(page_biomarkers)
+    # Enhanced version with structure awareness
+    if document_structure is not None:
+        logging.info("Using document structure to filter relevant pages")
+        filtered_pages = {}
+        
+        for page_num, text in pages_text_dict.items():
+            # Higher relevance if page has tables (likely to contain biomarkers)
+            has_tables = page_num in document_structure.get("tables", {}) and document_structure["tables"][page_num]
+            
+            if has_tables:
+                logging.info(f"Page {page_num} contains tables, including for biomarker extraction")
+                filtered_pages[page_num] = text
+                continue
+            
+            # Check if this is a content page (not just header/footer)
+            page_zones = document_structure.get("page_zones", {}).get(page_num, {})
+            content_zone = page_zones.get("content", {})
+            
+            # If we have a content zone with high confidence
+            if content_zone and content_zone.get("confidence", 0) > 0.7:
+                # Use the existing biomarker pattern matching logic
+                if contain_biomarker_patterns(text):
+                    logging.info(f"Page {page_num} contains biomarker patterns in content zone")
+                    filtered_pages[page_num] = text
             else:
-                logger.info(f"No biomarkers found on page {page_num}.")
+                # Fallback to original pattern matching
+                if contain_biomarker_patterns(text):
+                    logging.info(f"Page {page_num} contains biomarker patterns (fallback method)")
+                    filtered_pages[page_num] = text
+        
+        if filtered_pages:
+            return filtered_pages
+        
+        # If we filtered out all pages, fall back to original method
+        logging.warning("Structure-based filtering removed all pages, falling back to original method")
+    
+    # Fall back to original method if structure not available or no pages found
+    # Convert relevant_pages list to dictionary for consistent return type
+    if not filtered_pages:
+        filtered_pages = {page_num: text for page_num, text in relevant_pages}
+    
+    return filtered_pages
+
+async def process_pages_sequentially(
+    relevant_pages,
+    document_structure=None
+) -> List[Dict]:
+    """
+    Process content to extract biomarkers, optimizing for token efficiency.
+    
+    Args:
+        relevant_pages: Dictionary of page number -> text or List of (page_num, text) tuples
+        document_structure: Optional document structure information
+        
+    Returns:
+        List of extracted biomarkers
+    """
+    from app.services.utils.metrics import TokenUsageMetrics
+    from app.services.document_analyzer import (
+        optimize_content_for_extraction, 
+        create_adaptive_prompt,
+        create_default_extraction_context,
+        update_extraction_context
+    )
+    import time
+    import os
+    
+    # Create metrics tracker
+    debug_metrics = os.environ.get("DEBUG_TOKEN_METRICS", "0") == "1"
+    logs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
+    metrics = TokenUsageMetrics(save_debug=debug_metrics, debug_dir=logs_dir)
+    
+    # Prepare all_biomarkers list and extraction context
+    all_biomarkers = []
+    extraction_context = create_default_extraction_context()
+    
+    # Ensure relevant_pages is a dictionary
+    if isinstance(relevant_pages, list):
+        relevant_pages = {page_num: text for page_num, text in relevant_pages}
+    
+    # Record original token metrics
+    for page_num, page_text in relevant_pages.items():
+        metrics.record_original_text(page_text, page_num)
+    
+    # Temporarily disable enhanced processing to test basic functionality
+    if False and (document_structure is not None and 
+        DOCUMENT_ANALYZER_CONFIG["enabled"] and 
+        DOCUMENT_ANALYZER_CONFIG["content_optimization"]["enabled"]):
+        
+        logger.info("Using enhanced content optimization for biomarker extraction")
+        
+        # Start timing optimization
+        optimization_start = time.time()
+        
+        # Optimize content into chunks based on structure
+        content_chunks = optimize_content_for_extraction(relevant_pages, document_structure)
+        
+        # Record optimization time
+        optimization_time = time.time() - optimization_start
+        metrics.record_optimization_complete(optimization_time, len(content_chunks))
+        
+        logger.info(f"Created {len(content_chunks)} optimized chunks for processing")
+        
+        # Process chunks sequentially
+        for i, chunk in enumerate(content_chunks):
+            # Record optimized text metrics
+            metrics.record_optimized_text(chunk["text"], chunk)
+            
+            # Skip chunks with very low biomarker confidence
+            if (chunk["biomarker_confidence"] < 0.3 and 
+                len(all_biomarkers) > 0):  # Skip only if we already have some biomarkers
+                logger.info(f"Skipping low-confidence chunk #{i} from page {chunk['page_num']}")
+                continue
+            
+            logger.info(f"Processing chunk #{i+1}/{len(content_chunks)} (page {chunk['page_num']}, confidence: {chunk['biomarker_confidence']:.2f})")
+            
+            try:
+                # Create adaptive prompt if enabled
+                if DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"]:
+                    prompt = create_adaptive_prompt(chunk, extraction_context)
+                    
+                    # Extract biomarkers with context
+                    chunk_biomarkers, updated_context = await extract_biomarkers_with_claude(
+                        chunk["text"],
+                        extraction_context=extraction_context,
+                        adaptive_prompt=prompt
+                    )
+                    
+                    # Update extraction context
+                    extraction_context = updated_context
+                else:
+                    # Use standard extraction without context
+                    chunk_biomarkers, _ = await extract_biomarkers_with_claude(
+                        chunk["text"],
+                        extraction_context=None,
+                        adaptive_prompt=None
+                    )
+                
+                # Record API call metrics
+                if "token_usage" in extraction_context:
+                    last_call = extraction_context["call_count"] - 1
+                    prompt_tokens = extraction_context["token_usage"]["prompt"]
+                    completion_tokens = extraction_context["token_usage"]["completion"]
+                    
+                    # If we have multiple calls, calculate just the last one
+                    if last_call > 0:
+                        prompt_tokens = prompt_tokens / last_call
+                        completion_tokens = completion_tokens / last_call
+                    
+                    metrics.record_api_call(
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        chunk_info=chunk,
+                        biomarkers_found=len(chunk_biomarkers)
+                    )
+                
+                # Add page number to biomarkers
+                for bm in chunk_biomarkers:
+                    bm['page'] = chunk["page_num"]
+                
+                # Add to all biomarkers
+                if chunk_biomarkers:
+                    logger.info(f"Extracted {len(chunk_biomarkers)} biomarkers from chunk #{i+1}")
+                    all_biomarkers.extend(chunk_biomarkers)
+                else:
+                    logger.info(f"No biomarkers found in chunk #{i+1}")
+                
+                # Early termination if we found enough biomarkers
+                if len(all_biomarkers) >= 50:  # Very large number of biomarkers already found
+                    remaining_high_conf = any(c["biomarker_confidence"] > 0.8 for c in content_chunks[i+1:])
+                    if not remaining_high_conf:
+                        logger.info(f"Found {len(all_biomarkers)} biomarkers already, skipping remaining lower confidence chunks")
+                        break
+            
+            except Exception as e:
+                logger.error(f"Error processing chunk #{i+1}: {str(e)}")
+                # Continue with next chunk
+        
+        # Log metrics
+        metrics.record_extraction_complete(
+            extraction_time=time.time() - optimization_start - optimization_time,
+            pages_processed=len(relevant_pages),
+            biomarkers_extracted=len(all_biomarkers)
+        )
+        metrics.log_summary()
+        
+        if debug_metrics:
+            metrics.save_detailed_report()
+        
+        # De-duplicate biomarkers
+        all_biomarkers = _deduplicate_biomarkers(all_biomarkers)
+        
+        return all_biomarkers
+    
+    # Fall back to original method - process page by page
+    logger.info(f"Using original sequential processing for {len(relevant_pages)} relevant pages")
+    
+    for page_num, page_text in relevant_pages.items():
+        logger.info(f"Processing page {page_num} sequentially")
+        try:
+            # Call the biomarker extractor
+            page_biomarkers, _ = await extract_biomarkers_with_claude(page_text)
+            
+            if page_biomarkers:
+                logger.info(f"Extracted {len(page_biomarkers)} biomarkers from page {page_num}")
+                # Add page number info
+                for bm in page_biomarkers:
+                    bm['page'] = page_num
+                all_biomarkers.extend(page_biomarkers)
+            else:
+                logger.info(f"No biomarkers found on page {page_num}")
         except Exception as e:
             logger.error(f"Error processing page {page_num} sequentially: {str(e)}")
-            # Continue to the next page even if one fails
+    
+    # De-duplicate biomarkers
+    all_biomarkers = _deduplicate_biomarkers(all_biomarkers)
+    
+    return all_biomarkers
 
-    logger.info(f"Finished sequential processing. Found {len(all_biomarkers_raw)} raw biomarkers across all relevant pages.")
+def _deduplicate_biomarkers(biomarkers: List[Dict]) -> List[Dict]:
+    """
+    Deduplicate biomarkers based on standardized name.
+    Keeps the first occurrence of each biomarker.
+    
+    Args:
+        biomarkers: List of biomarker dictionaries
+        
+    Returns:
+        Deduplicated list of biomarkers
+    """
+    seen_names = set()
+    deduplicated = []
+    
+    for biomarker in biomarkers:
+        name = biomarker.get('name', '').lower().strip()
+        if name and name not in seen_names:
+            seen_names.add(name)
+            deduplicated.append(biomarker)
+    
+    return deduplicated
 
-    # De-duplicate biomarkers based on standardized name (keep first occurrence)
-    final_biomarkers = []
-    seen_biomarker_names = set()
-    for biomarker in all_biomarkers_raw:
-        # Use standardized name if available, otherwise original name
-        name_key = biomarker.get("name", "").lower()
-        if not name_key:
-             name_key = biomarker.get("original_name", "").lower()
-
-        if name_key and name_key not in seen_biomarker_names:
-            final_biomarkers.append(biomarker)
-            seen_biomarker_names.add(name_key)
-        elif name_key:
-             logger.debug(f"Skipping duplicate biomarker: {name_key} from page {biomarker.get('source_page', 'unknown')}")
-        else:
-             logger.warning(f"Skipping biomarker with no identifiable name: {biomarker}")
-
-
-    logger.info(f"De-duplicated biomarkers: {len(final_biomarkers)} final biomarkers.")
-    return final_biomarkers
-
+def contain_biomarker_patterns(text):
+    """
+    Check if text contains potential biomarker patterns.
+    
+    Args:
+        text: The text to check
+        
+    Returns:
+        bool: True if the text contains potential biomarker patterns
+    """
+    if not text:
+        return False
+        
+    # Common biomarker indicators
+    indicators = [
+        r'\b\d+\.?\d*\s*(?:mg/dL|g/dL|mmol/L|mol/L|U/L|IU/L|ng/mL|pg/mL|mIU/L|μIU/mL|μg/dL|mcg/dL|%|mEq/L)',  # Values with units
+        r'\bnormal\s*range',
+        r'\breference\s*range',
+        r'\brange',
+        r'\bvalue',
+        r'\bresult',
+        r'\blow\b|\bhigh\b',
+        r'\bpositive\b|\bnegative\b',
+        r'\bchemistry\b',
+        r'\bhematology\b',
+        r'\btest\b|\btests\b'
+    ]
+    
+    for pattern in indicators:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+            
+    return False
 
 # --- End Helper Functions ---
 
@@ -369,7 +604,7 @@ def _extract_text_with_ocr(file_path: str) -> Dict[int, str]:
         # Return empty dict on major error
         return {}
 
-def process_pdf_background(pdf_id: int, db_session=None):
+async def process_pdf_background(pdf_id: int, db_session=None):
     """
     Process PDF in the background.
     
@@ -388,9 +623,10 @@ def process_pdf_background(pdf_id: int, db_session=None):
             logger.error(f"PDF {pdf_id} not found in database")
             return
         
-        # Update status
+        # Update status and record when processing started
         logger.info(f"Starting to process PDF {pdf_id}")
         pdf.status = "processing"
+        pdf.processing_started_at = datetime.utcnow()
         db_session.commit()
         
         # Extract text from all pages
@@ -401,6 +637,31 @@ def process_pdf_background(pdf_id: int, db_session=None):
         full_extracted_text = "\n--- Page Break ---\n".join(pages_text_dict.values())
         pdf.extracted_text = full_extracted_text # Store combined text for now
         db_session.commit()
+
+        # After text extraction, analyze document structure
+        document_structure = None
+        if DOCUMENT_ANALYZER_CONFIG["enabled"] and DOCUMENT_ANALYZER_CONFIG["structure_analysis"]["enabled"]:
+            logging.info(f"Analyzing document structure for {pdf_id}")
+            document_structure = analyze_document_structure(pdf.file_path, pages_text_dict)
+            logging.info(f"Document structure analysis complete with confidence {document_structure['confidence']}")
+            
+            # If analysis confidence is low and fallback is enabled, ignore structure
+            if (document_structure["confidence"] < 0.5 and 
+                DOCUMENT_ANALYZER_CONFIG["structure_analysis"]["fallback_to_legacy"]):
+                logging.warning(f"Low structure confidence ({document_structure['confidence']}), using legacy processing")
+                document_structure = None
+        
+        # Filter relevant pages with structure context
+        relevant_pages = filter_relevant_pages(
+            pages_text_dict,
+            document_structure=document_structure
+        )
+        
+        # Process pages with structure context
+        extracted_biomarkers = await process_pages_sequentially(
+            relevant_pages,
+            document_structure=document_structure
+        )
 
         # --- Metadata Extraction (Phase 3) ---
         # Extract metadata using only the first few pages (e.g., 0, 1, 2)
@@ -414,12 +675,8 @@ def process_pdf_background(pdf_id: int, db_session=None):
         
         # Properly handle the async function
         try:
-            # We need to handle the async function without asyncio.run() as we might be in a context
-            # where an event loop is already running
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            metadata = loop.run_until_complete(extract_metadata_with_claude(metadata_text.strip(), pdf.filename))
-            loop.close()
+            # Since we're already in an async context, just await the function
+            metadata = await extract_metadata_with_claude(metadata_text.strip(), pdf.filename)
             logger.info(f"Successfully extracted metadata")
         except Exception as metadata_error:
             logger.error(f"Error extracting metadata: {str(metadata_error)}")
@@ -475,27 +732,14 @@ def process_pdf_background(pdf_id: int, db_session=None):
         else:
             logger.warning(f"No metadata extracted for PDF {pdf_id}")
         
-        # --- Biomarker Extraction (Phase 2 & 5 Integration) ---
-        # Filter relevant pages
-        logger.info(f"Filtering relevant pages for biomarker extraction in PDF {pdf_id}")
-        relevant_pages = filter_relevant_pages(pages_text_dict)
-
-        # Process relevant pages sequentially
-        if relevant_pages:
-            logger.info(f"Processing {len(relevant_pages)} relevant pages sequentially for biomarkers in PDF {pdf_id}")
-            biomarkers = process_pages_sequentially(relevant_pages, pdf.filename)
-        else:
-            logger.warning(f"No relevant pages found for biomarker extraction in PDF {pdf_id}. Skipping biomarker processing.")
-            biomarkers = []
-
         # --- Save Biomarkers ---
-        if not biomarkers:
+        if not extracted_biomarkers:
             logger.warning(f"No biomarkers extracted after filtering and sequential processing for PDF {pdf_id}")
         else:
-            logger.info(f"Extracted {len(biomarkers)} biomarkers from PDF {pdf_id}")
+            logger.info(f"Extracted {len(extracted_biomarkers)} biomarkers from PDF {pdf_id}")
 
             # Save biomarkers to database
-            for biomarker in biomarkers:
+            for biomarker in extracted_biomarkers:
                 db_session.add(Biomarker(
                     pdf_id=pdf.id,
                     profile_id=pdf.profile_id,
@@ -514,9 +758,9 @@ def process_pdf_background(pdf_id: int, db_session=None):
             
             # Update parsing confidence
             confidence = 0.0
-            for biomarker in biomarkers:
+            for biomarker in extracted_biomarkers:
                 confidence += biomarker.get("confidence", 0.0)
-            confidence = confidence / len(biomarkers) if biomarkers else 0.0
+            confidence = confidence / len(extracted_biomarkers) if extracted_biomarkers else 0.0
             pdf.parsing_confidence = confidence
         
         # Update status
@@ -525,7 +769,7 @@ def process_pdf_background(pdf_id: int, db_session=None):
         db_session.commit() # Commit biomarker saves and status update
 
         # --- Trigger Health Summary Generation (Temporarily disabled) ---
-        if pdf.profile_id and biomarkers: # Only generate if biomarkers were saved and profile exists
+        if pdf.profile_id and extracted_biomarkers: # Only generate if biomarkers were saved and profile exists
             try:
                 logger.info(f"Triggering health summary generation for profile {pdf.profile_id} after processing PDF {pdf_id}")
                 # Run the async function synchronously in this background task context
