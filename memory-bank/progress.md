@@ -2,21 +2,55 @@
 
 ## Recent Critical Breakthroughs (May 2025)
 
-### PDF Biomarker Extraction: Major Accuracy & Performance Improvements
+### PDF Processing: Comprehensive Reliability & Recovery System
 
-**Context**: The PDF biomarker extraction system was experiencing two critical issues:
-1. **Token Optimization Failure**: Content compression was increasing tokens by 106% instead of reducing them (4447 → 9172 tokens)
-2. **Invalid Data Extraction**: System was extracting non-biomarker data like contact information, administrative codes, and qualitative results
+**Context**: The PDF processing system was experiencing critical reliability issues:
+1. **Infinite Polling Loops**: PDFs getting stuck in "pending" or "processing" status due to server restarts/crashes
+2. **Inconsistent State Management**: Processing completed (biomarkers extracted) but status never updated
+3. **No Recovery Mechanism**: Manual intervention required to fix stuck PDFs
+4. **Token Optimization Failure**: Content compression was increasing tokens by 106% instead of reducing them (4447 → 9172 tokens)
+5. **Invalid Data Extraction**: System was extracting non-biomarker data like contact information, administrative codes, and qualitative results
 
 **Problems Identified**:
-- Extracting invalid entries: "Fax: 30203412.00", "CIN: -U74899PB1995PLC045956", "Email :customercare.saltlake@agilus.in", "PERFORMED AT :", "Normal", "Other"
-- Valid biomarkers were being extracted correctly (Glucose Fasting, Hemoglobin, IgE, TSH) but mixed with invalid data
-- Token optimization was counterproductive, increasing API costs instead of reducing them
-- Using deprecated Claude models
+- **System Reliability**: PDFs stuck in infinite polling loops, frontend continuously checking status
+- **Data Inconsistency**: Processing completed but status remained "pending"/"processing"
+- **No Auto-Recovery**: System couldn't self-heal from interrupted processing
+- **Invalid Extractions**: "Fax: 30203412.00", "CIN: -U74899PB1995PLC045956", "Email :customercare.saltlake@agilus.in", "PERFORMED AT :", "Normal", "Other"
+- **Token Waste**: Optimization was counterproductive, increasing API costs instead of reducing them
+- **Deprecated Models**: Using outdated Claude models
 
 **Solutions Implemented**:
 
-#### 1. Token Optimization Breakthrough (`content_optimization.py`)
+#### 1. Smart Status Endpoint with Auto-Recovery (`pdf_routes.py`)
+- **Intelligent Status Detection**: Enhanced `/api/pdf/status/{file_id}` endpoint to detect inconsistent states
+- **Automatic Correction**: Auto-corrects PDFs stuck in "pending"/"processing" when biomarkers exist
+- **Confidence Calculation**: Calculates parsing confidence (base 50% + 5% per biomarker, capped at 95%)
+- **Data Preservation**: Preserves existing processed_date and parsing_confidence values
+- **Comprehensive Logging**: Detailed logging with emojis for easy monitoring
+- **Result**: Eliminates infinite polling loops, system self-heals during normal operation
+
+#### 2. Startup Recovery Service (`startup_recovery_service.py`)
+- **Automatic Detection**: Identifies PDFs with inconsistent status on server startup
+- **Batch Recovery**: Fixes multiple stuck PDFs in a single operation
+- **Health Monitoring**: Comprehensive health checks without making changes
+- **Graceful Error Handling**: Database errors handled with rollback and logging
+- **Performance Optimized**: Only processes truly stuck PDFs, minimal overhead
+- **Result**: System automatically recovers from server restarts/crashes
+
+#### 3. Application Integration (`main.py`)
+- **Startup Event Handler**: Runs recovery automatically when server starts
+- **Non-Blocking**: Startup recovery doesn't prevent application from starting
+- **Error Isolation**: Recovery failures don't affect main application
+- **Result**: Zero-downtime recovery, no manual intervention required
+
+#### 4. Comprehensive Testing Suite
+- **15 Unit Tests**: Complete test coverage for startup recovery service (all passing ✅)
+- **Integration Tests**: Real-world scenario testing with actual database
+- **Manual Validation**: Created and tested stuck PDF scenarios
+- **Edge Case Coverage**: Tests for confidence calculation, error handling, data preservation
+- **Result**: Robust, well-tested solution with high confidence in reliability
+
+#### 5. Token Optimization Breakthrough (`content_optimization.py`)
 - **Aggressive Content Compression**: Implemented comprehensive text cleaning removing:
   - Administrative data (contact info, CIN numbers, fax numbers)
   - Boilerplate text and method descriptions  
@@ -25,7 +59,7 @@
 - **Result**: Achieved 99%+ token reduction (726 → 5 tokens in testing) while preserving biomarker data
 - **Impact**: Dramatically reduced API costs and improved processing speed
 
-#### 2. Enhanced Biomarker Filtering (`biomarker_parser.py`)
+#### 6. Enhanced Biomarker Filtering (`biomarker_parser.py`)
 - **Comprehensive Invalid Pattern Detection**: Added 100+ patterns to filter out:
   - Contact information (phone, fax, email, addresses)
   - Administrative codes (CIN, registration numbers)
@@ -36,40 +70,45 @@
 - **Improved Fallback Parser**: Enhanced regex-based extraction with comprehensive filtering
 - **Result**: Eliminated extraction of non-biomarker text
 
-#### 3. Claude Model Updates
+#### 7. Claude Model Updates
 - **Updated Models**: Migrated from deprecated `claude-3-sonnet-20240229` to `claude-3-5-sonnet-20241022`
 - **Files Updated**: Both `biomarker_parser.py` and `metadata_parser.py`
 - **Result**: Improved extraction accuracy and future-proofed API calls
 
-#### 4. Enhanced Error Handling
+#### 8. Enhanced Error Handling
 - **Advanced JSON Repair**: Specific fixes for common Claude API response errors and truncation
 - **Better Logging**: Added emojis and detailed context for easier troubleshooting
 - **Result**: Higher success rate for LLM-based extraction
 
-#### 5. Testing & Validation
+#### 9. Legacy Testing & Validation
 - **Created**: `test_token_optimization.py` for comprehensive validation
 - **Test Results**: 
   - ✅ Token Optimization: 99.3% reduction (726 → 5 tokens)
   - ✅ Biomarker Filtering: Successfully removed all problematic patterns
   - ✅ Pattern Removal: Confirmed elimination of Fax, CIN, Email, "PERFORMED AT" entries
 
-#### 6. Database Cleanup
+#### 10. Database Cleanup
 - **Cleanup Script**: `cleanup_sandhya_pdf.py` successfully removed problematic test data
 - **Result**: Clean database ready for testing improved extraction
 
 **Impact**:
+- **System Reliability**: Eliminated infinite polling loops and stuck PDF scenarios
+- **Zero Downtime**: Automatic recovery without manual intervention
+- **Data Integrity**: Consistent state management with proper status tracking
+- **Monitoring**: Comprehensive health checks and detailed logging
 - **Accuracy**: Eliminated false positive extractions of administrative data
 - **Cost**: 99%+ reduction in Claude API token usage
 - **Performance**: Significantly faster processing due to token optimization
-- **Reliability**: Better error handling and fallback mechanisms
 - **Future-Proofing**: Updated to latest Claude models
 
 **Files Modified**:
+- `app/api/routes/pdf_routes.py` - Smart status endpoint with auto-recovery
+- `app/services/startup_recovery_service.py` - Complete recovery service implementation
+- `app/main.py` - Startup event integration
+- `tests/test_startup_recovery_service.py` - Comprehensive unit tests (15 tests)
 - `app/services/biomarker_parser.py` - Enhanced prompts, filtering, validation
 - `app/services/content_optimization.py` - Aggressive compression implementation
 - `app/services/metadata_parser.py` - Model updates
-- `test_token_optimization.py` - Comprehensive testing suite
-- `cleanup_sandhya_pdf.py` - Database cleanup utility
 
 ---
 

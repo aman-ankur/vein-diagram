@@ -16,6 +16,7 @@ class PDF(Base):
     filename = Column(String)
     file_path = Column(String)
     upload_date = Column(DateTime, default=datetime.utcnow)
+    processing_started_at = Column(DateTime, nullable=True)  # When processing actually started
     processed_date = Column(DateTime, nullable=True)
     report_date = Column(DateTime, nullable=True)
     extracted_text = Column(Text, nullable=True)
