@@ -82,6 +82,8 @@ graph TD
 3. **Dependency Injection**: FastAPI's built-in DI for providing dependencies.
 4. **Factory Pattern**: Creating complex objects with specific configurations.
 5. **Pipeline Processing**: Sequential processing of PDF data extraction.
+6. **Recovery Pattern**: Automatic detection and correction of inconsistent system states.
+7. **Health Check Pattern**: Non-intrusive monitoring of system health and data integrity.
 
 ## Component Relationships
 
@@ -131,6 +133,7 @@ graph TD
         BiomarkerService[Biomarker Service]
         ProfileService[Profile Service]
         AIService[AI Service]
+        RecoveryService[Startup Recovery Service]
     end
 
     subgraph Models
@@ -198,6 +201,73 @@ sequenceDiagram
     ProfileService-->>AuthContext: ProfileListResponse (empty)
     AuthContext->>Frontend: Navigate to /welcome
     Frontend->>WelcomePage: Render
+
+## System Recovery Patterns
+
+### Startup Recovery Pattern
+
+The system implements a comprehensive recovery pattern to handle inconsistent states:
+
+```mermaid
+sequenceDiagram
+    participant Server
+    participant RecoveryService
+    participant Database
+    participant Logger
+
+    Server->>RecoveryService: startup_event()
+    RecoveryService->>Database: detect_inconsistent_pdfs()
+    Database-->>RecoveryService: List of stuck PDFs
+    
+    loop For each stuck PDF
+        RecoveryService->>Database: check_biomarker_count()
+        Database-->>RecoveryService: biomarker_count
+        alt biomarker_count > 0
+            RecoveryService->>Database: fix_inconsistent_pdf()
+            RecoveryService->>Logger: log_success()
+        else
+            RecoveryService->>Logger: log_skip()
+        end
+    end
+    
+    RecoveryService-->>Server: recovery_complete()
+```
+
+### Smart Status Endpoint Pattern
+
+The status endpoint includes intelligent auto-correction:
+
+```mermaid
+sequenceDiagram
+    participant Frontend
+    participant StatusEndpoint
+    participant Database
+    participant Logger
+
+    Frontend->>StatusEndpoint: GET /api/pdf/status/{file_id}
+    StatusEndpoint->>Database: query_pdf_by_file_id()
+    Database-->>StatusEndpoint: PDF record
+    
+    alt status in [pending, processing]
+        StatusEndpoint->>Database: count_biomarkers()
+        Database-->>StatusEndpoint: biomarker_count
+        
+        alt biomarker_count > 0
+            StatusEndpoint->>Database: auto_correct_status()
+            StatusEndpoint->>Logger: log_correction()
+        end
+    end
+    
+    StatusEndpoint-->>Frontend: PDF status (corrected if needed)
+```
+
+### Recovery Benefits
+
+1. **Self-Healing System**: Automatically recovers from server restarts and crashes
+2. **Zero Downtime**: No manual intervention required
+3. **Data Integrity**: Ensures consistent state between processing and status
+4. **Monitoring**: Comprehensive logging for tracking recovery actions
+5. **Performance**: Minimal overhead, only processes truly stuck PDFs
     User->>WelcomePage: Clicks "Create Profile"
     WelcomePage->>Frontend: Navigate to /profiles
     %% OR

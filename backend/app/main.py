@@ -10,14 +10,18 @@ import glob
 from app.core.logging_config import setup_logging
 import time
 from starlette.middleware.base import BaseHTTPMiddleware
+from contextlib import asynccontextmanager
 
 # Set up logging configuration
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-logger.info("Environment loaded")
+# Load environment variables from .env file
+try:
+    load_dotenv()
+    logger.info("Environment variables loaded from .env file")
+except ImportError:
+    logger.warning("python-dotenv not installed. Environment variables must be set manually.")
 
 # Import routers
 from app.api.routes import pdf_routes, biomarker_routes, profile_routes
@@ -126,6 +130,15 @@ async def startup_db_client():
         # Initialize the database
         init_db()
         logger.info("Database initialized successfully")
+        
+        # Recover stuck PDFs from previous server runs
+        try:
+            from app.services.startup_recovery_service import run_startup_recovery
+            recovery_results = run_startup_recovery()
+            logger.info(f"Startup recovery completed: {recovery_results}")
+        except Exception as recovery_error:
+            logger.error(f"Error during PDF recovery: {str(recovery_error)}")
+            # Don't fail startup if recovery fails
         
         # Fix the pdfs table sequence
         try:
