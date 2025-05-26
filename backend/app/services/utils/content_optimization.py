@@ -198,38 +198,41 @@ def compress_text_content(text: str) -> str:
     text = re.sub(r'\s+', ' ', text)
     
     # Remove common boilerplate phrases that don't contain biomarkers
+    # Use more precise patterns that only match complete sentences/lines
     boilerplate = [
-        r"Please consult with your healthcare provider.*?(?=\b[A-Z]|\n|$)",
-        r"This test was developed and its performance.*?(?=\b[A-Z]|\n|$)",
-        r"Reference ranges are provided as general guidance.*?(?=\b[A-Z]|\n|$)",
-        r"Results should be interpreted in conjunction.*?(?=\b[A-Z]|\n|$)",
-        r"For more information about laboratory tests.*?(?=\b[A-Z]|\n|$)",
-        r"Contact your healthcare provider.*?(?=\b[A-Z]|\n|$)",
-        r"This document contains private information.*?(?=\b[A-Z]|\n|$)",
-        r"©\s*\d{4}.*?(?=\b[A-Z]|\n|$)",
+        r"Please consult with your healthcare provider for interpretation[^.]*\.?",
+        r"This test was developed and its performance[^.]*determined by[^.]*\.?",
+        r"Reference ranges are provided as general guidance[^.]*\.?",
+        r"Results should be interpreted in conjunction with[^.]*\.?",
+        r"For more information about laboratory tests[^.]*\.?",
+        r"Contact your healthcare provider[^.]*\.?",
+        r"This document contains private information[^.]*\.?",
+        r"©\s*\d{4}[^.]*\.?",
         r"Page \d+ of \d+",
         r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
     ]
     
     for pattern in boilerplate:
-        text = re.sub(pattern, "", text)
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE)
     
     # Standardize number formats
     text = re.sub(r'(\d+),(\d{3})', r'\1\2', text)  # Remove thousands separators
     
-    # Remove repeated headers
+    # Remove repeated headers - more comprehensive approach
     header_patterns = [
+        r"TEST\s*\|\s*RESULT\s*\|\s*REFERENCE\s*RANGE",
         r"(?:TEST|RESULT|REFERENCE RANGE|UNITS|FLAG|VALUE|NORMAL RANGE)(?:\s*\|){2,}",
         r"(?:PATIENT\s+NAME|PATIENT\s+ID|DOB|DATE COLLECTED|DATE REPORTED)\s*:?"
     ]
     
     for pattern in header_patterns:
         # Find all occurrences
-        header_matches = list(re.finditer(pattern, text, re.IGNORECASE))
+        matches = list(re.finditer(pattern, text, re.IGNORECASE))
         # Keep only the first instance and remove others
-        if len(header_matches) > 1:
-            for match in header_matches[1:]:
-                text = text[:match.start()] + " " + text[match.end():]
+        if len(matches) > 1:
+            # Remove from last to first to maintain indices
+            for match in reversed(matches[1:]):
+                text = text[:match.start()] + text[match.end():]
     
     # Remove excess punctuation 
     text = re.sub(r'[-_*]{3,}', ' ', text)
