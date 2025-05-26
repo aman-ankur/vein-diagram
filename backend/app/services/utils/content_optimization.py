@@ -4,23 +4,27 @@ Content Optimization Utilities
 This module provides utilities for optimizing content for extraction,
 including chunking, token counting, and biomarker pattern recognition.
 """
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import logging
 import re
 import math
+import json
+import os
+from datetime import datetime
 
 # Try to import tiktoken for accurate token counting
 try:
     import tiktoken
     TIKTOKEN_AVAILABLE = True
+    CLAUDE_ENCODING = "cl100k_base"  # Claude uses the same tokenizer as GPT-4
 except ImportError:
     logging.warning("tiktoken not installed. Token counting will use fallback method.")
     TIKTOKEN_AVAILABLE = False
 
 
-def estimate_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
+def estimate_tokens(text: str, model: str = "claude-3-sonnet-20240229") -> int:
     """
-    Estimate the number of tokens in a text string.
+    Estimate the number of tokens in a text string using tiktoken if available.
     
     Args:
         text: The text to estimate tokens for
@@ -35,7 +39,7 @@ def estimate_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
     if TIKTOKEN_AVAILABLE:
         try:
             # Use tiktoken for accurate counting
-            encoding = tiktoken.encoding_for_model(model)
+            encoding = tiktoken.get_encoding(CLAUDE_ENCODING)
             tokens = len(encoding.encode(text))
             return tokens
         except Exception as e:
@@ -48,15 +52,18 @@ def estimate_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
 def chunk_text(
     text: str, 
     max_tokens: int = 8000, 
-    overlap_tokens: int = 200
+    overlap_tokens: int = 200,
+    smart_boundaries: bool = True
 ) -> List[str]:
     """
-    Split text into chunks of approximately max_tokens with overlap.
+    Split text into chunks of approximately max_tokens with overlap,
+    respecting natural text boundaries when possible.
     
     Args:
         text: Text to split
         max_tokens: Maximum tokens per chunk
         overlap_tokens: Number of overlapping tokens between chunks
+        smart_boundaries: Whether to use smart boundary detection for better chunking
         
     Returns:
         List of text chunks
@@ -66,23 +73,90 @@ def chunk_text(
         return [text]
     
     chunks = []
-    paragraphs = text.split('\n\n')
+    
+    if smart_boundaries:
+        # Split on section boundaries first
+        section_pattern = r'(?:\n\s*#+\s+[A-Z0-9]|\n\s*[A-Z][A-Z\s]+:|\n\s*[A-Z][A-Z\s]+\n)'
+        sections = re.split(section_pattern, text)
+        
+        # If splitting by sections created reasonable chunks
+        if sections and max(estimate_tokens(s) for s in sections) < max_tokens * 0.8:
+            current_chunk = []
+            current_tokens = 0
+            
+            for section in sections:
+                if not section.strip():
+                    continue
+                
+                section_tokens = estimate_tokens(section)
+                
+                # If adding section would exceed the max tokens
+                if current_tokens + section_tokens > max_tokens and current_chunk:
+                    chunks.append("\n".join(current_chunk))
+                    
+                    # Start new chunk
+                    current_chunk = []
+                    current_tokens = 0
+                
+                # Add section to current chunk
+                current_chunk.append(section)
+                current_tokens += section_tokens
+            
+            # Add the final chunk
+            if current_chunk:
+                chunks.append("\n".join(current_chunk))
+            
+            return chunks
+    
+    # Fall back to paragraph splitting if sections don't work well
+    paragraphs = re.split(r'\n\s*\n', text)
     
     current_chunk = []
     current_tokens = 0
     
     for paragraph in paragraphs:
+        if not paragraph.strip():
+            continue
+            
         para_tokens = estimate_tokens(paragraph)
+        
+        # If paragraph is too large by itself, split it further
+        if para_tokens > max_tokens:
+            if current_chunk:
+                chunks.append("\n\n".join(current_chunk))
+                current_chunk = []
+                current_tokens = 0
+            
+            # Split large paragraph by sentences
+            sentences = re.split(r'(?<=[.!?])\s+', paragraph)
+            sentence_chunk = []
+            sentence_tokens = 0
+            
+            for sentence in sentences:
+                sent_tokens = estimate_tokens(sentence)
+                
+                if sentence_tokens + sent_tokens > max_tokens and sentence_chunk:
+                    chunks.append(" ".join(sentence_chunk))
+                    sentence_chunk = []
+                    sentence_tokens = 0
+                
+                sentence_chunk.append(sentence)
+                sentence_tokens += sent_tokens
+            
+            if sentence_chunk:
+                chunks.append(" ".join(sentence_chunk))
+            
+            continue
         
         # If adding this paragraph would exceed the limit
         if current_tokens + para_tokens > max_tokens and current_chunk:
             # Join current chunk and add to results
-            chunks.append('\n\n'.join(current_chunk))
+            chunks.append("\n\n".join(current_chunk))
             
             # Start new chunk with overlap
-            # Find paragraphs to include for overlap
             overlap_paragraphs = []
             overlap_tokens_count = 0
+            
             for p in reversed(current_chunk):
                 p_tokens = estimate_tokens(p)
                 if overlap_tokens_count + p_tokens <= overlap_tokens:
@@ -101,112 +175,107 @@ def chunk_text(
     
     # Add final chunk if not empty
     if current_chunk:
-        chunks.append('\n\n'.join(current_chunk))
+        chunks.append("\n\n".join(current_chunk))
     
     return chunks
 
 
-def optimize_content_chunks(
-    pages_text_dict: Dict[int, str],
-    document_structure: Dict[str, Any],
-    max_tokens_per_chunk: int = 8000
-) -> List[Dict[str, Any]]:
+def compress_text_content(text: str) -> str:
     """
-    Create optimized content chunks based on document structure.
+    Apply compression techniques to reduce token usage
+    while preserving biomarker information.
     
     Args:
-        pages_text_dict: Dictionary mapping page numbers to text
-        document_structure: Structure information about the document
-        max_tokens_per_chunk: Maximum tokens per chunk
+        text: Text to compress
         
     Returns:
-        List of content chunks
+        Compressed text
     """
-    chunks = []
+    if not text:
+        return ""
     
-    # Extract tables as separate chunks (high priority for biomarkers)
-    tables = document_structure.get("tables", {})
-    for page_num, page_tables in tables.items():
-        for table in page_tables:
-            if "text" in table and table["text"]:
-                # Table has its own text
-                table_text = table["text"]
-            else:
-                # Extract table from page text (approximate)
-                # In real implementation, use zone coordinates for better extraction
-                page_text = pages_text_dict.get(page_num, "")
-                table_text = page_text  # Simplified - would need coordinates to extract
-            
-            chunk = {
-                "text": table_text,
-                "page_num": page_num,
-                "region_type": "table",
-                "estimated_tokens": estimate_tokens(table_text),
-                "biomarker_confidence": 0.9,  # Tables likely have biomarkers
-                "context": f"Page {page_num}, Table {table.get('index', 0)}"
-            }
-            chunks.append(chunk)
+    # Remove redundant whitespace
+    text = re.sub(r'\s+', ' ', text)
     
-    # Process remaining content by zones
-    for page_num, page_text in pages_text_dict.items():
-        # Skip pages that don't have text
-        if not page_text.strip():
-            continue
-            
-        # Skip pages already fully processed as tables
-        if page_num in tables:
-            # TODO: This is simplified - actual implementation should check
-            # if any text remains outside the tables
-            continue
+    # Remove common boilerplate phrases that don't contain biomarkers
+    boilerplate = [
+        r"Please consult with your healthcare provider.*?(?=\b[A-Z]|\n|$)",
+        r"This test was developed and its performance.*?(?=\b[A-Z]|\n|$)",
+        r"Reference ranges are provided as general guidance.*?(?=\b[A-Z]|\n|$)",
+        r"Results should be interpreted in conjunction.*?(?=\b[A-Z]|\n|$)",
+        r"For more information about laboratory tests.*?(?=\b[A-Z]|\n|$)",
+        r"Contact your healthcare provider.*?(?=\b[A-Z]|\n|$)",
+        r"This document contains private information.*?(?=\b[A-Z]|\n|$)",
+        r"©\s*\d{4}.*?(?=\b[A-Z]|\n|$)",
+        r"Page \d+ of \d+",
+        r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+    ]
+    
+    for pattern in boilerplate:
+        text = re.sub(pattern, "", text)
+    
+    # Standardize number formats
+    text = re.sub(r'(\d+),(\d{3})', r'\1\2', text)  # Remove thousands separators
+    
+    # Remove repeated headers
+    header_patterns = [
+        r"(?:TEST|RESULT|REFERENCE RANGE|UNITS|FLAG|VALUE|NORMAL RANGE)(?:\s*\|){2,}",
+        r"(?:PATIENT\s+NAME|PATIENT\s+ID|DOB|DATE COLLECTED|DATE REPORTED)\s*:?"
+    ]
+    
+    for pattern in header_patterns:
+        # Find all occurrences
+        header_matches = list(re.finditer(pattern, text, re.IGNORECASE))
+        # Keep only the first instance and remove others
+        if len(header_matches) > 1:
+            for match in header_matches[1:]:
+                text = text[:match.start()] + " " + text[match.end():]
+    
+    # Remove excess punctuation 
+    text = re.sub(r'[-_*]{3,}', ' ', text)
+    
+    # Consolidate whitespace
+    text = re.sub(r'\s+', ' ', text)
+    
+    return text.strip()
+
+
+def extract_table_text(table: Dict[str, Any], page_text: str) -> str:
+    """
+    Extract text from a table region using table coordinates.
+    
+    Args:
+        table: Table information including bbox 
+        page_text: Full page text
         
-        # Check for zones
-        zones = document_structure.get("page_zones", {}).get(page_num, {})
-        
-        if zones and "content" in zones:
-            # Process content zone (most important for biomarkers)
-            content_zone = zones["content"]
-            zone_text = content_zone.get("text", "")
-            
-            if not zone_text and "content" in page_text.lower():
-                # Fallback if zone text not extracted
-                zone_text = page_text
-            
-            # Skip if no text
-            if not zone_text.strip():
-                continue
-                
-            # Split content into chunks if needed
-            content_chunks = chunk_text(zone_text, max_tokens_per_chunk)
-            
-            for i, chunk_text in enumerate(content_chunks):
-                chunk = {
-                    "text": chunk_text,
-                    "page_num": page_num,
-                    "region_type": "content",
-                    "estimated_tokens": estimate_tokens(chunk_text),
-                    "biomarker_confidence": 0.7,  # Content likely has biomarkers
-                    "context": f"Page {page_num}, Content {i+1}/{len(content_chunks)}"
-                }
-                chunks.append(chunk)
-        else:
-            # Process whole page if no zones
-            page_chunks = chunk_text(page_text, max_tokens_per_chunk)
-            
-            for i, chunk_text in enumerate(page_chunks):
-                chunk = {
-                    "text": chunk_text,
-                    "page_num": page_num,
-                    "region_type": "text",
-                    "estimated_tokens": estimate_tokens(chunk_text),
-                    "biomarker_confidence": 0.5,  # Unknown if has biomarkers
-                    "context": f"Page {page_num}, Chunk {i+1}/{len(page_chunks)}"
-                }
-                chunks.append(chunk)
+    Returns:
+        Table text
+    """
+    if "text" in table and table["text"]:
+        return table["text"]
     
-    # Sort chunks by page_num and then biomarker_confidence
-    chunks.sort(key=lambda x: (x["page_num"], -x["biomarker_confidence"]))
+    # This is a simplified implementation
+    # In a real implementation, you would use the table boundaries
+    # to extract the relevant portion of text from the page
+    # using more advanced text region extraction
     
-    return chunks
+    # For now, returning a section of the page text
+    # that likely contains the table based on text cues
+    
+    # Look for tabular patterns in the text
+    table_section_patterns = [
+        r'(?:\+[-+]+\+[\s\S]*?\+[-+]+\+)',
+        r'(?:\|[^|]*\|[^|]*\|[\s\S]*?\|[^|]*\|)',
+        r'(?:(?:TEST|RESULT|REFERENCE|UNITS|VALUE)(?:\s*\|\s*|\s{2,})){2,}[\s\S]*?(?:\n\s*\n|\Z)'
+    ]
+    
+    for pattern in table_section_patterns:
+        match = re.search(pattern, page_text)
+        if match:
+            return match.group(0)
+    
+    # If no table pattern found, return a portion of the page
+    return page_text
 
 
 def detect_biomarker_patterns(text: str) -> float:
@@ -221,19 +290,38 @@ def detect_biomarker_patterns(text: str) -> float:
     """
     # Common biomarker patterns
     patterns = [
-        r"\b[A-Za-z\s]+:\s*\d+[\.,]?\d*\s*[a-zA-Z/%]+",  # Name: Value Unit
-        r"\b[A-Za-z\s]+\s+\d+[\.,]?\d*\s*[a-zA-Z/%]+\s*\(.*?\)",  # Name Value Unit (Ref)
-        r"\b[A-Za-z\s]+\s+\d+[\.,]?\d*\s*[a-zA-Z/%]+",  # Name Value Unit
-        r"\b(?:high|low|normal|positive|negative)\b",  # Result indicators
-        r"\b(?:reference\s*range|normal\s*range)\b",  # Reference range indicators
-        r"(?:\d+\s*[\-–]\s*\d+)",  # Numeric ranges
+        # Value with units
+        r"\b\d+[\.,]?\d*\s*(?:mg/[dD][lL]|g/[dD][lL]|mmol/L|U/L|IU/L|ng/m[lL]|pg/m[lL]|μg/[dD][lL]|mcg/[dD][lL]|%|mEq/L)",
+        
+        # Name: Value Unit format
+        r"\b[A-Za-z\s]+:\s*\d+[\.,]?\d*\s*[a-zA-Z/%]+",
+        
+        # Name Value Unit (Reference) format
+        r"\b[A-Za-z\s]+\s+\d+[\.,]?\d*\s*[a-zA-Z/%]+\s*\(.*?\)",
+        
+        # Result indicators
+        r"\b(?:high|low|normal|positive|negative|abnormal)\b",
+        
+        # Reference range indicators
+        r"\b(?:reference\s*range|normal\s*range|ref[.]?\s*range)\b",
+        
+        # Numeric ranges
+        r"(?:\d+\s*[\-–]\s*\d+)",
+        
+        # Common biomarker names with units
+        r"\b(?:glucose|cholesterol|triglycerides|hdl|ldl|alt|ast|tsh|t4|hemoglobin|a1c|creatinine|sodium|potassium|calcium|vitamin\s+[a-d])\b.{0,30}?\d+[\.,]?\d*"
     ]
     
     # Count matches
-    match_count = 0
-    for pattern in patterns:
+    weighted_matches = 0
+    for i, pattern in enumerate(patterns):
+        pattern_weight = 1.0
+        # Increase weight for more specific patterns
+        if i < 3:  # Unit patterns are stronger indicators
+            pattern_weight = 2.0
+        
         matches = re.findall(pattern, text, re.IGNORECASE)
-        match_count += len(matches)
+        weighted_matches += len(matches) * pattern_weight
     
     # Calculate confidence based on match density
     text_length = len(text)
@@ -241,45 +329,450 @@ def detect_biomarker_patterns(text: str) -> float:
         return 0.0
         
     # Normalize by text length to avoid bias for longer texts
-    density = match_count / (text_length / 100)  # Matches per 100 chars
+    density = weighted_matches / (text_length / 100)  # Weighted matches per 100 chars
     
     # Map density to confidence score
     if density > 5:
-        confidence = 0.9  # Very high density
+        confidence = 0.95  # Very high density
     elif density > 2:
-        confidence = 0.8  # High density
+        confidence = 0.85  # High density
     elif density > 1:
-        confidence = 0.7  # Moderate density
+        confidence = 0.75  # Medium density
     elif density > 0.5:
-        confidence = 0.6  # Some matches
-    elif density > 0.1:
-        confidence = 0.4  # Few matches
+        confidence = 0.6   # Low density
+    elif density > 0.2:
+        confidence = 0.4   # Very low density
     else:
-        confidence = 0.2  # Very few matches
+        confidence = 0.2   # Minimal indicators
+    
+    # Check for strong biomarker section headers
+    section_headers = [
+        r"\b(?:laboratory\s+results|lab\s+results|test\s+results)\b",
+        r"\b(?:clinical\s+chemistry|chemistry\s+panel|chemistry\s+results)\b",
+        r"\b(?:hematology\s+panel|hematology\s+results|blood\s+panel)\b",
+        r"\b(?:lipid\s+panel|metabolic\s+panel|liver\s+panel|kidney\s+panel)\b"
+    ]
+    
+    for header in section_headers:
+        if re.search(header, text, re.IGNORECASE):
+            confidence = min(0.99, confidence + 0.15)  # Boost confidence
     
     return confidence
 
 
+def split_zone_by_biomarker_density(
+    zone_data: Dict[str, Any], 
+    page_text: str,
+    max_tokens: int = 4000
+) -> List[Dict[str, Any]]:
+    """
+    Split a document zone into chunks based on biomarker density.
+    
+    Args:
+        zone_data: Zone information 
+        page_text: Full page text
+        max_tokens: Maximum tokens per chunk
+        
+    Returns:
+        List of ContentChunk objects
+    """
+    zone_text = zone_data.get("text", "")
+    page_num = zone_data.get("page_number", 0)
+    zone_type = zone_data.get("zone_type", "content")
+    
+    if not zone_text and page_text:
+        # Extract zone text from page_text if not provided
+        # This is a simplified implementation
+        zone_text = page_text
+    
+    if not zone_text.strip():
+        return []
+    
+    # Split text into paragraphs
+    paragraphs = re.split(r'\n\s*\n', zone_text)
+    
+    # Analyze biomarker density for each paragraph
+    scored_paragraphs = []
+    for para in paragraphs:
+        if not para.strip():
+            continue
+        scored_paragraphs.append({
+            "text": para,
+            "biomarker_confidence": detect_biomarker_patterns(para),
+            "tokens": estimate_tokens(para)
+        })
+    
+    # Sort paragraphs by biomarker confidence (high to low)
+    scored_paragraphs.sort(key=lambda x: x["biomarker_confidence"], reverse=True)
+    
+    # Create chunks optimized for biomarker extraction
+    chunks = []
+    current_chunk = []
+    current_tokens = 0
+    current_confidence = 0
+    
+    # First prioritize high-confidence paragraphs
+    high_confidence_threshold = 0.7
+    for para in [p for p in scored_paragraphs if p["biomarker_confidence"] >= high_confidence_threshold]:
+        para_tokens = para["tokens"]
+        
+        # If this paragraph alone exceeds max tokens, split it
+        if para_tokens > max_tokens:
+            if current_chunk:
+                # Save current chunk first
+                chunk_text = "\n\n".join([p["text"] for p in current_chunk])
+                chunk_confidence = sum(p["biomarker_confidence"] for p in current_chunk) / len(current_chunk)
+                
+                chunks.append({
+                    "text": chunk_text,
+                    "page_num": page_num,
+                    "region_type": zone_type,
+                    "estimated_tokens": current_tokens,
+                    "biomarker_confidence": chunk_confidence,
+                    "context": f"Page {page_num}, {zone_type.capitalize()}"
+                })
+                
+                # Reset
+                current_chunk = []
+                current_tokens = 0
+                current_confidence = 0
+            
+            # Split the large paragraph into smaller chunks
+            for text_part in chunk_text(para["text"], max_tokens, overlap_tokens=100):
+                chunks.append({
+                    "text": text_part,
+                    "page_num": page_num,
+                    "region_type": zone_type,
+                    "estimated_tokens": estimate_tokens(text_part),
+                    "biomarker_confidence": para["biomarker_confidence"],
+                    "context": f"Page {page_num}, {zone_type.capitalize()}"
+                })
+            
+            continue
+            
+        # If adding this paragraph would exceed max tokens
+        if current_tokens + para_tokens > max_tokens and current_chunk:
+            # Save current chunk
+            chunk_text = "\n\n".join([p["text"] for p in current_chunk])
+            chunk_confidence = sum(p["biomarker_confidence"] for p in current_chunk) / len(current_chunk)
+            
+            chunks.append({
+                "text": chunk_text,
+                "page_num": page_num,
+                "region_type": zone_type,
+                "estimated_tokens": current_tokens,
+                "biomarker_confidence": chunk_confidence,
+                "context": f"Page {page_num}, {zone_type.capitalize()}"
+            })
+            
+            # Reset
+            current_chunk = []
+            current_tokens = 0
+            current_confidence = 0
+        
+        # Add paragraph to current chunk
+        current_chunk.append(para)
+        current_tokens += para_tokens
+        current_confidence += para["biomarker_confidence"]
+    
+    # Process remaining lower-confidence paragraphs
+    for para in [p for p in scored_paragraphs if p["biomarker_confidence"] < high_confidence_threshold]:
+        para_tokens = para["tokens"]
+        
+        # Skip very low confidence paragraphs unless they're small
+        if para["biomarker_confidence"] < 0.3 and para_tokens > 100:
+            continue
+            
+        # If adding this paragraph would exceed max tokens
+        if current_tokens + para_tokens > max_tokens and current_chunk:
+            # Save current chunk
+            chunk_text = "\n\n".join([p["text"] for p in current_chunk])
+            chunk_confidence = sum(p["biomarker_confidence"] for p in current_chunk) / len(current_chunk)
+            
+            chunks.append({
+                "text": chunk_text,
+                "page_num": page_num,
+                "region_type": zone_type,
+                "estimated_tokens": current_tokens,
+                "biomarker_confidence": chunk_confidence,
+                "context": f"Page {page_num}, {zone_type.capitalize()}"
+            })
+            
+            # Reset
+            current_chunk = []
+            current_tokens = 0
+            current_confidence = 0
+        
+        # Add paragraph to current chunk
+        current_chunk.append(para)
+        current_tokens += para_tokens
+        current_confidence += para["biomarker_confidence"]
+    
+    # Add final chunk if not empty
+    if current_chunk:
+        chunk_text = "\n\n".join([p["text"] for p in current_chunk])
+        chunk_confidence = sum(p["biomarker_confidence"] for p in current_chunk) / len(current_chunk)
+        
+        chunks.append({
+            "text": chunk_text,
+            "page_num": page_num,
+            "region_type": zone_type,
+            "estimated_tokens": current_tokens,
+            "biomarker_confidence": chunk_confidence,
+            "context": f"Page {page_num}, {zone_type.capitalize()}"
+        })
+    
+    return chunks
+
+
+def split_text_by_biomarker_density(
+    text: str,
+    max_tokens: int = 4000,
+    page_num: int = 0
+) -> List[Dict[str, Any]]:
+    """
+    Split text into chunks based on biomarker density.
+    Used when zone information is not available.
+    
+    Args:
+        text: Text to split
+        max_tokens: Maximum tokens per chunk
+        page_num: Page number
+        
+    Returns:
+        List of ContentChunk objects
+    """
+    if not text.strip():
+        return []
+    
+    # If text is already small enough, check its biomarker confidence
+    if estimate_tokens(text) <= max_tokens:
+        confidence = detect_biomarker_patterns(text)
+        return [{
+            "text": text,
+            "page_num": page_num,
+            "region_type": "text",
+            "estimated_tokens": estimate_tokens(text),
+            "biomarker_confidence": confidence,
+            "context": f"Page {page_num}, Full Text"
+        }]
+    
+    # Create a fake zone_data to reuse split_zone_by_biomarker_density
+    zone_data = {
+        "text": text,
+        "page_number": page_num,
+        "zone_type": "text"
+    }
+    
+    return split_zone_by_biomarker_density(zone_data, text, max_tokens)
+
+
+def optimize_content_chunks(
+    pages_text_dict: Dict[int, str],
+    document_structure: Dict[str, Any],
+    max_tokens_per_chunk: int = 4000
+) -> List[Dict[str, Any]]:
+    """
+    Create optimized content chunks based on document structure.
+    
+    Args:
+        pages_text_dict: Dictionary mapping page numbers to text
+        document_structure: Structure information about the document
+        max_tokens_per_chunk: Maximum tokens per chunk
+        
+    Returns:
+        List of content chunks
+    """
+    chunks = []
+    
+    # Enhanced logging
+    logging.info(f"Optimizing content from {len(pages_text_dict)} pages into chunks")
+    
+    # Process biomarker regions first if available (highest priority)
+    biomarker_regions = document_structure.get("biomarker_regions", [])
+    if biomarker_regions:
+        logging.info(f"Processing {len(biomarker_regions)} identified biomarker regions")
+        for region in biomarker_regions:
+            region_text = region.get("text", "")
+            page_num = region.get("page_num", 0)
+            
+            if not region_text and page_num in pages_text_dict:
+                # Extract region text from page if coordinates available
+                # This is a simplified implementation
+                region_text = pages_text_dict[page_num]
+            
+            if not region_text.strip():
+                continue
+            
+            # Compress the text to reduce tokens
+            compressed_text = compress_text_content(region_text)
+            tokens_saved = estimate_tokens(region_text) - estimate_tokens(compressed_text)
+            if tokens_saved > 0:
+                logging.debug(f"Compressed biomarker region text, saved {tokens_saved} tokens")
+            
+            chunk = {
+                "text": compressed_text,
+                "page_num": page_num,
+                "region_type": "biomarker_region",
+                "estimated_tokens": estimate_tokens(compressed_text),
+                "biomarker_confidence": region.get("biomarker_confidence", 0.9),
+                "context": f"Page {page_num}, Biomarker Region"
+            }
+            chunks.append(chunk)
+    
+    # Extract tables as separate chunks (high priority for biomarkers)
+    tables = document_structure.get("tables", {})
+    if tables:
+        table_count = sum(len(page_tables) for page_tables in tables.values())
+        logging.info(f"Processing {table_count} tables from {len(tables)} pages")
+        
+        for page_num, page_tables in tables.items():
+            page_text = pages_text_dict.get(page_num, "")
+            
+            for i, table in enumerate(page_tables):
+                table_text = extract_table_text(table, page_text)
+                
+                if not table_text.strip():
+                    continue
+                
+                # Compress the text to reduce tokens 
+                compressed_text = compress_text_content(table_text)
+                
+                chunk = {
+                    "text": compressed_text,
+                    "page_num": page_num,
+                    "region_type": "table",
+                    "estimated_tokens": estimate_tokens(compressed_text),
+                    "biomarker_confidence": 0.9,  # Tables likely have biomarkers
+                    "context": f"Page {page_num}, Table {i+1}/{len(page_tables)}"
+                }
+                chunks.append(chunk)
+    
+    # Process remaining content by zones
+    processed_pages = set()
+    page_zones = document_structure.get("page_zones", {})
+    
+    if page_zones:
+        logging.info(f"Processing content zones from {len(page_zones)} pages")
+        
+        for page_num, zones in page_zones.items():
+            page_text = pages_text_dict.get(page_num, "")
+            if not page_text.strip():
+                continue
+            
+            # Process content and results zones (most important for biomarkers)
+            for zone_type in ["content", "results"]:
+                if zone_type in zones:
+                    zone_data = zones[zone_type]
+                    zone_data["page_number"] = page_num  # Ensure page number is set
+                    
+                    zone_chunks = split_zone_by_biomarker_density(
+                        zone_data, page_text, max_tokens_per_chunk
+                    )
+                    
+                    chunks.extend(zone_chunks)
+                    processed_pages.add(page_num)
+    
+    # Process any remaining pages not handled by zones or tables
+    remaining_pages = set(pages_text_dict.keys()) - processed_pages
+    if remaining_pages:
+        logging.info(f"Processing {len(remaining_pages)} remaining pages without structure info")
+        
+        for page_num in remaining_pages:
+            page_text = pages_text_dict.get(page_num, "")
+            if not page_text.strip():
+                continue
+            
+            # Compress the text to reduce tokens
+            compressed_text = compress_text_content(page_text)
+            
+            # Split compressed text by biomarker density
+            page_chunks = split_text_by_biomarker_density(
+                compressed_text, max_tokens_per_chunk, page_num
+            )
+            
+            chunks.extend(page_chunks)
+    
+    # Sort chunks by biomarker confidence (highest first) 
+    # but keep page order for readability
+    chunks.sort(key=lambda x: (x["page_num"], -x["biomarker_confidence"]))
+    
+    # Track optimization metrics
+    original_tokens = sum(estimate_tokens(text) for text in pages_text_dict.values())
+    optimized_tokens = sum(chunk["estimated_tokens"] for chunk in chunks)
+    reduction_percentage = (1 - (optimized_tokens / original_tokens)) * 100 if original_tokens > 0 else 0
+    
+    logging.info(f"Content optimization complete: {len(chunks)} chunks created")
+    logging.info(f"Token reduction: {original_tokens} -> {optimized_tokens} ({reduction_percentage:.2f}%)")
+    
+    # Save optimization stats for debugging if needed
+    if os.environ.get("DEBUG_CONTENT_OPTIMIZATION", "0") == "1":
+        debug_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'logs')
+        os.makedirs(debug_dir, exist_ok=True)
+        
+        debug_file = os.path.join(debug_dir, f"content_optimization_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        with open(debug_file, 'w') as f:
+            json.dump({
+                "original_tokens": original_tokens,
+                "optimized_tokens": optimized_tokens,
+                "reduction_percentage": reduction_percentage,
+                "chunk_count": len(chunks),
+                "chunk_summary": [
+                    {
+                        "page_num": c["page_num"],
+                        "region_type": c["region_type"],
+                        "tokens": c["estimated_tokens"],
+                        "confidence": c["biomarker_confidence"]
+                    } for c in chunks
+                ]
+            }, f, indent=2)
+    
+    return chunks
+
+
 def enhance_chunk_confidence(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Enhance confidence scores of chunks based on biomarker patterns.
+    Enhance chunk confidence scores based on content analysis.
     
     Args:
         chunks: List of content chunks
         
     Returns:
-        Updated list of content chunks with enhanced confidence scores
+        Enhanced chunks with improved confidence scores
     """
-    for chunk in chunks:
-        # Skip chunks that already have high confidence
-        if chunk["biomarker_confidence"] >= 0.8:
-            continue
-            
-        # Analyze text for biomarker patterns
-        pattern_confidence = detect_biomarker_patterns(chunk["text"])
-        
-        # Update confidence if pattern detection is higher
-        if pattern_confidence > chunk["biomarker_confidence"]:
-            chunk["biomarker_confidence"] = pattern_confidence
+    # Get global stats for normalization
+    confidences = [c["biomarker_confidence"] for c in chunks]
+    max_conf = max(confidences) if confidences else 0.9
+    min_conf = min(confidences) if confidences else 0.1
     
-    return chunks 
+    # Create a copy to avoid modifying the input
+    enhanced_chunks = []
+    
+    for chunk in chunks:
+        enhanced_chunk = dict(chunk)
+        
+        # Additional confidence boosters
+        boosters = 0
+        
+        # Boost confidence for chunks with known biomarker indicators
+        text = chunk["text"]
+        
+        # Check for table-like structures (strong indicator)
+        if re.search(r'(?:\|[^|]+\|[^|]+\|)|(?:[^\t]+\t[^\t]+\t[^\t]+)', text):
+            boosters += 0.1
+        
+        # Check for result/test/reference range headers
+        if re.search(r'\b(?:TEST|RESULT|REFERENCE RANGE)\b', text, re.IGNORECASE):
+            boosters += 0.05
+        
+        # Check for result flags
+        if re.search(r'\b(?:HIGH|LOW|ABNORMAL|NORMAL|H|L|A|N)\b', text, re.IGNORECASE):
+            boosters += 0.05
+        
+        # Apply boosters (capped at 0.99)
+        new_confidence = min(0.99, chunk["biomarker_confidence"] + boosters)
+        enhanced_chunk["biomarker_confidence"] = new_confidence
+        
+        enhanced_chunks.append(enhanced_chunk)
+    
+    return enhanced_chunks 

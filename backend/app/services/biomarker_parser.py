@@ -138,31 +138,57 @@ def with_timeout(timeout_seconds, default_return=None):
     return decorator
 
 async def extract_biomarkers_with_claude(
-    prompt: str,
+    text: str,
     extraction_context: Optional[Dict[str, Any]] = None,
-    document_structure: Optional[Dict[str, Any]] = None
-) -> List[Dict[str, Any]]:
+    adaptive_prompt: Optional[str] = None
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """
-    Extract biomarkers using Claude API, with enhanced validation and context.
+    Extract biomarkers using Claude API with context-aware optimization.
     
     Args:
-        prompt: The prompt to send to Claude
-        extraction_context: Optional extraction context for validation
-        document_structure: Optional document structure for validation
+        text: Text to extract biomarkers from
+        extraction_context: Optional context from previous extractions
+        adaptive_prompt: Optional custom prompt for optimization
         
     Returns:
-        List of extracted biomarkers
+        Tuple of (list of extracted biomarkers, updated extraction context)
     """
-    logger.info(f"[CLAUDE_EXTRACTION_START] Extracting biomarkers from {filename}")
+    import os
+    from datetime import datetime
+    import json
+    import re
+    import anthropic
+    
+    from app.services.utils.content_optimization import estimate_tokens
+    
+    # Get a unique identifier for logging/debugging
+    filename = f"extract_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    
+    logger.info(f"[CLAUDE_EXTRACTION_START] Extracting biomarkers with context optimization")
     start_time = datetime.now()
 
-    # Preprocess the page text
-    processed_text = _preprocess_text_for_claude(page_text)
-    logger.debug(f"[TEXT_PREPROCESSING] Preprocessed page text from {len(page_text)} to {len(processed_text)} characters for file {filename}")
-
-    # Prepare the prompt for Claude - simplified for single page, no metadata request
-    prompt = """
-Extract ONLY legitimate clinical biomarkers from this single page of a medical lab report. Focus exclusively on measurements that have numeric values and units.
+    # Preprocess the text if it's not already preprocessed
+    processed_text = _preprocess_text_for_claude(text)
+    logger.debug(f"[TEXT_PREPROCESSING] Preprocessed text from {len(text)} to {len(processed_text)} characters")
+    
+    # Track token metrics
+    raw_text_tokens = estimate_tokens(text)
+    processed_text_tokens = estimate_tokens(processed_text)
+    token_reduction = raw_text_tokens - processed_text_tokens
+    
+    if token_reduction > 0:
+        logger.debug(f"[TOKEN_OPTIMIZATION] Reduced tokens: {token_reduction} ({token_reduction/raw_text_tokens*100:.1f}%)")
+    
+    # Use provided adaptive prompt or create standard prompt
+    if adaptive_prompt:
+        prompt = adaptive_prompt
+        logger.debug(f"[ADAPTIVE_PROMPT] Using provided adaptive prompt ({estimate_tokens(adaptive_prompt)} tokens)")
+    else:
+        # Standard prompt - simplified for single text chunk, no metadata request
+        prompt = """
+Extract ONLY legitimate clinical biomarkers from this medical lab report text. Focus exclusively on measurements that have numeric values and units.
 
 For each biomarker, provide:
 - name: Standardized name
@@ -200,23 +226,34 @@ Return valid JSON matching exactly this structure (NO METADATA):
   ]
 }
 
-Your response MUST be COMPLETE, VALID JSON with no truncation.
-
-Lab report page text:
+Lab report text:
 """ + processed_text
-
+        
+        logger.debug(f"[STANDARD_PROMPT] Using standard prompt ({estimate_tokens(prompt)} tokens)")
+    
+    # Create or update extraction context
+    updated_context = extraction_context.copy() if extraction_context else {
+        "known_biomarkers": {},
+        "extraction_patterns": [],
+        "section_context": {},
+        "call_count": 0,
+        "token_usage": {"prompt": 0, "completion": 0, "total": 0},
+        "confidence_threshold": 0.7
+    }
+    
+    # Increment call count in context
+    updated_context["call_count"] = updated_context.get("call_count", 0) + 1
+    
     try:
         logger.debug("[CLAUDE_API_CALL] Sending request to Claude API")
         api_start_time = datetime.now()
         
         # Get the configured Claude API key
-        import os
         api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
         if not api_key:
             logger.error("[API_KEY_ERROR] Claude API key not found in environment variables")
             raise ValueError("Claude API key not found. Set ANTHROPIC_API_KEY environment variable.")
         
-        import anthropic
         client = anthropic.Anthropic(api_key=api_key)
         
         # Use the timeout wrapper for the API call
@@ -225,7 +262,7 @@ Lab report page text:
             # Make the API call with max tokens and timeout
             response = client.messages.create(
                 model="claude-3-sonnet-20240229",
-                max_tokens=4000,  # Increased from 2000/4000 to handle larger responses
+                max_tokens=4000,
                 temperature=0.0,
                 system="You are a biomarker extraction expert specializing in parsing medical lab reports. Extract ONLY valid clinical biomarkers with measurements and reference ranges. Your output MUST be COMPLETE, VALID JSON.",
                 messages=[
@@ -237,48 +274,54 @@ Lab report page text:
         # Call the API with timeout
         response = call_claude_api()
         
-        # If the call timed out, return empty results and fall back to text-based parser for this page
+        # If the call timed out, return empty results and fall back to text-based parser
         if response is None:
-            logger.error(f"[CLAUDE_API_TIMEOUT] API call timed out for page processing of {filename}")
-            logger.info(f"[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to timeout")
-            fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
-            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
-            return fallback_results, {} # Return empty metadata dict
+            logger.error(f"[CLAUDE_API_TIMEOUT] API call timed out after 10 minutes")
+            logger.info(f"[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to timeout")
+            fallback_results, _ = parse_biomarkers_from_text(text)
+            
+            # Update context with fallback results
+            updated_context["token_usage"]["prompt"] += raw_text_tokens
+            updated_context["token_usage"]["total"] += raw_text_tokens
+            
+            # Log fallback metrics
+            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
+            
+            return fallback_results, updated_context
 
         api_duration = (datetime.now() - api_start_time).total_seconds()
-        logger.info(f"[CLAUDE_API_RESPONSE] Received response from Claude API for page processing of {filename} in {api_duration:.2f} seconds")
+        logger.info(f"[CLAUDE_API_RESPONSE] Received response in {api_duration:.2f} seconds")
+        
+        # Update token usage in context
+        prompt_tokens = estimate_tokens(prompt)
+        completion_tokens = estimate_tokens(response.content[0].text)
+        total_tokens = prompt_tokens + completion_tokens
+        
+        updated_context["token_usage"]["prompt"] = updated_context["token_usage"].get("prompt", 0) + prompt_tokens
+        updated_context["token_usage"]["completion"] = updated_context["token_usage"].get("completion", 0) + completion_tokens
+        updated_context["token_usage"]["total"] = updated_context["token_usage"].get("total", 0) + total_tokens
         
         # Get the response content
         response_content = response.content[0].text
         
-        # Save the raw response for debugging
-        debug_raw_response_path = os.path.join(log_dir, f"claude_response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
-        try:
-            with open(debug_raw_response_path, "w") as f:
-                f.write(response_content)
-            logger.debug(f"[RAW_RESPONSE_SAVED] Raw Claude response saved to {debug_raw_response_path}")
-        except Exception as e:
-            logger.error(f"[RAW_RESPONSE_SAVE_ERROR] Could not save raw response: {str(e)}")
+        # Save the raw response for debugging if DEBUG_CLAUDE_RESPONSES is enabled
+        if os.environ.get("DEBUG_CLAUDE_RESPONSES", "0") == "1":
+            debug_raw_response_path = os.path.join(log_dir, f"claude_response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+            try:
+                with open(debug_raw_response_path, "w") as f:
+                    f.write(response_content)
+                logger.debug(f"[RAW_RESPONSE_SAVED] Raw Claude response saved to {debug_raw_response_path}")
+            except Exception as e:
+                logger.error(f"[RAW_RESPONSE_SAVE_ERROR] Could not save raw response: {str(e)}")
         
         # Try to parse the JSON response
         try:
             # Extract the JSON part from the response using regex
-            import re
             json_match = re.search(r'({[\s\S]*})', response_content)
             
             if json_match:
                 json_str = json_match.group(1)
-                logger.debug(f"[JSON_EXTRACTION] Extracted JSON string from Claude response: {len(json_str)} characters")
-                
-                # Save the raw JSON for debugging
-                try:
-                    if 'log_dir' in globals() or 'log_dir' in locals():
-                        debug_raw_json_path = os.path.join(log_dir, f"raw_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-                        with open(debug_raw_json_path, "w") as f:
-                            f.write(json_str)
-                        logger.debug(f"[RAW_JSON_SAVED] Raw JSON saved to {debug_raw_json_path}")
-                except Exception as e:
-                    logger.error(f"[RAW_JSON_SAVE_ERROR] Could not save raw JSON: {str(e)}")
+                logger.debug(f"[JSON_EXTRACTION] Extracted JSON string: {len(json_str)} characters")
                 
                 # Check if JSON is truncated and fix it
                 fixed_json_str = _fix_truncated_json(json_str)
@@ -293,110 +336,85 @@ Lab report page text:
                     parsed_response = json.loads(repaired_json)
 
                 biomarkers = parsed_response.get("biomarkers", [])
-                # metadata = parsed_response.get("metadata", {}) # Metadata is no longer requested here
+                
+                logger.info(f"[BIOMARKERS_EXTRACTED] Extracted {len(biomarkers)} biomarkers")
 
-                logger.info(f"[BIOMARKERS_EXTRACTED] Extracted {len(biomarkers)} biomarkers from Claude API response for page of {filename}")
-
-                # Log metadata if available (should be empty now)
-                # if metadata:
-                #     logger.info(f"[METADATA_EXTRACTED] Extracted metadata: {json.dumps(metadata)}")
-
-                # If no biomarkers were found, fall back to text-based parser for this page
+                # If no biomarkers were found, fall back to text-based parser
                 if not biomarkers:
-                    logger.warning(f"[NO_BIOMARKERS_FOUND] No biomarkers found in Claude API response for page of {filename}")
-                    logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to empty biomarkers list")
-                    fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
-                    logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
-                    return fallback_results, {} # Return empty metadata dict
+                    logger.warning(f"[NO_BIOMARKERS_FOUND] No biomarkers found in Claude API response")
+                    logger.info(f"[FALLBACK_TO_TEXT_PARSER] Using fallback parser due to empty biomarkers list")
+                    fallback_results, _ = parse_biomarkers_from_text(text)
+                    logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers")
+                    return fallback_results, updated_context
 
-                # Filter biomarkers based on confidence score - require at least 60% confidence
+                # Filter biomarkers based on confidence score
+                # Use context-aware confidence threshold if available
+                confidence_threshold = updated_context.get("confidence_threshold", 0.6)
+                
                 filtered_biomarkers = []
                 for biomarker in biomarkers:
                     name = biomarker.get("name", "").strip()
-                    value = biomarker.get("value", 0)
-                    unit = biomarker.get("unit", "")
                     confidence = float(biomarker.get("confidence", 0.0))
                     
-                    if confidence < 0.6:  # Only apply minimal confidence check
+                    # Skip low confidence and already known biomarkers (if in context)
+                    if confidence < confidence_threshold:
                         logger.warning(f"[LOW_CONFIDENCE_BIOMARKER] Skipping low confidence biomarker: {name} (confidence: {confidence})")
                         continue
+                        
+                    if extraction_context and name in updated_context.get("known_biomarkers", {}):
+                        # If we already have this biomarker with higher confidence, skip
+                        existing_confidence = updated_context["known_biomarkers"][name].get("confidence", 0)
+                        if existing_confidence >= confidence:
+                            logger.debug(f"[DUPLICATE_BIOMARKER] Skipping already extracted biomarker: {name}")
+                            continue
                     
+                    # Add to filtered biomarkers
                     filtered_biomarkers.append(biomarker)
+                    
+                    # Add to known biomarkers in context
+                    if extraction_context:
+                        updated_context["known_biomarkers"][name] = biomarker
                 
-                logger.info(f"[FILTERED_BIOMARKERS] Filtered out {len(biomarkers) - len(filtered_biomarkers)} biomarkers based on confidence score")
+                logger.info(f"[FILTERED_BIOMARKERS] Filtered out {len(biomarkers) - len(filtered_biomarkers)} biomarkers")
                 
                 # Process the biomarkers to standardize format
                 processing_start_time = datetime.now()
                 processed_biomarkers = []
-                for i, biomarker in enumerate(filtered_biomarkers):
+                
+                for biomarker in filtered_biomarkers:
                     try:
                         # Process and standardize the biomarker data
                         processed_biomarker = _process_biomarker(biomarker)
                         processed_biomarkers.append(processed_biomarker)
-                    except Exception as e:
-                        logger.error(f"[BIOMARKER_PROCESSING_ERROR] Error processing biomarker {i}: {str(e)}")
-                        logger.error(f"[BIOMARKER_PROCESSING_STACK_TRACE] {traceback.format_exc()}")
-                        logger.error(f"[BIOMARKER_DATA] Problem biomarker data: {json.dumps(biomarker)}")
-
-                processing_duration = (datetime.now() - processing_start_time).total_seconds()
-                logger.debug(f"[BIOMARKER_PROCESSING] Processing {len(filtered_biomarkers)} biomarkers for page of {filename} took {processing_duration:.2f} seconds")
-
-                total_duration = (datetime.now() - start_time).total_seconds()
-                logger.info(f"[BIOMARKER_EXTRACTION_COMPLETE] Total extraction for page of {filename} took {total_duration:.2f} seconds")
-
-                # If we have no valid biomarkers, try the fallback parser for this page
-                if not processed_biomarkers:
-                    logger.warning(f"[NO_VALID_BIOMARKERS] No valid biomarkers found in Claude response for page of {filename}. Using fallback parser.")
-                    fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
-                    logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
-                    return fallback_results, {} # Return empty metadata dict
-
-                # Apply confidence-based filtering if enabled
-                if (DOCUMENT_ANALYZER_CONFIG["enabled"] and 
-                    DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"] and 
-                    extraction_context is not None):
-                    
-                    threshold = DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["confidence_threshold"]
-                    processed_biomarkers = filter_biomarkers_by_confidence(
-                        processed_biomarkers, 
-                        extraction_context,
-                        document_structure,
-                        threshold
-                    )
-
-                return processed_biomarkers, {} # Return empty metadata dict
-            else:
-                logger.error(f"[JSON_PARSING_ERROR] Could not extract JSON from Claude API response for page of {filename}")
-                # Fall back to text-based parser for this page
-                logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to JSON extraction error")
-                fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
-                logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
-                return fallback_results, {} # Return empty metadata dict
-        except json.JSONDecodeError as json_error:
-            try:
-                if 'log_dir' in globals() or 'log_dir' in locals():
-                    debug_json_path = os.path.join(log_dir, f"invalid_json_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-                    with open(debug_json_path, "w") as f:
-                        f.write(json_str if 'json_str' in locals() else response_content)
-            except Exception as e:
-                logger.error(f"[DEBUG_JSON_SAVE_ERROR] Could not save invalid JSON for debugging: {str(e)}")
+                    except Exception as processing_error:
+                        logger.error(f"[BIOMARKER_PROCESSING_ERROR] Error processing biomarker {biomarker.get('name', 'unknown')}: {str(processing_error)}")
                 
-            logger.error(f"[JSON_PARSING_ERROR] Could not parse Claude API response as JSON: {str(json_error)}")
-            logger.debug(f"[CLAUDE_RESPONSE] Raw response for page of {filename}: {response_content[:100]}...")
-
-            # Fall back to text-based parser for this page
-            logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to JSON parsing error")
-            fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
-            logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
-            return fallback_results, {} # Return empty metadata dict
+                processing_duration = (datetime.now() - processing_start_time).total_seconds()
+                logger.debug(f"[BIOMARKER_PROCESSING] Processed {len(processed_biomarkers)} biomarkers in {processing_duration:.2f} seconds")
+                
+                # Add success patterns to extraction context
+                if extraction_context and len(processed_biomarkers) > 0:
+                    # Look for repeating patterns in the text that yielded biomarkers
+                    # For future optimization
+                    pass
+                
+                return processed_biomarkers, updated_context
+            else:
+                logger.error("[JSON_EXTRACTION_ERROR] Could not extract JSON from Claude API response")
+        except Exception as parsing_error:
+            logger.error(f"[JSON_PARSING_ERROR] Error parsing Claude API response: {str(parsing_error)}")
+        
+        # If we reached here, something went wrong with JSON processing
+        fallback_results, _ = parse_biomarkers_from_text(text)
+        logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers after JSON parsing error")
+        return fallback_results, updated_context
+        
     except Exception as e:
-        logger.error(f"[CLAUDE_API_ERROR] Error calling Claude API for page of {filename}: {str(e)}")
-
+        logger.error(f"[CLAUDE_API_ERROR] Error calling Claude API: {str(e)}")
         # Fall back to text-based parser for this page
-        logger.info("[FALLBACK_TO_TEXT_PARSER] Using fallback parser for this page due to Claude API error")
-        fallback_results = parse_biomarkers_from_text(page_text) # Use page_text for fallback
-        logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers on this page")
-        return fallback_results, {} # Return empty metadata dict
+        fallback_results, _ = parse_biomarkers_from_text(text)
+        logger.info(f"[FALLBACK_PARSER] Found {len(fallback_results)} biomarkers after API error")
+        return fallback_results, updated_context
 
 def _fix_truncated_json(json_str: str) -> str:
     """

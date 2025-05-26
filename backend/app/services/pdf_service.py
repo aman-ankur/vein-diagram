@@ -15,6 +15,7 @@ import pandas as pd
 import re
 import dateutil.parser
 import asyncio
+import time
 
 from app.services.biomarker_parser import (
     extract_biomarkers_with_claude,
@@ -35,6 +36,7 @@ from app.services.document_analyzer import (
     DocumentStructure
 )
 from app.core.config import DOCUMENT_ANALYZER_CONFIG
+from app.services.utils.metrics import TokenUsageMetrics
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -192,66 +194,157 @@ async def process_pages_sequentially(
     relevant_pages,
     document_structure=None
 ) -> List[Dict]:
-    """Process pages sequentially, now with structure awareness and content optimization."""
-    all_biomarkers = []
-    extraction_context = None
+    """
+    Process content to extract biomarkers, optimizing for token efficiency.
     
-    # Use enhanced processing if enabled
-    if document_structure is not None and DOCUMENT_ANALYZER_CONFIG["enabled"]:
-        logging.info("Using enhanced page processing with structure awareness")
+    Args:
+        relevant_pages: Dictionary of page number -> text or List of (page_num, text) tuples
+        document_structure: Optional document structure information
         
-        # Create initial extraction context
-        extraction_context = create_default_extraction_context()
+    Returns:
+        List of extracted biomarkers
+    """
+    from app.services.utils.metrics import TokenUsageMetrics
+    from app.services.document_analyzer import (
+        optimize_content_for_extraction, 
+        create_adaptive_prompt,
+        create_default_extraction_context,
+        update_extraction_context
+    )
+    import time
+    import os
+    
+    # Create metrics tracker
+    debug_metrics = os.environ.get("DEBUG_TOKEN_METRICS", "0") == "1"
+    logs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
+    metrics = TokenUsageMetrics(save_debug=debug_metrics, debug_dir=logs_dir)
+    
+    # Prepare all_biomarkers list and extraction context
+    all_biomarkers = []
+    extraction_context = create_default_extraction_context()
+    
+    # Ensure relevant_pages is a dictionary
+    if isinstance(relevant_pages, list):
+        relevant_pages = {page_num: text for page_num, text in relevant_pages}
+    
+    # Record original token metrics
+    for page_num, page_text in relevant_pages.items():
+        metrics.record_original_text(page_text, page_num)
+    
+    # Use enhanced processing if enabled and document structure is available
+    if (document_structure is not None and 
+        DOCUMENT_ANALYZER_CONFIG["enabled"] and 
+        DOCUMENT_ANALYZER_CONFIG["content_optimization"]["enabled"]):
+        
+        logger.info("Using enhanced content optimization for biomarker extraction")
+        
+        # Start timing optimization
+        optimization_start = time.time()
         
         # Optimize content into chunks based on structure
-        if DOCUMENT_ANALYZER_CONFIG["content_optimization"]["enabled"]:
-            content_chunks = optimize_content_for_extraction(relevant_pages, document_structure)
+        content_chunks = optimize_content_for_extraction(relevant_pages, document_structure)
+        
+        # Record optimization time
+        optimization_time = time.time() - optimization_start
+        metrics.record_optimization_complete(optimization_time, len(content_chunks))
+        
+        logger.info(f"Created {len(content_chunks)} optimized chunks for processing")
+        
+        # Process chunks sequentially
+        for i, chunk in enumerate(content_chunks):
+            # Record optimized text metrics
+            metrics.record_optimized_text(chunk["text"], chunk)
             
-            # Process chunks instead of whole pages
-            for chunk in content_chunks:
-                # Skip chunks with very low biomarker confidence
-                if chunk["biomarker_confidence"] < 0.3:
-                    logging.info(f"Skipping low-confidence chunk from page {chunk['page_num']}")
-                    continue
-                
+            # Skip chunks with very low biomarker confidence
+            if (chunk["biomarker_confidence"] < 0.3 and 
+                len(all_biomarkers) > 0):  # Skip only if we already have some biomarkers
+                logger.info(f"Skipping low-confidence chunk #{i} from page {chunk['page_num']}")
+                continue
+            
+            logger.info(f"Processing chunk #{i+1}/{len(content_chunks)} (page {chunk['page_num']}, confidence: {chunk['biomarker_confidence']:.2f})")
+            
+            try:
                 # Create adaptive prompt if enabled
-                if DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"] and extraction_context:
+                if DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"]:
                     prompt = create_adaptive_prompt(chunk, extraction_context)
+                    
+                    # Extract biomarkers with context
+                    chunk_biomarkers, updated_context = await extract_biomarkers_with_claude(
+                        chunk["text"],
+                        extraction_context=extraction_context,
+                        adaptive_prompt=prompt
+                    )
+                    
+                    # Update extraction context
+                    extraction_context = updated_context
                 else:
-                    # Use standard prompt
-                    prompt = f"Extract biomarkers from the following text from page {chunk['page_num']}:\n\n{chunk['text']}"
+                    # Use standard extraction without context
+                    chunk_biomarkers, _ = await extract_biomarkers_with_claude(chunk["text"])
                 
-                # Extract biomarkers with Claude
-                biomarkers = await extract_biomarkers_with_claude(prompt)
-                
-                # Update context with results
-                if DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"] and extraction_context:
-                    extraction_context = update_extraction_context(
-                        extraction_context,
-                        chunk,
-                        biomarkers
+                # Record API call metrics
+                if "token_usage" in extraction_context:
+                    last_call = extraction_context["call_count"] - 1
+                    prompt_tokens = extraction_context["token_usage"]["prompt"]
+                    completion_tokens = extraction_context["token_usage"]["completion"]
+                    
+                    # If we have multiple calls, calculate just the last one
+                    if last_call > 0:
+                        prompt_tokens = prompt_tokens / last_call
+                        completion_tokens = completion_tokens / last_call
+                    
+                    metrics.record_api_call(
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        chunk_info=chunk,
+                        biomarkers_found=len(chunk_biomarkers)
                     )
                 
                 # Add page number to biomarkers
-                for b in biomarkers:
-                    b["page"] = chunk["page_num"]
+                for bm in chunk_biomarkers:
+                    bm['page'] = chunk["page_num"]
                 
-                all_biomarkers.extend(biomarkers)
+                # Add to all biomarkers
+                if chunk_biomarkers:
+                    logger.info(f"Extracted {len(chunk_biomarkers)} biomarkers from chunk #{i+1}")
+                    all_biomarkers.extend(chunk_biomarkers)
+                else:
+                    logger.info(f"No biomarkers found in chunk #{i+1}")
+                
+                # Early termination if we found enough biomarkers
+                if len(all_biomarkers) >= 50:  # Very large number of biomarkers already found
+                    remaining_high_conf = any(c["biomarker_confidence"] > 0.8 for c in content_chunks[i+1:])
+                    if not remaining_high_conf:
+                        logger.info(f"Found {len(all_biomarkers)} biomarkers already, skipping remaining lower confidence chunks")
+                        break
             
-            # Log token usage statistics
-            if extraction_context:
-                logging.info(f"Token usage: {extraction_context['token_usage']}")
-                
-            return all_biomarkers
+            except Exception as e:
+                logger.error(f"Error processing chunk #{i+1}: {str(e)}")
+                # Continue with next chunk
+        
+        # Log metrics
+        metrics.record_extraction_complete(
+            extraction_time=time.time() - optimization_start - optimization_time,
+            pages_processed=len(relevant_pages),
+            biomarkers_extracted=len(all_biomarkers)
+        )
+        metrics.log_summary()
+        
+        if debug_metrics:
+            metrics.save_detailed_report()
+        
+        # De-duplicate biomarkers
+        all_biomarkers = _deduplicate_biomarkers(all_biomarkers)
+        
+        return all_biomarkers
     
-    # Fall back to original method - implement original sequential processing
+    # Fall back to original method - process page by page
     logger.info(f"Using original sequential processing for {len(relevant_pages)} relevant pages")
     
     for page_num, page_text in relevant_pages.items():
         logger.info(f"Processing page {page_num} sequentially")
         try:
             # Call the biomarker extractor
-            page_biomarkers = await extract_biomarkers_with_claude(page_text)
+            page_biomarkers, _ = await extract_biomarkers_with_claude(page_text)
             
             if page_biomarkers:
                 logger.info(f"Extracted {len(page_biomarkers)} biomarkers from page {page_num}")
@@ -264,7 +357,32 @@ async def process_pages_sequentially(
         except Exception as e:
             logger.error(f"Error processing page {page_num} sequentially: {str(e)}")
     
+    # De-duplicate biomarkers
+    all_biomarkers = _deduplicate_biomarkers(all_biomarkers)
+    
     return all_biomarkers
+
+def _deduplicate_biomarkers(biomarkers: List[Dict]) -> List[Dict]:
+    """
+    Deduplicate biomarkers based on standardized name.
+    Keeps the first occurrence of each biomarker.
+    
+    Args:
+        biomarkers: List of biomarker dictionaries
+        
+    Returns:
+        Deduplicated list of biomarkers
+    """
+    seen_names = set()
+    deduplicated = []
+    
+    for biomarker in biomarkers:
+        name = biomarker.get('name', '').lower().strip()
+        if name and name not in seen_names:
+            seen_names.add(name)
+            deduplicated.append(biomarker)
+    
+    return deduplicated
 
 def contain_biomarker_patterns(text):
     """
