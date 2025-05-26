@@ -125,22 +125,27 @@ Here is the lab report text fragment to extract metadata from:
 """
 
     try:
-        logger.debug("[CLAUDE_API_CALL_METADATA] Sending request to Claude API for metadata")
+        logger.info("[CLAUDE_API_CALL_METADATA] 🚀 Sending request to Claude API for metadata")
+        logger.info(f"[METADATA_REQUEST] Prompt length: {len(prompt)} characters")
         api_start_time = datetime.now()
         
         api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
         if not api_key:
-            logger.error("[API_KEY_ERROR_METADATA] Claude API key not found")
+            logger.error("[API_KEY_ERROR_METADATA] ❌ Claude API key not found")
+            logger.error("[API_KEY_ERROR_METADATA] Available env vars: %s", [k for k in os.environ.keys() if 'API' in k or 'CLAUDE' in k or 'ANTHROPIC' in k])
             return {}
         
+        logger.info(f"[API_KEY_SUCCESS_METADATA] ✅ API key found (length: {len(api_key)})")
+        logger.info("[CLAUDE_CLIENT_METADATA] 🤖 Creating Anthropic client for metadata")
         client = anthropic.Anthropic(api_key=api_key)
+        logger.info("[CLAUDE_CLIENT_METADATA] ✅ Client created successfully")
         
         # Use the timeout wrapper for the API call
         @with_timeout(timeout_seconds=45, default_return=None)  # 45 second timeout
         async def call_claude_api():
             # Use a faster model
             response = client.messages.create(
-                model="claude-3-sonnet-20240229", 
+                model="claude-3-5-sonnet-20241022",  # Updated to latest non-deprecated model
                 max_tokens=1000,
                 temperature=0.1,
                 system="You are a metadata extraction expert focused on lab reports. Extract only patient and report details as specified. Output ONLY valid JSON.",

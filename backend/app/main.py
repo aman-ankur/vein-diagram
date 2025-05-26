@@ -10,14 +10,18 @@ import glob
 from app.core.logging_config import setup_logging
 import time
 from starlette.middleware.base import BaseHTTPMiddleware
+from contextlib import asynccontextmanager
 
 # Set up logging configuration
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-logger.info("Environment loaded")
+# Load environment variables from .env file
+try:
+    load_dotenv()
+    logger.info("Environment variables loaded from .env file")
+except ImportError:
+    logger.warning("python-dotenv not installed. Environment variables must be set manually.")
 
 # Import routers
 from app.api.routes import pdf_routes, biomarker_routes, profile_routes
