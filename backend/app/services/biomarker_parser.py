@@ -411,7 +411,7 @@ Lab report text:
                 filtered_biomarkers = []
                 for biomarker in biomarkers:
                     name = biomarker.get("name", "").strip()
-                    confidence = float(biomarker.get("confidence", 0.0))
+                    confidence = _parse_confidence_value(biomarker.get("confidence", 0.0))
                     
                     # If Claude didn't provide confidence, calculate it based on biomarker completeness
                     if confidence == 0.0:
@@ -1761,3 +1761,81 @@ def _retry_claude_with_simpler_prompt(text: str, filename: str, api_key: str) ->
     fallback_results = parse_biomarkers_from_text(text)
     logger.info(f"[TEXT_PARSER] Text parser found {len(fallback_results)} biomarkers")
     return fallback_results, {}
+
+def _parse_confidence_value(confidence_input: Any) -> float:
+    """
+    Parse confidence value from various input types (string or numeric).
+    
+    Args:
+        confidence_input: Confidence value that could be string ("high", "medium", "low") 
+                         or numeric (0.0-1.0)
+    
+    Returns:
+        Float confidence value between 0.0 and 1.0
+    """
+    try:
+        # If it's already a number, validate and return
+        if isinstance(confidence_input, (int, float)):
+            confidence = float(confidence_input)
+            return max(0.0, min(1.0, confidence))  # Clamp to valid range
+        
+        # If it's a string, try to convert to float first
+        if isinstance(confidence_input, str):
+            confidence_str = confidence_input.strip().lower()
+            
+            # Handle empty strings first
+            if not confidence_str:
+                logger.warning(f"[CONFIDENCE_PARSING] Empty confidence string, using default 0.7")
+                return 0.7
+            
+            # Try direct numeric conversion first
+            try:
+                confidence = float(confidence_str)
+                return max(0.0, min(1.0, confidence))
+            except ValueError:
+                pass
+            
+            # Handle string confidence levels with exact matching first
+            confidence_mapping = {
+                "very_high": 0.95,
+                "very high": 0.95,  # Handle space variation
+                "veryhigh": 0.95,
+                "high": 0.85,
+                "medium_high": 0.75,
+                "medium high": 0.75,  # Handle space variation
+                "mediumhigh": 0.75,
+                "medium": 0.65,
+                "med": 0.65,
+                "medium_low": 0.55,
+                "medium low": 0.55,  # Handle space variation
+                "mediumlow": 0.55,
+                "low": 0.45,
+                "very_low": 0.35,
+                "very low": 0.35,  # Handle space variation
+                "verylow": 0.35,
+                "uncertain": 0.5,
+                "unknown": 0.5
+            }
+            
+            # First try exact matching
+            if confidence_str in confidence_mapping:
+                return confidence_mapping[confidence_str]
+            
+            # Only try partial matching if no exact match found
+            # Be more careful with partial matching to avoid false positives
+            for key, value in confidence_mapping.items():
+                # Only match if the key is a significant portion of the input
+                # and avoid matching very short keys with long inputs
+                if len(key) >= 3 and key in confidence_str:
+                    # For longer confidence strings, be more lenient
+                    if len(confidence_str) <= 8 or len(key) >= min(4, len(confidence_str) * 0.4):
+                        logger.info(f"[CONFIDENCE_MAPPING] Mapped '{confidence_input}' -> {value}")
+                        return value
+        
+        # If all else fails, return default confidence
+        logger.warning(f"[CONFIDENCE_PARSING] Could not parse confidence '{confidence_input}', using default 0.7")
+        return 0.7
+        
+    except Exception as e:
+        logger.error(f"[CONFIDENCE_ERROR] Error parsing confidence '{confidence_input}': {str(e)}")
+        return 0.7  # Safe default
