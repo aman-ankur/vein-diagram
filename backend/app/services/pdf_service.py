@@ -293,7 +293,7 @@ async def process_pages_sequentially(
             try:
                 # Create adaptive prompt if enabled
                 if DOCUMENT_ANALYZER_CONFIG["adaptive_context"]["enabled"]:
-                    prompt = create_adaptive_prompt(chunk, extraction_context)
+                    prompt = create_adaptive_prompt(chunk, extraction_context, document_structure)
                     
                     # Extract biomarkers with context
                     chunk_biomarkers, updated_context = await extract_biomarkers_with_claude(
@@ -302,8 +302,25 @@ async def process_pages_sequentially(
                         adaptive_prompt=prompt
                     )
                     
-                    # Update extraction context
-                    extraction_context = updated_context
+                    # ENHANCED: Update extraction context with additional chunk information
+                    if updated_context:
+                        extraction_context = updated_context
+                        # Add chunk-specific context for better tracking
+                        extraction_context["section_context"]["last_chunk_confidence"] = chunk["biomarker_confidence"]
+                        extraction_context["section_context"]["last_chunk_type"] = chunk["region_type"]
+                        extraction_context["section_context"]["chunks_processed"] = extraction_context.get("chunks_processed", 0) + 1
+                        
+                        # Track biomarker discovery rate for early termination decisions
+                        biomarkers_found_this_chunk = len(chunk_biomarkers) if chunk_biomarkers else 0
+                        extraction_context["section_context"]["last_chunk_biomarkers"] = biomarkers_found_this_chunk
+                        
+                        # Calculate running average of biomarker discovery
+                        total_chunks = extraction_context["section_context"]["chunks_processed"]
+                        current_avg = extraction_context["section_context"].get("avg_biomarkers_per_chunk", 0)
+                        new_avg = ((current_avg * (total_chunks - 1)) + biomarkers_found_this_chunk) / total_chunks
+                        extraction_context["section_context"]["avg_biomarkers_per_chunk"] = new_avg
+                    
+                    logger.debug(f"[CONTEXT_UPDATE] Updated context: {len(extraction_context.get('known_biomarkers', {}))} known biomarkers, call count: {extraction_context.get('call_count', 0)}, chunks processed: {extraction_context.get('section_context', {}).get('chunks_processed', 0)}")
                 else:
                     # Use standard extraction without context
                     chunk_biomarkers, _ = await extract_biomarkers_with_claude(
@@ -341,11 +358,44 @@ async def process_pages_sequentially(
                 else:
                     logger.info(f"No biomarkers found in chunk #{i+1}")
                 
-                # Early termination if we found enough biomarkers
-                if len(all_biomarkers) >= 50:  # Very large number of biomarkers already found
+                # ENHANCED: Early termination based on context and biomarker saturation
+                if len(all_biomarkers) >= 30:  # Reasonable upper limit for lab reports
+                    # Get context metrics for intelligent termination decision
+                    context_confidence = extraction_context.get("confidence_threshold", 0.7)
+                    chunks_processed = extraction_context.get("section_context", {}).get("chunks_processed", 0)
+                    avg_biomarkers_per_chunk = extraction_context.get("section_context", {}).get("avg_biomarkers_per_chunk", 0)
+                    last_chunk_biomarkers = extraction_context.get("section_context", {}).get("last_chunk_biomarkers", 0)
+                    
+                    # Intelligent termination conditions
+                    should_terminate = False
+                    termination_reason = ""
+                    
+                    if chunks_processed >= 3:  # We've processed several chunks
+                        if last_chunk_biomarkers == 0 and avg_biomarkers_per_chunk < 1.0:
+                            # Recent chunks aren't finding biomarkers and average is low
+                            should_terminate = True
+                            termination_reason = "low_recent_discovery_rate"
+                        elif context_confidence > 0.8 and avg_biomarkers_per_chunk < 0.5:
+                            # High confidence in what we've found, but discovery rate is very low
+                            should_terminate = True
+                            termination_reason = "high_confidence_low_discovery"
+                    
+                    # Check remaining chunks for high confidence potential
+                    if should_terminate:
+                        remaining_high_conf = any(c["biomarker_confidence"] > 0.9 for c in content_chunks[i+1:])
+                        if remaining_high_conf:
+                            should_terminate = False
+                            termination_reason = "high_confidence_chunks_remaining"
+                            logger.info(f"[EARLY_TERMINATION_OVERRIDE] Not terminating due to high-confidence chunks remaining")
+                    
+                    if should_terminate:
+                        logger.info(f"[CONTEXT_EARLY_TERMINATION] Found {len(all_biomarkers)} biomarkers, terminating early due to: {termination_reason}")
+                        logger.info(f"[TERMINATION_METRICS] Chunks processed: {chunks_processed}, Avg biomarkers/chunk: {avg_biomarkers_per_chunk:.2f}, Last chunk found: {last_chunk_biomarkers}")
+                        break
+                elif len(all_biomarkers) >= 50:  # Hard limit for very large reports
                     remaining_high_conf = any(c["biomarker_confidence"] > 0.8 for c in content_chunks[i+1:])
                     if not remaining_high_conf:
-                        logger.info(f"Found {len(all_biomarkers)} biomarkers already, skipping remaining lower confidence chunks")
+                        logger.info(f"[HARD_LIMIT_TERMINATION] Found {len(all_biomarkers)} biomarkers, hard limit reached")
                         break
             
             except Exception as e:
