@@ -21,7 +21,9 @@ from app.services.utils.content_optimization import (
     estimate_tokens,
     optimize_content_chunks,
     detect_biomarker_patterns,
-    enhance_chunk_confidence
+    enhance_chunk_confidence,
+    enhance_chunk_confidence_for_accuracy,
+    enhance_chunk_confidence_balanced
 )
 from app.services.utils.context_management import (
     create_adaptive_prompt as utils_create_adaptive_prompt,
@@ -29,6 +31,7 @@ from app.services.utils.context_management import (
     create_default_extraction_context as utils_create_default_extraction_context,
     filter_biomarkers_by_confidence
 )
+from app.services.utils.smart_prompting import smart_prompt_engine
 
 # Try to import dependencies, with graceful fallback
 try:
@@ -230,7 +233,9 @@ def analyze_document_structure(
 
 def optimize_content_for_extraction(
     pages_text_dict: Dict[int, str], 
-    document_structure: DocumentStructure
+    document_structure: DocumentStructure,
+    accuracy_mode: bool = None,
+    balanced_mode: bool = None
 ) -> List[ContentChunk]:
     """
     Creates optimized content chunks for extraction based on document structure.
@@ -238,21 +243,69 @@ def optimize_content_for_extraction(
     Args:
         pages_text_dict: Dictionary mapping page numbers to extracted text
         document_structure: Structure information about the document
+        accuracy_mode: If True, prioritize accuracy over token efficiency. 
+                      If None, checks ACCURACY_MODE environment variable
+        balanced_mode: If True, balance accuracy with token efficiency.
+                      If None, checks BALANCED_MODE environment variable
         
     Returns:
         List of ContentChunk objects for optimized extraction
     """
     logging.info("Optimizing content for extraction")
     
-    # Use utility to create optimized chunks
-    chunks = optimize_content_chunks(
-        pages_text_dict,
-        document_structure,
-        max_tokens_per_chunk=8000
-    )
+    # Determine optimization mode
+    if balanced_mode is None:
+        # Check environment variable for balanced mode
+        balanced_mode = os.environ.get("BALANCED_MODE", "false").lower() == "true"
     
-    # Enhance confidence scores based on biomarker patterns
-    chunks = enhance_chunk_confidence(chunks)
+    if accuracy_mode is None:
+        # Check environment variable for accuracy mode
+        accuracy_mode = os.environ.get("ACCURACY_MODE", "false").lower() == "true"
+    
+    # Priority: balanced_mode > accuracy_mode > legacy
+    if balanced_mode:
+        logging.info("⚖️  BALANCED MODE ENABLED: Optimizing for cost-effective accuracy balance")
+        
+        # Use balanced optimization
+        chunks = optimize_content_chunks(
+            pages_text_dict,
+            document_structure,
+            max_tokens_per_chunk=4000,  # Larger chunks for efficiency
+            accuracy_mode=False,
+            balanced_mode=True
+        )
+        
+        # Use balanced enhancement
+        chunks = enhance_chunk_confidence_balanced(chunks)
+        
+    elif accuracy_mode:
+        logging.info("🎯 ACCURACY MODE ENABLED: Prioritizing biomarker detection accuracy over token efficiency")
+        
+        # Use accuracy-first optimization
+        chunks = optimize_content_chunks(
+            pages_text_dict,
+            document_structure,
+            max_tokens_per_chunk=2500,  # Smaller chunks for better accuracy
+            accuracy_mode=True,
+            balanced_mode=False
+        )
+        
+        # Use accuracy-focused enhancement
+        chunks = enhance_chunk_confidence_for_accuracy(chunks)
+    else:
+        logging.info("📉 TOKEN EFFICIENCY MODE: Optimizing for cost reduction")
+        
+        # Use standard optimization (legacy mode)
+        chunks = optimize_content_chunks(
+            pages_text_dict,
+            document_structure,
+            max_tokens_per_chunk=8000,
+            accuracy_mode=False,
+            balanced_mode=False
+        )
+        
+        # Use standard enhancement
+        chunks = enhance_chunk_confidence(chunks)
     
     # Convert to ContentChunk type and return
     content_chunks: List[ContentChunk] = []
@@ -267,46 +320,61 @@ def optimize_content_for_extraction(
         }
         content_chunks.append(content_chunk)
     
-    logging.info(f"Created {len(content_chunks)} optimized chunks for extraction")
+    mode_description = "BALANCED" if balanced_mode else ("ACCURACY-FIRST" if accuracy_mode else "TOKEN-EFFICIENT")
+    logging.info(f"Created {len(content_chunks)} {mode_description} chunks for extraction")
     return content_chunks
 
 
 def create_adaptive_prompt(
     chunk: ContentChunk, 
-    extraction_context: ExtractionContext
+    extraction_context: ExtractionContext,
+    document_structure: Optional[DocumentStructure] = None
 ) -> str:
     """
-    Creates an adaptive prompt for extraction based on content and context.
+    Creates an adaptive prompt for extraction based on content and context using the smart prompting engine.
     
     Args:
         chunk: The content chunk to extract from
         extraction_context: Current extraction context
+        document_structure: Document structure information for optimization
         
     Returns:
         Optimized prompt string for Claude API
     """
-    # Use utility function for adaptive prompt creation
-    prompt = utils_create_adaptive_prompt(
+    # Determine optimization level based on context
+    optimization_level = 1  # Default to low optimization
+    
+    # Increase optimization level based on call count and token usage
+    call_count = extraction_context.get("call_count", 0)
+    if call_count >= 3:
+        optimization_level = 2  # Medium optimization after several calls
+    if call_count >= 7:
+        optimization_level = 3  # High optimization for many calls
+    
+    # Adjust based on token efficiency
+    token_usage = extraction_context.get("token_usage", {})
+    if token_usage:
+        total_tokens = token_usage.get("input", 0) + token_usage.get("output", 0)
+        biomarker_count = len(extraction_context.get("known_biomarkers", {}))
+        
+        if biomarker_count > 0:
+            tokens_per_biomarker = total_tokens / biomarker_count
+            if tokens_per_biomarker > 400:  # High token usage per biomarker
+                optimization_level = min(3, optimization_level + 1)
+    
+    # Get document type from structure
+    document_type = None
+    if document_structure:
+        document_type = document_structure.get("document_type")
+    
+    # Use smart prompting engine to create adaptive prompt
+    prompt = smart_prompt_engine.create_adaptive_prompt(
         chunk_text=chunk["text"],
         page_num=chunk["page_num"],
-        extraction_context=extraction_context
+        extraction_context=extraction_context,
+        document_type=document_type,
+        optimization_level=optimization_level
     )
-    
-    # Create different prompts based on call count
-    if extraction_context["call_count"] == 0:
-        # First call - use a more verbose, detailed prompt
-        prompt = (
-            f"Extract biomarkers from the following text from page {chunk['page_num']}:\n\n"
-            f"{chunk['text']}\n\n"
-            f"Look for lab results, measurements, and biomarker values with their units and reference ranges."
-        )
-    else:
-        # Subsequent calls - more focused prompt using context from previous extractions
-        known_biomarkers = ', '.join(extraction_context["known_biomarkers"].keys()) if extraction_context["known_biomarkers"] else "none yet"
-        prompt = (
-            f"Extract biomarkers from the following text from page {chunk['page_num']}:\n\n"
-            f"{chunk['text']}"
-        )
     
     return prompt
 
@@ -317,7 +385,7 @@ def update_extraction_context(
     results: List[Dict[str, Any]]
 ) -> ExtractionContext:
     """
-    Updates extraction context based on the latest extraction results.
+    Updates extraction context based on the latest extraction results using smart pattern tracking.
     
     Args:
         extraction_context: Current extraction context
@@ -325,9 +393,9 @@ def update_extraction_context(
         results: Extraction results from the API call
         
     Returns:
-        Updated extraction context
+        Updated extraction context with enhanced pattern information
     """
-    # Use utility function but adapt parameters
+    # Use utility function for basic updates
     updated_context = utils_update_extraction_context(
         extraction_context=extraction_context,
         biomarkers=results,
@@ -336,17 +404,71 @@ def update_extraction_context(
         output_tokens=estimate_tokens(str(results))
     )
     
-    # Add new biomarkers to known_biomarkers
+    # Enhance with smart pattern tracking
+    success = len(results) > 0 and any(
+        result.get("confidence", 0) >= 0.7 for result in results
+    )
+    
+    # Update patterns using smart prompting engine
+    updated_context = smart_prompt_engine.update_patterns_from_results(
+        extraction_context=updated_context,
+        biomarkers=results,
+        chunk_text=chunk["text"],
+        success=success
+    )
+    
+    # Add chunk-specific context enhancements
+    section_context = updated_context.get("section_context", {})
+    
+    # Track chunk processing metrics
+    chunks_processed = section_context.get("chunks_processed", 0) + 1
+    section_context["chunks_processed"] = chunks_processed
+    
+    # Update biomarker discovery metrics
+    current_biomarker_count = len(results)
+    section_context["last_chunk_biomarkers"] = current_biomarker_count
+    section_context["last_chunk_confidence"] = chunk.get("biomarker_confidence", 0.0)
+    section_context["last_chunk_type"] = chunk.get("region_type", "text")
+    
+    # Calculate average biomarkers per chunk
+    total_biomarkers = len(updated_context.get("known_biomarkers", {}))
+    if chunks_processed > 0:
+        section_context["avg_biomarkers_per_chunk"] = total_biomarkers / chunks_processed
+    
+    # Track discovery rate (for early termination logic)
+    if chunks_processed >= 2:
+        recent_chunks = min(3, chunks_processed)
+        if "recent_discovery_rate" not in section_context:
+            section_context["recent_discovery_rate"] = []
+        
+        section_context["recent_discovery_rate"].append(current_biomarker_count)
+        if len(section_context["recent_discovery_rate"]) > recent_chunks:
+            section_context["recent_discovery_rate"] = section_context["recent_discovery_rate"][-recent_chunks:]
+        
+        # Calculate recent discovery trend
+        recent_discoveries = section_context["recent_discovery_rate"]
+        if len(recent_discoveries) >= 2:
+            trend = sum(recent_discoveries[-2:]) / 2
+            section_context["recent_discovery_trend"] = trend
+    
+    updated_context["section_context"] = section_context
+    
+    # Add new biomarkers to known_biomarkers with enhanced metadata
     for result in results:
         if "name" in result and result["name"]:
             biomarker_key = result["name"].lower()
-            updated_context["known_biomarkers"][biomarker_key] = {
+            biomarker_data = {
                 "name": result["name"],
                 "value": result.get("value", ""),
                 "unit": result.get("unit", ""),
                 "reference_range": result.get("reference_range", ""),
-                "page": chunk["page_num"]
+                "page": chunk["page_num"],
+                "confidence": result.get("confidence", 0.0),
+                "extraction_method": "smart_prompting",
+                "chunk_type": chunk.get("region_type", "text"),
+                "discovery_order": len(updated_context["known_biomarkers"]) + 1
             }
+            updated_context["known_biomarkers"][biomarker_key] = biomarker_data
     
     return updated_context
 
