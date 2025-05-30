@@ -1,0 +1,331 @@
+{
+  "biomarker_patterns": {
+    "glucose": {
+      "name": "glucose",
+      "standardized_name": "Glucose",
+      "common_units": [
+        "mg/dL",
+        "mg/dl",
+        "mmol/L",
+        "mmol/l"
+      ],
+      "typical_ranges": {
+        "mg/dL": {
+          "low": 70,
+          "high": 99
+        },
+        "mg/dl": {
+          "low": 70,
+          "high": 99
+        },
+        "mmol/L": {
+          "low": 3.9,
+          "high": 5.5
+        },
+        "mmol/l": {
+          "low": 3.9,
+          "high": 5.5
+        }
+      },
+      "pattern_variations": [
+        "glucose",
+        "blood glucose",
+        "fasting glucose",
+        "random glucose",
+        "glucose fasting",
+        "glucose random",
+        "glu"
+      ],
+      "confidence_threshold": 0.9,
+      "last_seen": "2025-05-30T23:28:19.166032",
+      "frequency_count": 1,
+      "success_rate": 0.95
+    },
+    "cholesterol": {
+      "name": "cholesterol",
+      "standardized_name": "Total Cholesterol",
+      "common_units": [
+        "mg/dL",
+        "mg/dl",
+        "mmol/L",
+        "mmol/l"
+      ],
+      "typical_ranges": {
+        "mg/dL": {
+          "low": 0,
+          "high": 200
+        },
+        "mg/dl": {
+          "low": 0,
+          "high": 200
+        },
+        "mmol/L": {
+          "low": 0,
+          "high": 5.2
+        },
+        "mmol/l": {
+          "low": 0,
+          "high": 5.2
+        }
+      },
+      "pattern_variations": [
+        "cholesterol",
+        "total cholesterol",
+        "chol",
+        "cholest",
+        "tc"
+      ],
+      "confidence_threshold": 0.9,
+      "last_seen": "2025-05-30T23:28:19.166034",
+      "frequency_count": 1,
+      "success_rate": 0.95
+    },
+    "hemoglobin": {
+      "name": "hemoglobin",
+      "standardized_name": "Hemoglobin",
+      "common_units": [
+        "g/dL",
+        "g/dl",
+        "g/L",
+        "g/l"
+      ],
+      "typical_ranges": {
+        "g/dL": {
+          "low": 12.0,
+          "high": 17.0
+        },
+        "g/dl": {
+          "low": 12.0,
+          "high": 17.0
+        },
+        "g/L": {
+          "low": 120,
+          "high": 170
+        },
+        "g/l": {
+          "low": 120,
+          "high": 170
+        }
+      },
+      "pattern_variations": [
+        "hemoglobin",
+        "haemoglobin",
+        "hb",
+        "hgb",
+        "hemoglobin hb"
+      ],
+      "confidence_threshold": 0.95,
+      "last_seen": "2025-05-30T23:28:19.166036",
+      "frequency_count": 1,
+      "success_rate": 0.95
+    },
+    "hematocrit": {
+      "name": "hematocrit",
+      "standardized_name": "Hematocrit",
+      "common_units": [
+        "%",
+        "percent",
+        "ratio"
+      ],
+      "typical_ranges": {
+        "%": {
+          "low": 36,
+          "high": 50
+        },
+        "percent": {
+          "low": 36,
+          "high": 50
+        },
+        "ratio": {
+          "low": 0.36,
+          "high": 0.5
+        }
+      },
+      "pattern_variations": [
+        "hematocrit",
+        "haematocrit",
+        "hct",
+        "hct%",
+        "packed cell volume",
+        "pcv"
+      ],
+      "confidence_threshold": 0.9,
+      "last_seen": "2025-05-30T23:28:19.166037",
+      "frequency_count": 1,
+      "success_rate": 0.95
+    },
+    "hdl_cholesterol": {
+      "name": "hdl_cholesterol",
+      "standardized_name": "HDL Cholesterol",
+      "common_units": [
+        "mg/dL",
+        "mg/dl",
+        "mmol/L",
+        "mmol/l"
+      ],
+      "typical_ranges": {
+        "mg/dL": {
+          "low": 40,
+          "high": 200
+        },
+        "mg/dl": {
+          "low": 40,
+          "high": 200
+        },
+        "mmol/L": {
+          "low": 1.0,
+          "high": 5.2
+        },
+        "mmol/l": {
+          "low": 1.0,
+          "high": 5.2
+        }
+      },
+      "pattern_variations": [
+        "hdl",
+        "hdl cholesterol",
+        "hdl-c",
+        "hdl chol",
+        "high density lipoprotein"
+      ],
+      "confidence_threshold": 0.9,
+      "last_seen": "2025-05-30T23:28:19.166039",
+      "frequency_count": 1,
+      "success_rate": 0.95
+    },
+    "ldl_cholesterol": {
+      "name": "ldl_cholesterol",
+      "standardized_name": "LDL Cholesterol",
+      "common_units": [
+        "mg/dL",
+        "mg/dl",
+        "mmol/L",
+        "mmol/l"
+      ],
+      "typical_ranges": {
+        "mg/dL": {
+          "low": 0,
+          "high": 100
+        },
+        "mg/dl": {
+          "low": 0,
+          "high": 100
+        },
+        "mmol/L": {
+          "low": 0,
+          "high": 2.6
+        },
+        "mmol/l": {
+          "low": 0,
+          "high": 2.6
+        }
+      },
+      "pattern_variations": [
+        "ldl",
+        "ldl cholesterol",
+        "ldl-c",
+        "ldl chol",
+        "low density lipoprotein"
+      ],
+      "confidence_threshold": 0.9,
+      "last_seen": "2025-05-30T23:28:19.166040",
+      "frequency_count": 1,
+      "success_rate": 0.95
+    },
+    "triglycerides": {
+      "name": "triglycerides",
+      "standardized_name": "Triglycerides",
+      "common_units": [
+        "mg/dL",
+        "mg/dl",
+        "mmol/L",
+        "mmol/l"
+      ],
+      "typical_ranges": {
+        "mg/dL": {
+          "low": 0,
+          "high": 150
+        },
+        "mg/dl": {
+          "low": 0,
+          "high": 150
+        },
+        "mmol/L": {
+          "low": 0,
+          "high": 1.7
+        },
+        "mmol/l": {
+          "low": 0,
+          "high": 1.7
+        }
+      },
+      "pattern_variations": [
+        "triglycerides",
+        "tg",
+        "trigs",
+        "triglyceride"
+      ],
+      "confidence_threshold": 0.9,
+      "last_seen": "2025-05-30T23:28:19.166042",
+      "frequency_count": 1,
+      "success_rate": 0.95
+    },
+    "creatinine": {
+      "name": "creatinine",
+      "standardized_name": "Creatinine",
+      "common_units": [
+        "mg/dL",
+        "mg/dl",
+        "\u03bcmol/L",
+        "umol/L",
+        "umol/l"
+      ],
+      "typical_ranges": {
+        "mg/dL": {
+          "low": 0.6,
+          "high": 1.2
+        },
+        "mg/dl": {
+          "low": 0.6,
+          "high": 1.2
+        },
+        "\u03bcmol/L": {
+          "low": 53,
+          "high": 106
+        },
+        "umol/L": {
+          "low": 53,
+          "high": 106
+        },
+        "umol/l": {
+          "low": 53,
+          "high": 106
+        }
+      },
+      "pattern_variations": [
+        "creatinine",
+        "creat",
+        "cr",
+        "serum creatinine"
+      ],
+      "confidence_threshold": 0.9,
+      "last_seen": "2025-05-30T23:28:19.166043",
+      "frequency_count": 1,
+      "success_rate": 0.95
+    }
+  },
+  "statistics": {
+    "total_extractions": 0,
+    "cache_hits": 0,
+    "cache_misses": 0,
+    "llm_calls_saved": 0,
+    "false_positives": 0,
+    "cache_hit_rate": 0.0,
+    "average_confidence": 0.0,
+    "last_updated": ""
+  },
+  "metadata": {
+    "created": "2025-05-30T23:28:19.166307",
+    "version": "1.0"
+  }
+}

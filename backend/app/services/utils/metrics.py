@@ -39,19 +39,43 @@ class TokenUsageMetrics:
         self.optimized_tokens = 0
         self.api_calls = 0
         self.call_details = []
-        
-        # Time metrics
-        self.start_time = time.time()
-        self.optimization_time = 0
-        self.extraction_time = 0
-        
-        # Performance metrics
+        self.chunk_details = []
         self.biomarkers_extracted = 0
         self.pages_processed = 0
         self.chunks_processed = 0
+        self.optimization_time = 0
+        self.extraction_time = 0
         
-        # Debug info for chunks
-        self.chunk_details = []
+        # Time metrics
+        self.start_time = time.time()
+        
+        # Performance metrics
+        self.pages_processed = 0
+        self.chunks_processed = 0
+        
+        # Smart skipping metrics
+        self.smart_skipping_stats = {
+            "enabled": False,
+            "total_chunks": 0,
+            "skipped": 0,
+            "processed": 0,
+            "tokens_saved": 0,
+            "skip_reasons": {},
+            "confidence_distribution": {}
+        }
+        
+        # Biomarker caching metrics
+        self.biomarker_caching_stats = {
+            "enabled": False,
+            "total_extractions": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "llm_calls_saved": 0,
+            "cached_biomarkers_found": 0,
+            "cache_hit_rate": 0.0,
+            "average_cache_confidence": 0.0,
+            "learning_updates": 0
+        }
         
         # Ensure debug directory exists if saving debug info
         if self.save_debug and self.debug_dir:
@@ -167,6 +191,39 @@ class TokenUsageMetrics:
         self.pages_processed = pages_processed
         self.biomarkers_extracted = biomarkers_extracted
     
+    def record_smart_skipping_stats(self, skipping_stats: Dict[str, Any]) -> None:
+        """
+        Record smart chunk skipping statistics.
+        
+        Args:
+            skipping_stats: Dictionary containing skipping statistics
+        """
+        self.smart_skipping_stats.update(skipping_stats)
+        self.smart_skipping_stats["enabled"] = True
+    
+    def record_biomarker_caching_stats(self, cache_stats: Dict[str, Any], 
+                                      cached_biomarkers_count: int = 0,
+                                      learning_updates: int = 0) -> None:
+        """
+        Record biomarker caching statistics.
+        
+        Args:
+            cache_stats: Cache statistics from biomarker cache
+            cached_biomarkers_count: Number of biomarkers found via cache
+            learning_updates: Number of cache learning updates performed
+        """
+        self.biomarker_caching_stats.update({
+            "enabled": True,
+            "total_extractions": cache_stats.get("total_extractions", 0),
+            "cache_hits": cache_stats.get("cache_hits", 0),
+            "cache_misses": cache_stats.get("cache_misses", 0),
+            "llm_calls_saved": cache_stats.get("llm_calls_saved", 0),
+            "cached_biomarkers_found": cached_biomarkers_count,
+            "cache_hit_rate": cache_stats.get("cache_hit_rate", 0.0),
+            "average_cache_confidence": cache_stats.get("average_confidence", 0.0),
+            "learning_updates": learning_updates
+        })
+    
     def get_summary(self) -> Dict[str, Any]:
         """
         Get summary of token usage metrics.
@@ -218,7 +275,9 @@ class TokenUsageMetrics:
                 "optimization_time_seconds": self.optimization_time,
                 "extraction_time_seconds": self.extraction_time,
                 "total_time_seconds": total_time
-            }
+            },
+            "smart_skipping_metrics": self.smart_skipping_stats,
+            "biomarker_caching_metrics": self.biomarker_caching_stats
         }
         
         return summary

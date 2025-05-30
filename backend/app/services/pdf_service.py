@@ -37,6 +37,14 @@ from app.services.document_analyzer import (
 )
 from app.core.config import DOCUMENT_ANALYZER_CONFIG
 from app.services.utils.metrics import TokenUsageMetrics
+from app.services.utils.content_optimization import (
+    apply_smart_chunk_skipping,
+    quick_biomarker_screening
+)
+from app.services.utils.biomarker_cache import (
+    get_biomarker_cache,
+    extract_cached_biomarkers
+)
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -277,6 +285,116 @@ async def process_pages_sequentially(
         
         logger.info(f"Created {len(content_chunks)} optimized chunks for processing (token reduction: {((original_total_tokens - optimized_total_tokens) / original_total_tokens * 100):.1f}%)")
         
+        # PHASE 1: Apply Smart Chunk Skipping
+        if DOCUMENT_ANALYZER_CONFIG.get("smart_chunk_skipping", {}).get("enabled", False):
+            logger.info("🔍 Applying smart chunk skipping to optimize processing")
+            
+            # Apply smart chunk skipping with current biomarker count
+            filtered_chunks, skipping_stats = apply_smart_chunk_skipping(
+                chunks=content_chunks,
+                existing_biomarkers_count=len(all_biomarkers),
+                enabled=True
+            )
+            
+            # Safety check: ensure we don't skip too many chunks
+            max_skip_percentage = DOCUMENT_ANALYZER_CONFIG["smart_chunk_skipping"].get("max_skipped_chunks", 0.5)
+            skip_percentage = skipping_stats["skipped"] / skipping_stats["total_chunks"] if skipping_stats["total_chunks"] > 0 else 0
+            
+            if skip_percentage > max_skip_percentage:
+                logger.warning(f"⚠️  Smart skipping would skip {skip_percentage:.1%} of chunks (>{max_skip_percentage:.1%} limit)")
+                logger.info("🔄 Applying conservative skipping to stay within safety limits")
+                
+                # Apply more conservative skipping (only skip very obvious non-biomarker content)
+                conservative_chunks = []
+                tokens_saved = 0
+                for chunk in content_chunks:
+                    screening = quick_biomarker_screening(chunk["text"], len(all_biomarkers))
+                    if screening["confidence"] >= 0.5 or screening["fast_patterns_found"] >= 2:
+                        conservative_chunks.append(chunk)
+                    else:
+                        tokens_saved += chunk.get("estimated_tokens", 0)
+                        logger.debug(f"⏭️  Conservative skip: {screening['reason']}")
+                
+                filtered_chunks = conservative_chunks
+                logger.info(f"🛡️  Conservative skipping: {len(content_chunks) - len(filtered_chunks)} chunks skipped, {tokens_saved} tokens saved")
+            else:
+                logger.info(f"✅ Smart skipping applied successfully: {skipping_stats['skipped']} chunks skipped, {skipping_stats['token_savings']} tokens saved")
+            
+            # Record skipping metrics
+            metrics.record_smart_skipping_stats(skipping_stats)
+            logger.info(f"📊 Smart chunk skipping results: {skipping_stats}")
+            logger.info(f"🔍 Processing {len(filtered_chunks)} filtered chunks (skipped {skipping_stats['skipped']})")
+            content_chunks = filtered_chunks
+        
+        # PHASE 2: Apply Biomarker Caching for Fast Extraction
+        cache_config = DOCUMENT_ANALYZER_CONFIG.get("biomarker_caching", {})
+        biomarker_cache = None
+        cached_biomarkers = []
+        remaining_chunks = content_chunks.copy()
+        
+        if cache_config.get("enabled", False):
+            logger.info("🧠 Applying biomarker caching for fast extraction")
+            
+            try:
+                biomarker_cache = get_biomarker_cache()
+                
+                # Try to extract biomarkers from all chunks using cache
+                cache_results = []
+                for chunk in content_chunks:
+                    chunk_cached_biomarkers = extract_cached_biomarkers(chunk)
+                    if chunk_cached_biomarkers:
+                        cached_biomarkers.extend(chunk_cached_biomarkers)
+                        cache_results.append({
+                            "chunk": chunk,
+                            "cached_biomarkers": chunk_cached_biomarkers,
+                            "biomarker_count": len(chunk_cached_biomarkers)
+                        })
+                
+                # Determine which chunks still need LLM processing
+                if cached_biomarkers:
+                    # If we found cached biomarkers, only process chunks that had no cache hits
+                    # or had low-confidence cache hits that need LLM verification
+                    cache_hit_chunks = {result["chunk"] for result in cache_results 
+                                      if result["biomarker_count"] > 0}
+                    
+                    # Keep chunks that had no cache hits for LLM processing
+                    remaining_chunks = [chunk for chunk in content_chunks 
+                                      if chunk not in cache_hit_chunks]
+                    
+                    logger.info(f"✅ Cache found {len(cached_biomarkers)} biomarkers in {len(cache_hit_chunks)} chunks")
+                    logger.info(f"🔄 {len(remaining_chunks)} chunks still need LLM processing")
+                    
+                    # Add cached biomarkers to the main collection
+                    all_biomarkers.extend(cached_biomarkers)
+                    
+                    # Record cache statistics
+                    cache_stats = biomarker_cache.get_cache_statistics()
+                    metrics.record_api_call(
+                        prompt_tokens=0,  # No tokens used for cache
+                        completion_tokens=0,
+                        total_tokens=0,
+                        model="cache",
+                        chunk_index=f"cache_extraction_{len(cached_biomarkers)}_biomarkers"
+                    )
+                    
+                    # Record caching metrics
+                    metrics.record_biomarker_caching_stats(
+                        cache_stats=cache_stats,
+                        cached_biomarkers_count=len(cached_biomarkers)
+                    )
+                else:
+                    logger.info("📋 Cache found no biomarkers, proceeding with full LLM processing")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error in biomarker caching: {e}")
+                logger.info("🔄 Falling back to full LLM processing")
+                remaining_chunks = content_chunks
+        else:
+            logger.info("⚙️ Biomarker caching disabled, using full LLM processing")
+        
+        # Update chunk processing to use remaining chunks after caching
+        content_chunks = remaining_chunks
+        
         # Process chunks sequentially
         for i, chunk in enumerate(content_chunks):
             # Record optimized text metrics
@@ -353,8 +471,21 @@ async def process_pages_sequentially(
                 
                 # Add to all biomarkers
                 if chunk_biomarkers:
-                    logger.info(f"Extracted {len(chunk_biomarkers)} biomarkers from chunk #{i+1}")
+                    logger.info(f"✅ Extracted {len(chunk_biomarkers)} biomarkers from chunk {i+1}")
                     all_biomarkers.extend(chunk_biomarkers)
+                    
+                    # PHASE 2: Learn from successful LLM extractions to improve cache
+                    if (biomarker_cache and 
+                        cache_config.get("learn_from_extractions", True) and 
+                        chunk_biomarkers):
+                        try:
+                            biomarker_cache.learn_from_extraction(
+                                extracted_biomarkers=chunk_biomarkers,
+                                text=chunk["text"],
+                                method="llm"
+                            )
+                        except Exception as e:
+                            logger.debug(f"Cache learning error: {e}")
                 else:
                     logger.info(f"No biomarkers found in chunk #{i+1}")
                 
@@ -421,6 +552,16 @@ async def process_pages_sequentially(
     # Fall back to original method - process page by page
     logger.info(f"Using original sequential processing for {len(relevant_pages)} relevant pages")
     
+    # Initialize cache for fallback processing if enabled
+    cache_config = DOCUMENT_ANALYZER_CONFIG.get("biomarker_caching", {})
+    biomarker_cache = None
+    if cache_config.get("enabled", False):
+        try:
+            biomarker_cache = get_biomarker_cache()
+            logger.info("🧠 Biomarker cache initialized for sequential processing")
+        except Exception as e:
+            logger.error(f"❌ Error initializing cache for sequential processing: {e}")
+    
     for page_num, page_text in relevant_pages.items():
         logger.info(f"Processing page {page_num} sequentially")
         try:
@@ -433,6 +574,19 @@ async def process_pages_sequentially(
                 for bm in page_biomarkers:
                     bm['page'] = page_num
                 all_biomarkers.extend(page_biomarkers)
+                
+                # Learn from successful LLM extractions in fallback mode
+                if (biomarker_cache and 
+                    cache_config.get("learn_from_extractions", True) and 
+                    page_biomarkers):
+                    try:
+                        biomarker_cache.learn_from_extraction(
+                            extracted_biomarkers=page_biomarkers,
+                            text=page_text,
+                            method="llm"
+                        )
+                    except Exception as e:
+                        logger.debug(f"Cache learning error in fallback mode: {e}")
             else:
                 logger.info(f"No biomarkers found on page {page_num}")
         except Exception as e:
