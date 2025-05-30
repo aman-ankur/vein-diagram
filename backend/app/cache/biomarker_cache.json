@@ -37,8 +37,8 @@
         "glu"
       ],
       "confidence_threshold": 0.9,
-      "last_seen": "2025-05-30T23:28:19.166032",
-      "frequency_count": 1,
+      "last_seen": "2025-05-31T00:40:14.921174",
+      "frequency_count": 4,
       "success_rate": 0.95
     },
     "cholesterol": {
@@ -76,8 +76,8 @@
         "tc"
       ],
       "confidence_threshold": 0.9,
-      "last_seen": "2025-05-30T23:28:19.166034",
-      "frequency_count": 1,
+      "last_seen": "2025-05-31T00:40:14.936721",
+      "frequency_count": 4,
       "success_rate": 0.95
     },
     "hemoglobin": {
@@ -115,8 +115,8 @@
         "hemoglobin hb"
       ],
       "confidence_threshold": 0.95,
-      "last_seen": "2025-05-30T23:28:19.166036",
-      "frequency_count": 1,
+      "last_seen": "2025-05-31T00:40:14.951324",
+      "frequency_count": 4,
       "success_rate": 0.95
     },
     "hematocrit": {
@@ -150,9 +150,9 @@
         "pcv"
       ],
       "confidence_threshold": 0.9,
-      "last_seen": "2025-05-30T23:28:19.166037",
-      "frequency_count": 1,
-      "success_rate": 0.95
+      "last_seen": "2025-05-31T00:40:15.022474",
+      "frequency_count": 7,
+      "success_rate": 0.9364499999999999
     },
     "hdl_cholesterol": {
       "name": "hdl_cholesterol",
@@ -189,8 +189,8 @@
         "high density lipoprotein"
       ],
       "confidence_threshold": 0.9,
-      "last_seen": "2025-05-30T23:28:19.166039",
-      "frequency_count": 1,
+      "last_seen": "2025-05-31T00:40:14.980102",
+      "frequency_count": 4,
       "success_rate": 0.95
     },
     "ldl_cholesterol": {
@@ -228,8 +228,8 @@
         "low density lipoprotein"
       ],
       "confidence_threshold": 0.9,
-      "last_seen": "2025-05-30T23:28:19.166040",
-      "frequency_count": 1,
+      "last_seen": "2025-05-31T00:40:14.995935",
+      "frequency_count": 4,
       "success_rate": 0.95
     },
     "triglycerides": {
@@ -266,8 +266,8 @@
         "triglyceride"
       ],
       "confidence_threshold": 0.9,
-      "last_seen": "2025-05-30T23:28:19.166042",
-      "frequency_count": 1,
+      "last_seen": "2025-05-31T00:40:15.007686",
+      "frequency_count": 4,
       "success_rate": 0.95
     },
     "creatinine": {
@@ -309,23 +309,23 @@
         "serum creatinine"
       ],
       "confidence_threshold": 0.9,
-      "last_seen": "2025-05-30T23:28:19.166043",
-      "frequency_count": 1,
+      "last_seen": "2025-05-31T00:40:15.022450",
+      "frequency_count": 4,
       "success_rate": 0.95
     }
   },
   "statistics": {
-    "total_extractions": 0,
-    "cache_hits": 0,
+    "total_extractions": 3,
+    "cache_hits": 24,
     "cache_misses": 0,
-    "llm_calls_saved": 0,
+    "llm_calls_saved": 3,
     "false_positives": 0,
-    "cache_hit_rate": 0.0,
-    "average_confidence": 0.0,
+    "cache_hit_rate": 8.0,
+    "average_confidence": 0.8566406249999999,
     "last_updated": ""
   },
   "metadata": {
-    "created": "2025-05-30T23:28:19.166307",
+    "created": "2025-05-31T00:40:15.022765",
     "version": "1.0"
   }
 }
