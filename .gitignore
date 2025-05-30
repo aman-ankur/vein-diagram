@@ -75,3 +75,6 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/ 
+# PDF Extraction Results
+backend/extraction_results/
+extraction_results/
