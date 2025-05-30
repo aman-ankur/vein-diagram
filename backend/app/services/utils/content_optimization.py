@@ -1494,3 +1494,280 @@ def enhance_chunk_confidence_balanced(chunks: List[Dict[str, Any]]) -> List[Dict
         enhanced_chunks.append(enhanced_chunk)
     
     return enhanced_chunks 
+
+
+def quick_biomarker_screening(chunk_text: str, existing_biomarkers_count: int = 0) -> Dict[str, Any]:
+    """
+    Perform rapid screening to determine if a chunk should be processed for biomarkers.
+    This is much faster than full biomarker extraction and helps skip obvious non-biomarker content.
+    
+    Args:
+        chunk_text: Text content to screen
+        existing_biomarkers_count: Number of biomarkers already found (affects thresholds)
+        
+    Returns:
+        Dict with screening results:
+        - should_process: bool - whether to send to LLM
+        - confidence: float - confidence that chunk contains biomarkers
+        - reason: str - explanation for decision
+        - fast_patterns_found: int - number of quick patterns detected
+    """
+    if not chunk_text or len(chunk_text.strip()) < 20:
+        return {
+            "should_process": False,
+            "confidence": 0.0,
+            "reason": "empty_or_too_short",
+            "fast_patterns_found": 0
+        }
+    
+    text_lower = chunk_text.lower()
+    
+    # FAST LAB REPORT INDICATORS (very strong positive signals)
+    lab_report_indicators = [
+        # Lab report headers
+        r"\b(?:laboratory\s+report|diagnostic\s+report|clinical\s+pathology|test\s+report|lab\s+results)\b",
+        
+        # Common lab company names (from your examples)
+        r"\b(?:redcliffe\s+labs|pharmeasy\s+labs|orange\s+health\s+labs|agilus\s+diagnostics)\b",
+        r"\b(?:quest\s+diagnostics|labcorp|thyrocare|dr\s+lal\s+path\s+labs)\b",
+        
+        # Lab sections
+        r"\b(?:hematology|clinical\s+chemistry|biochemistry|immunology|microbiology)\b",
+        r"\b(?:complete\s+blood\s+count|cbc|lipid\s+profile|liver\s+function|kidney\s+function)\b",
+        
+        # Report status and metadata that indicates medical content
+        r"\b(?:final\s+report|report\s+status|biological\s+reference|reference\s+interval)\b",
+    ]
+    
+    # Count lab report indicators (these override administrative patterns)
+    lab_indicators = 0
+    for pattern in lab_report_indicators:
+        lab_indicators += len(re.findall(pattern, text_lower))
+    
+    # If we have lab report indicators, this is likely a valid lab report
+    if lab_indicators >= 1:
+        # Even if there are admin patterns, lab content should be processed
+        confidence = min(0.95, 0.7 + (lab_indicators * 0.1))
+        return {
+            "should_process": True,
+            "confidence": confidence,
+            "reason": f"lab_report_indicators_found_{lab_indicators}",
+            "fast_patterns_found": lab_indicators * 3  # Weight lab indicators heavily
+        }
+    
+    # FAST BIOMARKER INDICATORS (positive signals)
+    quick_biomarker_patterns = [
+        # Numeric values with common units (high priority)
+        r"\d+[\.,]?\d*\s*(?:mg/dl|mg/l|g/dl|mmol/l|u/l|iu/l|ng/ml|pg/ml|mcg/dl|%|mil/μl|thou/μl)",
+        
+        # Common biomarker names with nearby numbers
+        r"(?:glucose|cholesterol|triglycerides|hdl|ldl|hemoglobin|hematocrit|tsh|alt|ast|creatinine|sodium|potassium|vitamin).*?\d+",
+        r"\d+.*?(?:glucose|cholesterol|triglycerides|hdl|ldl|hemoglobin|hematocrit|tsh|alt|ast|creatinine|sodium|potassium|vitamin)",
+        
+        # Hematology patterns (from your examples)
+        r"(?:hemoglobin|hb|rbc|wbc|platelet).*?\d+[\.,]?\d*",
+        r"\d+[\.,]?\d*.*?(?:hemoglobin|hb|rbc|wbc|platelet)",
+        
+        # Result flag patterns
+        r"\b(?:high|low|abnormal|normal)\s*(?:\*|\#|h|l)\b",
+        r"\b\d+[\.,]?\d*\s*[a-z/μ]+\s*(?:high|low|h|l|\*)\b",
+        
+        # Reference range patterns  
+        r"\b\d+[\.,]?\d*\s*[-–]\s*\d+[\.,]?\d*",
+        r"\(.*?\d+[\.,]?\d*\s*[-–]\s*\d+[\.,]?\d*.*?\)",
+        
+        # Table-like structures with numbers
+        r"(?:\|[^|]*\d+[^|]*\|)|(?:\s+\d+[\.,]?\d*\s+[a-z/μ]+\s+)",
+        
+        # Lab section headers
+        r"\b(?:clinical\s+chemistry|hematology|lipid\s+panel|metabolic\s+panel)\b"
+    ]
+    
+    # Count positive biomarker indicators
+    fast_patterns_found = 0
+    pattern_weights = [3, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1]  # Different weights for pattern importance
+    
+    for i, pattern in enumerate(quick_biomarker_patterns):
+        matches = len(re.findall(pattern, chunk_text, re.IGNORECASE))
+        weight = pattern_weights[i] if i < len(pattern_weights) else 1
+        fast_patterns_found += matches * weight
+    
+    # ADMINISTRATIVE PATTERNS (only skip if NO biomarker patterns found)
+    administrative_patterns = [
+        # Contact information
+        r"\b(?:fax|phone|tel|email|website|www\.|\.com|\.org|\.edu)\b",
+        
+        # Addresses and locations  
+        r"\b(?:street|avenue|road|suite|building|floor|zip|zipcode|state|city)\b",
+        r"\b\d{5}(?:-\d{4})?\b",  # ZIP codes
+        
+        # Administrative headers/footers
+        r"\bpage\s+\d+\s+of\s+\d+\b",
+        r"\bcontinued\s+on\s+next\s+page\b",
+        r"\bprinted\s+on\b",
+        r"\breport\s+generated\b",
+        
+        # Legal/billing text
+        r"\bbilling|invoice|payment|insurance|copay|deductible\b",
+        r"\blegal|disclaimer|confidential|hipaa|privacy\b",
+        
+        # Pure headers without values (only if no biomarker patterns)
+        r"^(?:test\s+name|result|reference\s+range|units|status|flag)$",
+        
+        # Method descriptions (pure text, no values)
+        r"\bmethod(?:ology)?[\s:]+(?!.*\d).*$",
+        r"\bspecimen[\s:]+(?!.*\d).*$",
+        r"\bcollection[\s:]+(?!.*\d).*$"
+    ]
+    
+    # Count administrative pattern matches (negative indicators)
+    admin_matches = 0
+    for pattern in administrative_patterns:
+        admin_matches += len(re.findall(pattern, text_lower))
+    
+    # IMPORTANT: Only apply administrative filtering if NO biomarker patterns found
+    if admin_matches >= 3 and fast_patterns_found == 0:
+        return {
+            "should_process": False,
+            "confidence": 0.1,
+            "reason": f"pure_administrative_content_matches_{admin_matches}",
+            "fast_patterns_found": 0
+        }
+    
+    # Calculate screening confidence
+    text_length = len(chunk_text)
+    pattern_density = fast_patterns_found / (text_length / 100)  # patterns per 100 chars
+    
+    # Adjust thresholds based on how many biomarkers we already have
+    base_threshold = 0.3
+    if existing_biomarkers_count >= 20:
+        base_threshold = 0.5  # Be more selective when we have many biomarkers
+    elif existing_biomarkers_count >= 10:
+        base_threshold = 0.4  # Moderately selective
+    
+    # Determine if we should process
+    should_process = True
+    confidence = 0.5  # Default moderate confidence
+    reason = "default_processing"
+    
+    if pattern_density >= 2.0:
+        confidence = 0.9
+        reason = "high_biomarker_density"
+    elif pattern_density >= 1.0:
+        confidence = 0.8
+        reason = "medium_biomarker_density"
+    elif pattern_density >= 0.5:
+        confidence = 0.6
+        reason = "low_biomarker_density"
+    elif fast_patterns_found >= 3:
+        confidence = 0.7
+        reason = "multiple_biomarker_patterns"
+    elif fast_patterns_found >= 1:
+        confidence = 0.5
+        reason = "some_biomarker_patterns"
+    elif admin_matches >= 1 and fast_patterns_found == 0:
+        confidence = 0.2
+        reason = "administrative_content_detected"
+        if existing_biomarkers_count >= 10:  # Be more aggressive if we have enough biomarkers
+            should_process = False
+            reason = "administrative_content_with_sufficient_biomarkers"
+    else:
+        confidence = 0.3
+        reason = "minimal_biomarker_indicators"
+        if existing_biomarkers_count >= 15:  # Very selective when we have many biomarkers
+            should_process = False
+            reason = "minimal_indicators_with_many_biomarkers"
+    
+    # Final safety checks
+    if confidence < base_threshold:
+        should_process = False
+        reason = f"below_threshold_{base_threshold}"
+    
+    # Always process if we haven't found any biomarkers yet (safety fallback)
+    if existing_biomarkers_count == 0 and confidence >= 0.2:
+        should_process = True
+        reason = "safety_fallback_no_biomarkers_found"
+    
+    return {
+        "should_process": should_process,
+        "confidence": confidence,
+        "reason": reason,
+        "fast_patterns_found": fast_patterns_found
+    }
+
+
+def apply_smart_chunk_skipping(
+    chunks: List[Dict[str, Any]], 
+    existing_biomarkers_count: int = 0,
+    enabled: bool = True
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """
+    Apply smart chunk skipping to a list of chunks based on quick screening.
+    
+    Args:
+        chunks: List of content chunks to process
+        existing_biomarkers_count: Number of biomarkers already found
+        enabled: Whether smart skipping is enabled
+        
+    Returns:
+        Tuple of (filtered_chunks, skipping_stats)
+    """
+    if not enabled:
+        return chunks, {"skipped": 0, "processed": len(chunks), "reason": "disabled"}
+    
+    filtered_chunks = []
+    skipping_stats = {
+        "total_chunks": len(chunks),
+        "skipped": 0,
+        "processed": 0,
+        "skipped_reasons": {},
+        "confidence_distribution": {"high": 0, "medium": 0, "low": 0, "very_low": 0},
+        "token_savings": 0
+    }
+    
+    logging.info(f"🔍 SMART CHUNK SKIPPING: Screening {len(chunks)} chunks (existing biomarkers: {existing_biomarkers_count})")
+    
+    for i, chunk in enumerate(chunks):
+        screening_result = quick_biomarker_screening(
+            chunk["text"], 
+            existing_biomarkers_count + len(filtered_chunks)  # Update count as we process
+        )
+        
+        # Update confidence distribution stats
+        confidence = screening_result["confidence"]
+        if confidence >= 0.8:
+            skipping_stats["confidence_distribution"]["high"] += 1
+        elif confidence >= 0.6:
+            skipping_stats["confidence_distribution"]["medium"] += 1
+        elif confidence >= 0.4:
+            skipping_stats["confidence_distribution"]["low"] += 1
+        else:
+            skipping_stats["confidence_distribution"]["very_low"] += 1
+        
+        if screening_result["should_process"]:
+            # Add screening metadata to chunk for debugging
+            chunk["screening_confidence"] = screening_result["confidence"]
+            chunk["screening_reason"] = screening_result["reason"]
+            chunk["fast_patterns_found"] = screening_result["fast_patterns_found"]
+            filtered_chunks.append(chunk)
+            skipping_stats["processed"] += 1
+            
+            logging.debug(f"✅ Processing chunk #{i+1}: confidence={confidence:.2f}, reason={screening_result['reason']}")
+        else:
+            # Track skipped chunk
+            skipping_stats["skipped"] += 1
+            reason = screening_result["reason"]
+            skipping_stats["skipped_reasons"][reason] = skipping_stats["skipped_reasons"].get(reason, 0) + 1
+            skipping_stats["token_savings"] += chunk.get("estimated_tokens", 0)
+            
+            logging.info(f"⏭️  SKIPPED chunk #{i+1} (page {chunk.get('page_num', '?')}): confidence={confidence:.2f}, reason={reason}, tokens_saved={chunk.get('estimated_tokens', 0)}")
+    
+    # Log summary
+    if skipping_stats["skipped"] > 0:
+        logging.info(f"🎯 SKIPPING SUMMARY: {skipping_stats['skipped']}/{skipping_stats['total_chunks']} chunks skipped, {skipping_stats['token_savings']} tokens saved")
+        logging.info(f"📊 Confidence distribution: {skipping_stats['confidence_distribution']}")
+        logging.info(f"📋 Skip reasons: {skipping_stats['skipped_reasons']}")
+    else:
+        logging.info(f"🔄 SKIPPING SUMMARY: No chunks skipped, processing all {skipping_stats['total_chunks']} chunks")
+    
+    return filtered_chunks, skipping_stats 
