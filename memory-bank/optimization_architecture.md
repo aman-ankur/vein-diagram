@@ -6,16 +6,16 @@ The Vein Diagram system implements a three-tier optimization architecture that b
 
 ## System Architecture
 
-### Three-Tier Optimization Strategy
+### Four-Tier Optimization Strategy
 
 ```
-┌─────────────────┬─────────────────┬─────────────────┐
-│   Legacy Mode   │  Accuracy Mode  │ Balanced Mode   │
-├─────────────────┼─────────────────┼─────────────────┤
-│ 0.82% reduction │ 0.82% reduction │ 24-29% reduction│
-│ Max compatibility│ Max accuracy    │ Cost optimized  │
-│ Default mode    │ ACCURACY_MODE   │ BALANCED_MODE   │
-└─────────────────┴─────────────────┴─────────────────┘
+┌─────────────────┬─────────────────┬─────────────────┬─────────────────┐
+│   Legacy Mode   │  Accuracy Mode  │ Balanced Mode   │ Phase 2+ Mode   │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ 0.82% reduction │ 0.82% reduction │ 24-29% reduction│ 50-80% reduction│
+│ Max compatibility│ Max accuracy    │ Cost optimized  │ Smart optimized │
+│ Default mode    │ ACCURACY_MODE   │ BALANCED_MODE   │ AUTO ENABLED    │
+└─────────────────┴─────────────────┴─────────────────┴─────────────────┘
 ```
 
 ## Mode Specifications
@@ -58,6 +58,49 @@ The Vein Diagram system implements a three-tier optimization architecture that b
 - **Text Processing**: `balanced_text_compression()` - universal safe compression
 - **Confidence Enhancement**: `enhance_chunk_confidence_balanced()`
 - **Use Case**: Production deployments, cost optimization
+
+## Phase 2+ Smart Processing Optimizations ✅ COMPLETE
+
+### 4. Phase 2+ Mode (Auto-Enabled)
+**Purpose**: Intelligent processing with smart chunk skipping and biomarker caching
+- **API Call Reduction**: **50-80%** through smart processing
+- **Processing Method**: Smart chunk filtering + instant cache extraction
+- **Cache System**: Pre-loaded patterns + automatic learning from LLM extractions
+- **Pattern Persistence**: Learned patterns saved to disk and persist across restarts
+- **Use Case**: Production deployments requiring maximum cost optimization
+
+**Smart Processing Features**:
+```python
+# Smart Chunk Skipping
+- Admin pattern detection (headers, footers, contact info)
+- Lab report indicator boosting 
+- Safety fallbacks to prevent biomarker loss
+- Configurable confidence thresholds
+
+# Biomarker Caching
+- 8 comprehensive regex patterns for flexible matching
+- Pre-loaded common biomarkers (Glucose, Cholesterol, etc.)
+- Real-time learning from successful LLM extractions
+- Instant extraction for known patterns (0 API calls)
+```
+
+**Configuration**:
+```python
+DOCUMENT_ANALYZER_CONFIG = {
+    "smart_chunk_skipping": {
+        "enabled": True,
+        "confidence_threshold": 0.3,
+        "admin_pattern_threshold": 3,
+        "lab_indicator_boost": 0.2
+    },
+    "biomarker_caching": {
+        "enabled": True,
+        "max_cache_size": 500,
+        "confidence_threshold": 0.8,
+        "learn_from_extractions": True
+    }
+}
+```
 
 ## Generic Compression Innovation
 
