@@ -68,9 +68,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
     );
   };
   
-  const renderMessage = (message: ChatMessage, index: number) => {
+  const renderMessage = (message: ChatMessage) => {
     const isUser = message.role === 'user';
-    const isLast = index === messages.length - 1;
     
     return (
       <div
@@ -167,7 +166,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
       )}
       
       {/* Messages */}
-      {messages.map(renderMessage)}
+      {messages.map((message) => renderMessage(message))}
       
       {/* Loading Indicator */}
       {isLoading && (

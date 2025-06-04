@@ -25,15 +25,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 }) => {
   const { activeProfile } = useProfile();
   const {
-    chatState,
+    messages,
+    isLoading,
+    error,
+    suggestions,
+    usageMetrics,
     sendMessage,
     clearConversation,
     submitFeedback,
-    loadSuggestions,
-    prepareBiomarkerContext,
     retryLastMessage,
     canRetry,
-    isServiceHealthy
+    isHealthy
   } = useChat({ autoLoadSuggestions: true, trackUsage: true });
 
   // Keyboard shortcut to close chat (Escape)
@@ -52,14 +54,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   // Prepare biomarker context from active profile
   const getBiomarkerContext = useCallback(() => {
-    if (!activeProfile?.biomarkers) return undefined;
-    
-    const biomarkers = Array.isArray(activeProfile.biomarkers) 
-      ? activeProfile.biomarkers 
-      : Object.values(activeProfile.biomarkers).flat();
-    
-    return prepareBiomarkerContext(biomarkers, activeProfile.favoriteBiomarkers);
-  }, [activeProfile, prepareBiomarkerContext]);
+    // Note: biomarkers should be passed from parent component that has access to them
+    // Profile doesn't contain biomarkers directly
+    return undefined; // For now, return undefined - this should be passed as a prop
+  }, []);
 
   const handleSendMessage = useCallback(async (message: string) => {
     const biomarkerContext = getBiomarkerContext();
@@ -119,11 +117,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <div className="flex items-center space-x-2">
             {/* Service Status */}
             <div className={`w-2 h-2 rounded-full ${
-              isServiceHealthy ? 'bg-green-400' : 'bg-red-400'
-            }`} title={isServiceHealthy ? 'Service healthy' : 'Service unavailable'} />
+              isHealthy ? 'bg-green-400' : 'bg-red-400'
+            }`} title={isHealthy ? 'Service healthy' : 'Service unavailable'} />
             
             {/* Clear Conversation */}
-            {chatState.messages.length > 0 && (
+            {messages.length > 0 && (
               <button
                 onClick={handleClearConversation}
                 className="p-1 hover:bg-blue-500 rounded transition-colors duration-200"
@@ -145,7 +143,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
 
         {/* Error State */}
-        {!isServiceHealthy && (
+        {!isHealthy && (
           <div className="bg-red-50 border-b border-red-200 p-3">
             <div className="flex items-center space-x-2 text-red-700">
               <AlertCircle className="w-4 h-4" />
@@ -169,12 +167,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
 
         {/* Error Display */}
-        {chatState.error && (
+        {error && (
           <div className="bg-red-50 border-b border-red-200 p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-red-700">
                 <AlertCircle className="w-4 h-4" />
-                <span className="text-xs">{chatState.error}</span>
+                <span className="text-xs">{error}</span>
               </div>
               {canRetry && (
                 <button
@@ -189,12 +187,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
 
         {/* Quick Questions */}
-        {chatState.suggestedQuestions.length > 0 && chatState.messages.length === 0 && (
+        {suggestions.length > 0 && messages.length === 0 && (
           <div className="flex-shrink-0">
             <QuickQuestions
-              questions={chatState.suggestedQuestions}
+              questions={suggestions}
               onQuestionClick={handleQuestionClick}
-              disabled={!isServiceHealthy || !activeProfile || chatState.isLoading}
+              disabled={!isHealthy || !activeProfile || isLoading}
             />
           </div>
         )}
@@ -202,8 +200,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         {/* Conversation Container */}
         <div className="flex-1 flex flex-col min-h-0">
           <ConversationView
-            messages={chatState.messages}
-            isLoading={chatState.isLoading}
+            messages={messages}
+            isLoading={isLoading}
             onFeedback={submitFeedback}
             onBiomarkerClick={onBiomarkerClick}
             className="flex-1"
@@ -214,12 +212,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div className="flex-shrink-0">
           <MessageInput
             onSendMessage={handleSendMessage}
-            isLoading={chatState.isLoading}
-            disabled={!isServiceHealthy || !activeProfile}
+            isLoading={isLoading}
+            disabled={!isHealthy || !activeProfile}
             placeholder={
               !activeProfile 
                 ? "Select a profile to start chatting..."
-                : !isServiceHealthy
+                : !isHealthy
                   ? "Service unavailable..."
                   : "Ask about your biomarkers..."
             }
@@ -227,11 +225,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
 
         {/* Usage Metrics (if enabled) */}
-        {chatState.usageMetrics && (
+        {usageMetrics && (
           <div className="bg-gray-50 border-t border-gray-200 px-4 py-2">
             <div className="text-xs text-gray-500 flex items-center justify-between">
-              <span>Today: {chatState.usageMetrics.dailyApiCalls} queries</span>
-              <span>Avg response: {chatState.usageMetrics.averageResponseTime}ms</span>
+              <span>Today: {usageMetrics.dailyApiCalls} queries</span>
+              <span>Avg response: {usageMetrics.averageResponseTime}ms</span>
             </div>
           </div>
         )}

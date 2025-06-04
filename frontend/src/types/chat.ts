@@ -60,6 +60,7 @@ export interface ChatResponse {
   responseId: string;
   isFromCache: boolean;
   tokenUsage: number;
+  responseTimeMs: number;
 }
 
 export interface SuggestedQuestion {
@@ -86,6 +87,7 @@ export interface UsageMetrics {
   cacheHitRate: number;
   averageResponseTime: number;
   date: string;
+  lastUpdated: string;
 }
 
 export interface ChatState {

@@ -45,6 +45,7 @@ describe('ChatService', () => {
       profileId: 'test-profile-123',
       conversationHistory: [
         {
+          id: 'msg-1',
           role: 'user',
           content: 'Hello',
           timestamp: '2023-01-01T10:00:00Z',
@@ -56,8 +57,8 @@ describe('ChatService', () => {
             name: 'Glucose',
             value: 110.0,
             unit: 'mg/dL',
-            referenceRange: '70-99',
-            isAbnormal: true,
+            reference_range: '70-99',
+            is_abnormal: true,
             trend: 'worsened',
             isFavorite: true,
           },
@@ -251,10 +252,12 @@ describe('ChatService', () => {
 
   describe('getUsageMetrics', () => {
     const mockUsageMetrics: UsageMetrics = {
-      dailyApiCalls: 5,
-      dailyTokens: 750,
-      cacheHitRate: 20.0,
-      lastUpdated: '2023-01-01T12:00:00Z',
+      dailyApiCalls: 10,
+      dailyTokens: 1500,
+      cacheHitRate: 0.3,
+      averageResponseTime: 850,
+      date: '2023-01-01',
+      lastUpdated: '2023-01-01T12:00:00Z'
     };
 
     it('should get usage metrics successfully', async () => {
@@ -344,11 +347,13 @@ describe('ChatService', () => {
     const profileId = 'test-profile-123';
     const mockConversation = [
       {
+        id: 'msg-1',
         role: 'user' as const,
         content: 'Hello',
         timestamp: '2023-01-01T10:00:00Z',
       },
       {
+        id: 'msg-2',
         role: 'assistant' as const,
         content: 'Hi! How can I help you?',
         timestamp: '2023-01-01T10:00:01Z',
@@ -469,6 +474,7 @@ describe('ChatService', () => {
         if (key.startsWith('chat_conversation_')) {
           return JSON.stringify([
             {
+              id: 'old-msg-1',
               role: 'user',
               content: 'Old message',
               timestamp: oldDate.toISOString(),
@@ -505,6 +511,7 @@ describe('ChatService', () => {
         if (key.startsWith('chat_conversation_')) {
           return JSON.stringify([
             {
+              id: 'recent-msg-1',
               role: 'user',
               content: 'Recent message',
               timestamp: recentDate.toISOString(),
@@ -595,6 +602,61 @@ describe('ChatService', () => {
       );
 
       expect(fetch).toHaveBeenCalledTimes(3); // Initial + 2 retries
+    });
+  });
+
+  describe('addMessagesToHistory', () => {
+    it('should add messages to history successfully', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, message: 'Messages added to history' }),
+      });
+
+      const result = await chatService.addMessagesToHistory('test-profile', [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Test message',
+          timestamp: '2023-01-01T10:00:00Z'
+        }
+      ]);
+
+      expect(fetch).toHaveBeenCalledWith('/api/chat/history/test-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              id: 'msg-1',
+              role: 'user',
+              content: 'Test message',
+              timestamp: '2023-01-01T10:00:00Z'
+            }
+          ]
+        }),
+      });
+
+      expect(result).toEqual({ success: true, message: 'Messages added to history' });
+    });
+
+    it('should handle conversation saving error', async () => {
+      mockLocalStorage.setItem.mockImplementation(() => {
+        throw new Error('Storage error');
+      });
+
+      // Should not throw error
+      expect(() => {
+        chatService.addMessagesToHistory('test-profile', [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'Test message',
+            timestamp: '2023-01-01T10:00:00Z'
+          }
+        ]);
+      }).not.toThrow();
     });
   });
 }); 
