@@ -25,8 +25,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const { activeProfile } = useProfile();
   const { 
-    chatState, 
-    isServiceHealthy 
+    messages,
+    suggestions,
+    isHealthy 
   } = useChat({ 
     autoLoadSuggestions: false, // Only load suggestions when chat is opened
     trackUsage: showMetrics 
@@ -41,8 +42,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   }, []);
 
   // Determine if there are unread suggestions
-  const hasUnreadSuggestions = chatState.suggestedQuestions.length > 0 && 
-                               chatState.messages.length === 0;
+  const hasUnreadSuggestions = suggestions.length > 0 && 
+                               messages.length === 0;
 
   // Don't show chat if no active profile (unless we want to show a "select profile" message)
   const shouldShowChat = Boolean(activeProfile);
@@ -55,7 +56,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           isOpen={isOpen}
           onClick={toggleChat}
           hasUnreadSuggestions={hasUnreadSuggestions}
-          isServiceHealthy={isServiceHealthy}
+          isServiceHealthy={isHealthy}
         />
       )}
 

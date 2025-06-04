@@ -19,8 +19,15 @@ interface UseChatProps {
 }
 
 interface UseChatReturn {
-  // Chat state
-  chatState: ChatState;
+  // Chat state (individual properties, not nested)
+  isOpen: boolean;
+  messages: ChatMessage[];
+  isLoading: boolean;
+  error: string | null;
+  suggestions: SuggestedQuestion[];
+  welcomeMessage: string;
+  usageMetrics: UsageMetrics | null;
+  isHealthy: boolean;
   
   // Actions
   sendMessage: (message: string, biomarkerContext?: BiomarkerContext) => Promise<void>;
@@ -28,6 +35,7 @@ interface UseChatReturn {
   toggleChat: () => void;
   openChat: () => void;
   closeChat: () => void;
+  clearError: () => void;
   
   // Feedback
   submitFeedback: (responseId: string, isHelpful: boolean, feedbackType?: string, comment?: string) => Promise<void>;
@@ -35,11 +43,12 @@ interface UseChatReturn {
   // Data
   loadSuggestions: () => Promise<void>;
   prepareBiomarkerContext: (biomarkers: Biomarker[], favoriteBiomarkers?: string[]) => BiomarkerContext;
+  getUsageMetrics: () => Promise<void>;
+  checkHealth: () => Promise<void>;
   
   // Utilities
   retryLastMessage: () => Promise<void>;
   canRetry: boolean;
-  isServiceHealthy: boolean;
 }
 
 export const useChat = ({ 
@@ -97,8 +106,8 @@ export const useChat = ({
   
   const checkServiceHealth = useCallback(async () => {
     try {
-      const healthy = await chatService.checkServiceHealth();
-      setIsServiceHealthy(healthy);
+      await chatService.checkHealth();
+      setIsServiceHealthy(true);
     } catch (error) {
       setIsServiceHealthy(false);
     }
@@ -257,7 +266,7 @@ export const useChat = ({
       await chatService.submitFeedback({
         responseId,
         isHelpful,
-        feedbackType,
+        feedbackType: feedbackType as "accuracy" | "clarity" | "completeness" | "actionability" | undefined,
         comment
       });
     } catch (error: any) {
@@ -295,23 +304,39 @@ export const useChat = ({
     }));
   }, []);
   
+  const clearError = useCallback(() => {
+    setChatState(prev => ({
+      ...prev,
+      error: null
+    }));
+  }, []);
+  
   // Computed values
   const canRetry = useMemo(() => {
     return lastMessage !== null && !chatState.isLoading && chatState.error !== null;
   }, [lastMessage, chatState.isLoading, chatState.error]);
   
   return {
-    chatState,
+    isOpen: chatState.isOpen,
+    messages: chatState.messages,
+    isLoading: chatState.isLoading,
+    error: chatState.error,
+    suggestions: chatState.suggestedQuestions,
+    welcomeMessage: '',
+    usageMetrics: chatState.usageMetrics || null,
+    isHealthy: isServiceHealthy,
     sendMessage,
     clearConversation,
     toggleChat,
     openChat,
     closeChat,
+    clearError,
     submitFeedback,
     loadSuggestions,
     prepareBiomarkerContext,
+    getUsageMetrics: loadUsageMetrics,
+    checkHealth: checkServiceHealth,
     retryLastMessage,
-    canRetry,
-    isServiceHealthy
+    canRetry
   };
 }; 

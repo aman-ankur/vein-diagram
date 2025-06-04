@@ -4,38 +4,49 @@
  */
 import { 
   ChatMessage, ChatRequest, ChatResponse, 
-  SuggestedQuestion, ChatSuggestionsResponse,
-  ChatFeedback, ConversationHistory, ConversationStorage,
-  BiomarkerContext, UsageMetrics, ChatError
+  ChatSuggestionsResponse,
+  ChatFeedback, BiomarkerContext, UsageMetrics, ChatError
 } from '../types/chat';
 import { Biomarker } from '../types/pdf';
 import api from './api';
 import { logger } from '../utils/logger';
 
 class ChatService {
-  private readonly STORAGE_KEY = 'vein_diagram_chat_conversations';
-  private readonly MAX_CONVERSATIONS_PER_PROFILE = 5;
   private readonly MAX_MESSAGES_PER_CONVERSATION = 100;
   
   /**
    * Send a chat message and get AI response
    */
   async sendMessage(
-    message: string,
-    profileId: string,
+    messageOrRequest: string | ChatRequest,
+    profileId?: string,
     biomarkerContext?: BiomarkerContext
   ): Promise<ChatResponse> {
     try {
+      let request: ChatRequest;
+      
+      // Handle both single object parameter and multiple parameters
+      if (typeof messageOrRequest === 'string') {
+        if (!profileId) {
+          throw new Error('profileId is required when message is passed as string');
+        }
+        request = {
+          message: messageOrRequest.trim(),
+          profileId,
+          biomarkerContext
+        };
+      } else {
+        request = messageOrRequest;
+      }
+      
       // Get recent conversation history for context
-      const conversationHistory = this.getConversationHistory(profileId);
+      const conversationHistory = this.getConversationHistory(request.profileId);
       const recentMessages = conversationHistory.slice(-10); // Last 10 messages for API context
       
-      const request: ChatRequest = {
-        message: message.trim(),
-        profileId,
-        conversationHistory: recentMessages,
-        biomarkerContext
-      };
+      // Add conversation history if not already provided
+      if (!request.conversationHistory) {
+        request.conversationHistory = recentMessages;
+      }
       
       // Validate message length
       if (request.message.length === 0 || request.message.length > 1000) {
@@ -45,11 +56,11 @@ class ChatService {
       const response = await api.post<ChatResponse>('/api/chat', request);
       
       // Store both user message and AI response in conversation history
-      this.addMessagesToHistory(profileId, [
+      this.addMessagesToHistory(request.profileId, [
         {
           id: this.generateMessageId(),
           role: 'user',
-          content: message,
+          content: request.message,
           timestamp: new Date().toISOString()
         },
         {
@@ -66,29 +77,19 @@ class ChatService {
       
       // Log chat interaction (fallback if logger doesn't have logChatInteraction)
       try {
-        if (typeof logger.logChatInteraction === 'function') {
-          logger.logChatInteraction('message_sent', {
-            profileId,
-            messageLength: message.length,
-            isFromCache: response.data.isFromCache,
-            tokenUsage: response.data.tokenUsage,
-            responseTime: response.data.responseTimeMs
-          });
-        } else {
-          logger.info('Chat interaction', {
-            action: 'message_sent',
-            profileId,
-            messageLength: message.length,
-            isFromCache: response.data.isFromCache,
-            tokenUsage: response.data.tokenUsage,
-            responseTime: response.data.responseTimeMs
-          });
-        }
+        logger.info('Chat interaction', {
+          action: 'message_sent',
+          profileId: request.profileId,
+          messageLength: request.message.length,
+          isFromCache: response.data.isFromCache,
+          tokenUsage: response.data.tokenUsage,
+          responseTime: response.data.responseTimeMs
+        });
       } catch (logError) {
         console.log('Chat interaction logged:', {
           action: 'message_sent',
-          profileId,
-          messageLength: message.length,
+          profileId: request.profileId,
+          messageLength: request.message.length,
           isFromCache: response.data.isFromCache,
           tokenUsage: response.data.tokenUsage,
           responseTime: response.data.responseTimeMs
@@ -121,17 +122,10 @@ class ChatService {
       
       // Log suggestions fetch (with fallback)
       try {
-        if (typeof logger.logChatInteraction === 'function') {
-          logger.logChatInteraction('suggestions_fetched', {
-            profileId,
-            suggestionsCount: response.data.suggestions.length
-          });
-        } else {
-          logger.info('Chat suggestions fetched', {
-            profileId,
-            suggestionsCount: response.data.suggestions.length
-          });
-        }
+        logger.info('Chat suggestions fetched', {
+          profileId,
+          suggestionsCount: response.data.suggestions.length
+        });
       } catch (logError) {
         console.log('Chat suggestions fetched:', { profileId, suggestionsCount: response.data.suggestions.length });
       }
@@ -162,19 +156,11 @@ class ChatService {
       
       // Log feedback submission (with fallback)
       try {
-        if (typeof logger.logChatInteraction === 'function') {
-          logger.logChatInteraction('feedback_submitted', {
-            responseId: feedback.responseId,
-            isHelpful: feedback.isHelpful,
-            feedbackType: feedback.feedbackType
-          });
-        } else {
-          logger.info('Chat feedback submitted', {
-            responseId: feedback.responseId,
-            isHelpful: feedback.isHelpful,
-            feedbackType: feedback.feedbackType
-          });
-        }
+        logger.info('Chat feedback submitted', {
+          responseId: feedback.responseId,
+          isHelpful: feedback.isHelpful,
+          feedbackType: feedback.feedbackType
+        });
       } catch (logError) {
         console.log('Chat feedback submitted:', {
           responseId: feedback.responseId,
@@ -204,23 +190,23 @@ class ChatService {
   }
   
   /**
+   * Check service health
+   */
+  async checkHealth(): Promise<any> {
+    try {
+      const response = await api.get('/api/chat/health');
+      return response.data;
+    } catch (error: any) {
+      logger.error('Health check error:', error);
+      throw new Error('Health check failed');
+    }
+  }
+  
+  /**
    * Get conversation history for a profile
    */
   getConversationHistory(profileId: string): ChatMessage[] {
-    try {
-      const storage = this.loadConversationStorage();
-      const conversation = storage.conversations[profileId];
-      
-      if (!conversation) {
-        return [];
-      }
-      
-      return conversation.messages;
-      
-    } catch (error) {
-      logger.error('Error loading conversation history:', error);
-      return [];
-    }
+    return this.loadConversation(profileId);
   }
   
   /**
@@ -228,76 +214,64 @@ class ChatService {
    */
   addMessagesToHistory(profileId: string, messages: ChatMessage[]): void {
     try {
-      const storage = this.loadConversationStorage();
+      const existing = this.loadConversation(profileId);
+      const updated = [...existing, ...messages];
       
-      if (!storage.conversations[profileId]) {
-        storage.conversations[profileId] = {
-          messages: [],
-          profileId,
-          createdAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString()
-        };
-      }
+      // Keep only the latest messages (limit per conversation)
+      const limited = updated.slice(-this.MAX_MESSAGES_PER_CONVERSATION);
       
-      const conversation = storage.conversations[profileId];
-      conversation.messages.push(...messages);
-      conversation.lastUpdated = new Date().toISOString();
+      this.saveConversation(profileId, limited);
       
-      // Trim messages if conversation gets too long
-      if (conversation.messages.length > this.MAX_MESSAGES_PER_CONVERSATION) {
-        const excessMessages = conversation.messages.length - this.MAX_MESSAGES_PER_CONVERSATION;
-        conversation.messages = conversation.messages.slice(excessMessages);
-      }
-      
-      this.saveConversationStorage(storage);
-      
-    } catch (error) {
-      logger.error('Error saving conversation history:', error);
-    }
-  }
-  
-  /**
-   * Clear conversation history for a profile
-   */
-  clearConversationHistory(profileId: string): void {
-    try {
-      const storage = this.loadConversationStorage();
-      delete storage.conversations[profileId];
-      this.saveConversationStorage(storage);
-      
-      // Log conversation clear (with fallback)
+      // Log conversation update (with fallback)
       try {
-        if (typeof logger.logChatInteraction === 'function') {
-          logger.logChatInteraction('conversation_cleared', { profileId });
-        } else {
-          logger.info('Conversation cleared', { profileId });
-        }
+        logger.info('Conversation updated', {
+          profileId,
+          messageCount: messages.length,
+          totalMessages: limited.length
+        });
       } catch (logError) {
-        console.log('Conversation cleared for profile:', profileId);
+        console.log('Conversation updated for profile:', profileId, 'Added:', messages.length);
       }
       
     } catch (error) {
-      logger.error('Error clearing conversation history:', error);
+      logger.error('Error adding messages to history:', error);
     }
   }
   
   /**
-   * Clear all conversation data (privacy)
+   * Clear conversation history via API
+   */
+  async clearConversationHistory(profileId: string): Promise<boolean> {
+    try {
+      await api.delete(`/api/chat/history/${profileId}`);
+      return true;
+    } catch (error: any) {
+      logger.error('Clear conversation history error:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Clear all conversation history for all profiles
    */
   clearAllConversations(): void {
     try {
-      localStorage.removeItem(this.STORAGE_KEY);
-      sessionStorage.removeItem(this.STORAGE_KEY);
-      
-      // Log all conversations clear (with fallback)
-      try {
-        if (typeof logger.logChatInteraction === 'function') {
-          logger.logChatInteraction('all_conversations_cleared', {});
-        } else {
-          logger.info('All conversations cleared');
+      // Find all chat conversation keys and remove them
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('chat_conversation_')) {
+          keys.push(key);
         }
+      }
+      
+      keys.forEach(key => localStorage.removeItem(key));
+      
+      // Log conversation clear (with fallback)
+      try {
+        logger.info('All conversations cleared', { count: keys.length });
       } catch (logError) {
-        console.log('All conversations cleared');
+        console.log('All conversations cleared:', keys.length);
       }
       
     } catch (error) {
@@ -339,88 +313,95 @@ class ChatService {
   }
   
   /**
-   * Check if chat service is available
+   * Save conversation to localStorage
    */
-  async checkServiceHealth(): Promise<boolean> {
+  saveConversation(profileId: string, messages: ChatMessage[]): void {
     try {
-      const response = await api.get('/api/chat/health');
-      return response.status === 200;
-      
+      localStorage.setItem(`chat_conversation_${profileId}`, JSON.stringify(messages));
     } catch (error) {
-      return false;
+      logger.error('Error saving conversation:', error);
+    }
+  }
+  
+  /**
+   * Load conversation from localStorage
+   */
+  loadConversation(profileId: string): ChatMessage[] {
+    try {
+      const stored = localStorage.getItem(`chat_conversation_${profileId}`);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      logger.error('Error loading conversation:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Clear conversation from localStorage
+   */
+  clearConversation(profileId: string): void {
+    try {
+      localStorage.removeItem(`chat_conversation_${profileId}`);
+    } catch (error) {
+      logger.error('Error clearing conversation:', error);
+    }
+  }
+  
+  /**
+   * Save session state to sessionStorage
+   */
+  saveSessionState(state: any): void {
+    try {
+      sessionStorage.setItem('chat_session_state', JSON.stringify(state));
+    } catch (error) {
+      logger.error('Error saving session state:', error);
+    }
+  }
+  
+  /**
+   * Load session state from sessionStorage
+   */
+  loadSessionState(): any {
+    try {
+      const stored = sessionStorage.getItem('chat_session_state');
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      logger.error('Error loading session state:', error);
+      return null;
     }
   }
   
   // Private helper methods
   
-  private loadConversationStorage(): ConversationStorage {
+  /**
+   * Cleanup old conversations (make public)
+   */
+  cleanupOldConversations(): void {
     try {
-      // Try localStorage first, fall back to sessionStorage
-      const stored = localStorage.getItem(this.STORAGE_KEY) || 
-                   sessionStorage.getItem(this.STORAGE_KEY);
+      const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+      const now = Date.now();
       
-      if (stored) {
-        return JSON.parse(stored);
-      }
-      
-    } catch (error) {
-      logger.error('Error parsing conversation storage:', error);
-    }
-    
-    // Return empty storage if none exists or parsing fails
-    return {
-      conversations: {},
-      maxConversationsPerProfile: this.MAX_CONVERSATIONS_PER_PROFILE,
-      maxMessagesPerConversation: this.MAX_MESSAGES_PER_CONVERSATION
-    };
-  }
-  
-  private saveConversationStorage(storage: ConversationStorage): void {
-    try {
-      const serialized = JSON.stringify(storage);
-      
-      // Save to both localStorage and sessionStorage for persistence
-      localStorage.setItem(this.STORAGE_KEY, serialized);
-      sessionStorage.setItem(this.STORAGE_KEY, serialized);
-      
-    } catch (error) {
-      // Handle storage quota exceeded
-      if (error instanceof DOMException && error.code === 22) {
-        this.cleanupOldConversations();
-        // Try saving again after cleanup
-        try {
-          const serialized = JSON.stringify(storage);
-          localStorage.setItem(this.STORAGE_KEY, serialized);
-        } catch (retryError) {
-          logger.error('Storage still full after cleanup:', retryError);
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('chat_conversation_')) {
+          try {
+            const stored = localStorage.getItem(key);
+            if (stored) {
+              const messages: ChatMessage[] = JSON.parse(stored);
+              if (messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
+                const lastMessageTime = new Date(lastMessage.timestamp).getTime();
+                if (now - lastMessageTime > maxAge) {
+                  localStorage.removeItem(key);
+                }
+              }
+            }
+          } catch (error) {
+            // If we can't parse the conversation, remove it
+            localStorage.removeItem(key);
+          }
         }
-      } else {
-        logger.error('Error saving conversation storage:', error);
       }
-    }
-  }
-  
-  private cleanupOldConversations(): void {
-    try {
-      const storage = this.loadConversationStorage();
-      
-      // Sort conversations by last updated date
-      const sortedConversations = Object.entries(storage.conversations)
-        .sort(([, a], [, b]) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
-      
-      // Keep only the most recent conversations per profile
-      const cleanedConversations: { [profileId: string]: ConversationHistory } = {};
-      
-      for (const [profileId, conversation] of sortedConversations) {
-        cleanedConversations[profileId] = {
-          ...conversation,
-          messages: conversation.messages.slice(-50) // Keep last 50 messages
-        };
-      }
-      
-      storage.conversations = cleanedConversations;
-      this.saveConversationStorage(storage);
-      
     } catch (error) {
       logger.error('Error cleaning up conversations:', error);
     }
@@ -452,4 +433,4 @@ class ChatService {
 
 // Export singleton instance
 export const chatService = new ChatService();
-export default chatService; 
+export default chatService;
