@@ -24,7 +24,7 @@ except ImportError:
     logger.warning("python-dotenv not installed. Environment variables must be set manually.")
 
 # Import routers
-from app.api.routes import pdf_routes, biomarker_routes, profile_routes
+from app.api.routes import pdf_routes, biomarker_routes, profile_routes, chat_routes
 
 # Import auth middleware
 from app.core.auth import get_current_user, get_optional_current_user
@@ -92,6 +92,7 @@ app.add_middleware(
 app.include_router(pdf_routes.router, prefix="/api/pdf", tags=["PDF Processing"])
 app.include_router(biomarker_routes.router, prefix="/api", tags=["Biomarker Data"])
 app.include_router(profile_routes.router, prefix="/api/profiles", tags=["Profile Management"])
+app.include_router(chat_routes.router, tags=["Chat"])
 
 # Authentication test endpoint
 @app.get("/api/auth/me", tags=["Authentication"])
