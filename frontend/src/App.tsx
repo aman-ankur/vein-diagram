@@ -61,6 +61,10 @@ import WelcomePage from './pages/WelcomePage'; // Import the new Welcome page
 import { useAuth } from './contexts/AuthContext';
 import { logger } from './utils/logger';
 
+// Chat imports
+import { ChatInterface } from './components/chat';
+import type { BiomarkerReference } from './components/chat';
+
 // Error Boundary Component
 class AppErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -278,6 +282,20 @@ function AppContent() {
     setShowErrorSnackbar(false);
   };
 
+  // Handle biomarker reference clicks from chat
+  const handleBiomarkerClick = (biomarker: BiomarkerReference) => {
+    logger.info('Biomarker clicked from chat', { biomarker });
+    
+    // Navigate to visualization page to show the biomarker
+    // You can customize this based on your app's routing structure
+    navigate('/visualization', { 
+      state: { 
+        highlightBiomarker: biomarker.name,
+        biomarkerData: biomarker 
+      } 
+    });
+  };
+
   // Adjust drawer items based on authentication state
   const drawerItems = [
     { text: 'Home', icon: <HomeIcon />, path: '/' },
@@ -379,6 +397,14 @@ function AppContent() {
         
         {/* API Status Indicator */}
         <APIStatusIndicator position="bottom-right" showOnlyOnError={false} />
+        
+        {/* Chat Interface - Available for authenticated users */}
+        {user && (
+          <ChatInterface 
+            onBiomarkerClick={handleBiomarkerClick}
+            showMetrics={false} // Set to true if you want to show usage metrics
+          />
+        )}
         
         {/* Error Snackbar */}
         <Snackbar 
