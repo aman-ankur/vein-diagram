@@ -28,8 +28,8 @@ Vein Diagram transforms blood test PDFs into insightful visualizations, helping 
     - Professional medical advice with 70% token optimization
     - Context-aware responses based on user's biomarker history
     - Real-time conversation with persistent history
-    - Mobile-optimized interface
-    - Comprehensive error handling and retry logic
+    - Mobile-optimized floating chat interface
+    - Smart question suggestions and usage tracking
 
 ### User Experience
 *   **Profile Management:**
@@ -39,19 +39,20 @@ Vein Diagram transforms blood test PDFs into insightful visualizations, helping 
     - Health score calculation and tracking
 
 *   **Data Visualization:**
-    - Interactive time-series visualization
-    - Biomarker trend analysis
-    - Relationship mapping visualization
-    - Smart summary with AI-generated insights
-    - Mobile-responsive design
+    - Comprehensive biomarker dashboard with multiple view modes
+    - Favorite biomarkers tracking with drag-and-drop management
+    - AI-powered smart summaries with structured insights
+    - Advanced search and filtering capabilities
+    - Mobile-responsive design with optimized touch interfaces
 
 ### Performance & Optimization
 *   **Cost Efficiency:**
-    - Three-tier optimization system (Legacy, Accuracy, Balanced modes)
-    - 24-29% token reduction in balanced mode
-    - 94.9% biomarker detection accuracy
-    - Universal lab format compatibility
-    - Real-time monitoring and validation
+    - Four-tier optimization system (Legacy, Accuracy, Balanced, Phase 2+ modes)
+    - 24-29% token reduction + 50-80% API call reduction (combined 60-85% cost savings)
+    - 94.9% biomarker detection accuracy maintained
+    - Universal lab format compatibility (100% success rate)
+    - Smart chunk skipping and biomarker caching
+    - Real-time monitoring and comprehensive validation
 
 ## Project Structure
 
@@ -87,7 +88,7 @@ vein-diagram/
 
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS, Material UI, D3.js
 - **Backend:** FastAPI, Python, SQLAlchemy, Alembic, Pydantic
-- **Database:** PostgreSQL, SQLite (development)
+- **Database:** PostgreSQL via Supabase
 - **AI Integration:** Claude API with optimized prompts
 - **PDF Processing:** PyMuPDF, pdf2image, pytesseract
 - **Testing:** Jest, React Testing Library, Pytest
@@ -100,7 +101,7 @@ vein-diagram/
 * Node.js (v18+)
 * Python (v3.9+)
 * Tesseract OCR
-* PostgreSQL (or SQLite for development)
+* Supabase account (for database and authentication)
 * Anthropic API Key
 
 ### Installation
@@ -134,18 +135,21 @@ vein-diagram/
 ### Configuration
 
 #### Backend Environment Variables
-- `DATABASE_URL`: Database connection string
+- `DATABASE_URL`: Supabase PostgreSQL connection string
+- `SUPABASE_URL`: Your Supabase project URL
+- `SUPABASE_SERVICE_KEY`: Supabase service role key
+- `SUPABASE_JWT_SECRET`: Supabase JWT secret for token validation
 - `ANTHROPIC_API_KEY`: Your Anthropic API key
 - `DEBUG`: Set to True for development
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, etc.)
 - `TESSERACT_PATH`: Path to Tesseract executable (if needed)
-- `MAX_UPLOAD_SIZE`: Maximum PDF file size
-- `ENABLE_CACHE`: Enable/disable biomarker caching
+- `BALANCED_MODE`: Enable cost optimization (true/false)
+- `ACCURACY_MODE`: Enable accuracy mode (true/false)
 
 #### Frontend Environment Variables
 - `VITE_API_BASE_URL`: Backend API URL
-- `VITE_ENABLE_ANALYTICS`: Enable/disable analytics
-- `VITE_CHAT_DEFAULTS`: Default chat configuration
+- `VITE_SUPABASE_URL`: Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY`: Supabase anonymous key
 
 ### Running Locally
 
@@ -186,11 +190,12 @@ pytest --cov=app        # Coverage report
 ```
 
 ### Key Test Areas
-- PDF Processing: 95% accuracy in biomarker extraction
-- Chat System: Response quality and token optimization
-- API Endpoints: Request validation and error handling
-- User Flows: Profile management and data visualization
-- Performance: API cost reduction and caching
+- PDF Processing: 94.9% accuracy in biomarker extraction with 24-29% cost optimization
+- Chat System: AI-powered biomarker insights with context awareness
+- API Endpoints: Comprehensive validation with Supabase authentication
+- User Flows: Complete profile management and favorite biomarkers system
+- Performance: Advanced optimization with smart chunk skipping and biomarker caching
+- Data Visualization: Interactive charts and comprehensive analytics dashboard
 
 ## Deployment
 
@@ -208,9 +213,10 @@ pytest --cov=app        # Coverage report
 5. Configure environment variables
 
 ### Database
-- Production: PostgreSQL on managed service
-- Development: SQLite for local testing
+- Production: PostgreSQL via Supabase (managed service)
+- Development: PostgreSQL via Supabase (shared database)
 - Migrations: Run `alembic upgrade head`
+- Authentication: Supabase Auth with JWT tokens
 
 ## Performance Monitoring
 
